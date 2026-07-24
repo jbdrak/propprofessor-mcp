@@ -132,7 +132,7 @@ Flags:
   -B, --only-bets           Show only BET verdict plays
   -M, --movement <type>     Movement filter (supportive, clean, bouncy, adverse)
   -n, --limit <N>           Max results. Default: 50
-  --card-window <today|next|all>  Date window. Default: today
+  --card-window <today|next|all>  Date window. Default: all (keeps pregame matches even if PP's clock stamps them past start)
   --sort <field>            Sort by: start, edge, tier, clv, momentum. Default: start
   --asc                     Sort ascending (default: descending)
   -j, --json                Raw JSON output
@@ -403,7 +403,11 @@ async function cmdScan(handlers, positional, flags) {
   const resolvedSortBy = SORT_FIELD_MAP[sortBy] || sortBy;
   const resolvedSortDir = sortBy === 'momentum' ? 'asc' : sortDir; // momentum = lowest risk first
   const limit = parseInt(flags.n || flags.limit || 50);
-  const cardWindow = flags['card-window'] || flags.cardWindow || undefined;
+  // Default to 'all' so pregame matches survive even when PP's clock stamps
+  // them to a non-today UTC day or past their start time. The screen feed is
+  // pregame-only — if odds are present the match is still bettable. Pass
+  // --card-window today to narrow back to a single UTC day.
+  const cardWindow = flags['card-window'] || flags.cardWindow || 'all';
   const jsonOut = flags.j || flags.json || false;
   const validateAll = flags['validate-all'] || false;
 
