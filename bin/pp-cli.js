@@ -368,6 +368,8 @@ async function cmdScan(handlers, positional, flags) {
   const validateAll = flags['validate-all'] || false;
 
   const targetTiers = tier ? (tier === '1' ? ['TIER 1'] : tier === '2' ? ['TIER 2'] : ['TIER 1', 'TIER 2']) : ['TIER 1', 'TIER 2'];
+  // minFinalTier must track targetTiers so onlyBets doesn't silently downgrade the floor to TIER 1.
+  const minFinalTier = tier ? (tier === '1' ? 'TIER 1' : tier === '2' ? 'TIER 2' : 'TIER 2') : 'TIER 2';
 
   const MOVEMENT_ALIASES = {
     'supportive': ['supportive_clean', 'supportive_bouncy'],
@@ -401,6 +403,7 @@ async function cmdScan(handlers, positional, flags) {
       books: [book],
       targetTiers,
       onlyBets: onlyBets || undefined,
+      minFinalTier,
       movement: resolvedMovement,
       sortBy: resolvedSortBy,
       sortDir: resolvedSortDir,
