@@ -95,6 +95,7 @@ Flags:
   -B, --only-bets           Show only BET verdict plays
   -M, --movement <type>     Movement filter (supportive, clean, bouncy, adverse)
   -n, --limit <N>           Max results. Default: 50
+  --card-window <today|next|all>  Date window. Default: today
   --sort <field>            Sort by: start, edge, tier, clv, momentum. Default: start
   --asc                     Sort ascending (default: descending)
   -j, --json                Raw JSON output
@@ -133,6 +134,7 @@ Show today's slate and pending picks.
 
 Flags:
   -t, --tier <1|2|1-2>      Tier filter. Default: 1-2
+  -n, --limit <N>           Max slate size. Default: 10
   -j, --json                Raw JSON output
 `,
     picks: `pp picks [flags]
@@ -364,6 +366,7 @@ async function cmdScan(handlers, positional, flags) {
   const resolvedSortBy = SORT_FIELD_MAP[sortBy] || sortBy;
   const resolvedSortDir = sortBy === 'momentum' ? 'asc' : sortDir; // momentum = lowest risk first
   const limit = parseInt(flags.n || flags.limit || 50);
+  const cardWindow = flags['card-window'] || flags.cardWindow || undefined;
   const jsonOut = flags.j || flags.json || false;
   const validateAll = flags['validate-all'] || false;
 
@@ -408,6 +411,7 @@ async function cmdScan(handlers, positional, flags) {
       sortBy: resolvedSortBy,
       sortDir: resolvedSortDir,
       limit,
+      cardWindow: cardWindow || undefined,
       lite: true,
       verbosity: 'bets',
       validate: validateAll ? true : undefined,
@@ -492,9 +496,13 @@ async function cmdGame(handlers, positional, flags) {
 
 async function cmdToday(handlers, positional, flags) {
   const tier = flags.t || flags.tier || undefined;
+  const limit = parseInt(flags.n || flags.limit || 10);
   const jsonOut = flags.j || flags.json || false;
+  const args = {};
+  if (tier) args.targetTiers = tier === '1' ? ['TIER 1'] : ['TIER 1', 'TIER 2'];
+  if (limit) args.limit = limit;
   console.error('Fetching today...');
-  const res = await handlers.today(tier ? { targetTiers: tier === '1' ? ['TIER 1'] : ['TIER 1', 'TIER 2'] } : {});
+  const res = await handlers.today(args);
   if (jsonOut) {
     console.log(JSON.stringify(res, null, 2));
   } else {
