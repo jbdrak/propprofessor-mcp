@@ -60,6 +60,43 @@ function parseArgs(argv) {
   return { positional, flags };
 }
 
+/**
+ * Derive {league, market, selection} from a playId / gameId when the caller
+ * didn't pass explicit --league/--market/--selection flags.
+ *
+ * Two shapes are handled:
+ *   1. Full playId: "<League>:PREMATCH:...::<Market>::<selection>"
+ *      (gameId :: market :: selection). League = first colon segment of gameId;
+ *      market = the segment after the first "::"; selection = the final segment.
+ *   2. Bare gameId: "<League>:PREMATCH:..." (no "::"). League = first segment;
+ *      market/selection left null so the handler defaults/infers them.
+ *
+ * This fixes the bug where validate/prices/game hardcoded league=MLB/NBA and
+ * silently queried a Tennis playId against the wrong league feed → empty result
+ * → "lookup_failed" / "NBA Moneyline" mislabel.
+ */
+function deriveFromPlayId(id, { league, market, selection } = {}) {
+  if (!id || typeof id !== 'string') return { league, market, selection };
+  const out = { league, market, selection };
+  const hasPlayIdShape = id.includes('::');
+  if (hasPlayIdShape) {
+    const parts = id.split('::');
+    const gameId = parts[0] || '';
+    const mkt = (parts[1] || '').trim();
+    const sel = (parts.slice(2).join('::') || '').trim();
+    if (!out.league) {
+      const lg = gameId.split(':')[0];
+      if (lg) out.league = lg;
+    }
+    if (!out.market && mkt) out.market = mkt;
+    if (!out.selection && sel) out.selection = sel;
+  } else if (!out.league) {
+    const lg = id.split(':')[0];
+    if (lg) out.league = lg;
+  }
+  return out;
+}
+
 // ── help system ─────────────────────────────────────────────────
 
 function printHelp(command) {
@@ -442,15 +479,23 @@ async function cmdValidate(handlers, positional, flags) {
   const playId = positional[1];
   if (!playId) die('Usage: pp validate <playId> [--league] [--market] [--game-id] [--book]');
 
-  const league = flags.l || flags.league || 'MLB';
-  const market = flags.m || flags.market || 'Moneyline';
+  // Derive league/market/selection from the playId unless the user overrode
+  // them with flags. PlayId shape: "<League>:...::<Market>::<selection>".
+  const derived = deriveFromPlayId(playId, {
+    league: flags.l || flags.league,
+    market: flags.m || flags.market,
+    selection: flags.s || flags.selection
+  });
+  const league = derived.league || 'MLB';
+  const market = derived.market || 'Moneyline';
+  const selection = derived.selection || '';
   const gameId = flags.g || flags['game-id'] || playId.replace(/::.*$/, '').replace(/:$/, '');
   const book = flags.b || flags.book || 'NoVigApp';
   const jsonOut = flags.j || flags.json || false;
 
   console.error('Validating ' + playId.slice(-40) + '...');
 
-  const res = await handlers.validate_play({ league, market, gameId, playId, book });
+  const res = await handlers.validate_play({ league, market, gameId, playId, selection, book });
   if (jsonOut) {
     console.log(JSON.stringify(res, null, 2));
   } else {
@@ -464,8 +509,13 @@ async function cmdGame(handlers, positional, flags) {
   const gameId = positional[1];
   if (!gameId) die('Usage: pp game <gameId> [--league] [--market] [--book]');
 
-  const league = flags.l || flags.league || 'MLB';
-  const market = flags.m || flags.market || 'Total Runs';
+  // Derive league/market from the gameId unless overridden with flags.
+  const derived = deriveFromPlayId(gameId, {
+    league: flags.l || flags.league,
+    market: flags.m || flags.market
+  });
+  const league = derived.league || 'MLB';
+  const market = derived.market || flags.m || flags.market || 'Total Runs';
   const book = flags.b || flags.book || 'NoVigApp';
   const jsonOut = flags.j || flags.json || false;
 
@@ -624,17 +674,26 @@ async function cmdPrices(handlers, positional, flags) {
   const gameId = positional[1];
   if (!gameId) die('Usage: pp prices <gameId> [--league] [--market] [--selection]');
 
-  const league = flags.l || flags.league || 'NBA';
-  const market = flags.m || flags.market || 'Moneyline';
-  const selection = flags.s || flags.selection || '';
+  // Derive league/market/selection from the playId/gameId unless overridden.
+  const derived = deriveFromPlayId(gameId, {
+    league: flags.l || flags.league,
+    market: flags.m || flags.market,
+    selection: flags.s || flags.selection
+  });
+  const league = derived.league || 'NBA';
+  const market = derived.market || flags.m || flags.market || 'Moneyline';
+  const selection = derived.selection || flags.s || flags.selection || '';
+  // The handler matches rows by bare gameId; if the user passed a full playId
+  // (gameId::market::selection) strip it down to the gameId portion.
+  const bareGameId = gameId.includes('::') ? gameId.split('::')[0] : gameId;
   const jsonOut = flags.j || flags.json || false;
 
-  console.error('Comparing prices for ' + gameId + ' (' + league + ' ' + market + ')...');
+  console.error('Comparing prices for ' + bareGameId + ' (' + league + ' ' + market + ')...');
 
   const res = await handlers.find_best_price({
     league,
     market,
-    game: gameId,
+    game: bareGameId,
     selection: selection || undefined,
   });
 
@@ -643,8 +702,10 @@ async function cmdPrices(handlers, positional, flags) {
     return;
   }
 
-  const prices = res?.prices || res?.data || res?.result || res?.comparison || [];
-  const best = res?.best;
+  // Handler returns { ok, data: { found, allPrices[], bestPrice{} } }.
+  const data = res?.data || res;
+  const prices = data?.allPrices || res?.allPrices || res?.prices || res?.comparison || [];
+  const best = data?.bestPrice || res?.bestPrice || res?.best;
 
   if ((Array.isArray(prices) && !prices.length) && !best) {
     console.log('No price data found.');
@@ -654,7 +715,7 @@ async function cmdPrices(handlers, positional, flags) {
   console.log(B + 'Price comparison' + R + ' — ' + league + ' ' + market);
   if (Array.isArray(prices)) {
     for (const p of prices) {
-      const isBest = p.isBest || p.best;
+      const isBest = best && p.book === best.book && p.odds === best.odds;
       const mark = isBest ? ' ' + G + '← best' + R : '';
       console.log('  ' + (p.book || p.sportsbook || '?') + ': ' + (p.odds || '') + mark);
     }
