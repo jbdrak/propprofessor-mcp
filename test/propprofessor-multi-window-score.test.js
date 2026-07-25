@@ -289,3 +289,68 @@ describe('multi-window score integration with risk grade and score', () => {
     );
   });
 });
+
+describe('flat line handling (BUG fix: flat is no-signal, not adverse)', () => {
+  it('getOddsDirection returns null for a flat line (current === opening)', () => {
+    const { getOddsDirection } = require('../lib/propprofessor-sharp-consensus');
+    assert.equal(getOddsDirection(-150, -150), null, 'flat line must be neutral, not adverse');
+  });
+
+  it('a stationary sharp book does NOT veto multi-window consensus', () => {
+    // Pinnacle + BetOnline move supportive; BookMaker stands flat.
+    // Before the fix, BookMaker's flat line was scored 'adverse' and vetoed
+    // consensus in every window. Now flat = null = ignored, so all 6 windows
+    // should still show consensus from the two moving books.
+    const now = Date.now();
+    const offsets = [47, 23, 11, 5, 1.5, 0.75, 0.25];
+    function pts(book, close) {
+      return offsets.map((o, i) => {
+        const t = new Date(now - o * 60 * 60 * 1000).toISOString();
+        const progress = i / (offsets.length - 1);
+        // flat book: opening === closing === -160 (no movement)
+        const odds = book === 'BookMaker' ? -160 : -150 + (close - -150) * progress;
+        return { book, time: t, odds };
+      });
+    }
+    const history = [
+      ...pts('Pinnacle', -170),
+      ...pts('BetOnline', -170),
+      ...pts('BookMaker', -160)
+    ];
+    const result = computeMultiWindowScore({ lineHistory: history }, { nowMs: now });
+    assert.equal(result.score, 1.0, `flat book must not veto consensus, got ${result.score}`);
+    assert.equal(result.requiredBookCount, 3, 'all 3 sharp books had history');
+  });
+});
+
+describe('confirmed vs required book counts (consensus transparency)', () => {
+  it('reports 2 confirmed of 3 required when one book has no history', () => {
+    // BuildRow with 2 of 3 configured sharp books → partial confirmation.
+    const now = Date.now();
+    const row = buildRow([47, 23, 11, 5, 1.5, 0.75, 0.25], {
+      books: ['Pinnacle', 'BetOnline'], // BookMaker intentionally absent
+      opening: -150,
+      closing: -170,
+      nowMs: now
+    });
+    const result = computeMultiWindowScore(row, {
+      nowMs: now,
+      sharpBooks: ['Pinnacle', 'BetOnline', 'BookMaker']
+    });
+    assert.equal(result.confirmedBookCount, 2, 'two books agreed');
+    assert.equal(result.requiredBookCount, 2, 'only two of three had history');
+  });
+
+  it('reports 3 confirmed of 3 required on full agreement', () => {
+    const now = Date.now();
+    const row = buildRow([47, 23, 11, 5, 1.5, 0.75, 0.25], {
+      books: ['Pinnacle', 'BetOnline', 'BookMaker'],
+      opening: -150,
+      closing: -170,
+      nowMs: now
+    });
+    const result = computeMultiWindowScore(row, { nowMs: now });
+    assert.equal(result.confirmedBookCount, 3);
+    assert.equal(result.requiredBookCount, 3);
+  });
+});
