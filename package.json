@@ -82,7 +82,9 @@
     "got-scraping": "^4.2.1"
   },
   "overrides": {
-    "adm-zip": ">=0.6.0"
+    "adm-zip": ">=0.6.0",
+    "brace-expansion": "5.0.8",
+    "postcss": "8.5.18"
   },
   "optionalDependencies": {
     "playwright": "^1.52.0"
