@@ -37,10 +37,14 @@ function createCompositesHandlers(client, ctx) {
       // Build pure-args objects for each branch so we can attach
       // _suggestedTool metadata regardless of which path was taken.
       const queryArgs = {
-        query, parsed: {
-          league: parsed.league, book: parsed.book,
-          market: parsed.market, side: parsed.side,
-          line: parsed.line, player: parsed.player,
+        query,
+        parsed: {
+          league: parsed.league,
+          book: parsed.book,
+          market: parsed.market,
+          side: parsed.side,
+          line: parsed.line,
+          player: parsed.player,
           rawText: parsed.raw
         }
       };
@@ -99,7 +103,8 @@ function createCompositesHandlers(client, ctx) {
             '4. Skip sharp_consensus and ev_candidates — those are for advanced users.'
           ],
           key_tools: ['today', 'quick_screen', 'player_context'],
-          pitfall: 'tier/kaiCall/edge are signal-quality ratings, not win predictions. TIER 1 means sharp books agree — it does not mean the side will win.'
+          pitfall:
+            'tier/kaiCall/edge are signal-quality ratings, not win predictions. TIER 1 means sharp books agree — it does not mean the side will win.'
         },
         intermediate: {
           summary: 'For bettors who understand edge and tier.',
@@ -112,8 +117,17 @@ function createCompositesHandlers(client, ctx) {
             '6. To bet: place_bet({ league, gameId, playId, selection, market, book, stake }). It validates first and rejects PASS plays.',
             '7. After games settle: resolve_pick({ id, result }) for each logged pick.'
           ],
-          key_tools: ['today', 'quick_screen', 'validate_play', 'player_context', 'place_bet', 'resolve_pick', 'find_best_price'],
-          pitfall: 'Always pass playId to validate_play — bare selection strings fail. Use league-specific market names (get_market_registry for the mapping).'
+          key_tools: [
+            'today',
+            'quick_screen',
+            'validate_play',
+            'player_context',
+            'place_bet',
+            'resolve_pick',
+            'find_best_price'
+          ],
+          pitfall:
+            'Always pass playId to validate_play — bare selection strings fail. Use league-specific market names (get_market_registry for the mapping).'
         },
         sharp: {
           summary: 'For sharp bettors who want full data and control.',
@@ -127,8 +141,18 @@ function createCompositesHandlers(client, ctx) {
             '7. staking_plan({ picks: [...] }) for Kelly sizing.',
             '8. place_bet + resolve_pick for tracking.'
           ],
-          key_tools: ['today', 'quick_screen', 'sharp_consensus', 'validate_play', 'get_play_details', 'staking_plan', 'place_bet', 'resolve_pick'],
-          pitfall: 'movementDisposition is the single field to check: supportive_clean = BET, supportive_bouncy = CONSIDER, adverse = PASS. Do not cross-reference movementGrade + movementLabel separately.'
+          key_tools: [
+            'today',
+            'quick_screen',
+            'sharp_consensus',
+            'validate_play',
+            'get_play_details',
+            'staking_plan',
+            'place_bet',
+            'resolve_pick'
+          ],
+          pitfall:
+            'movementDisposition is the single field to check: supportive_clean = BET, supportive_bouncy = CONSIDER, adverse = PASS. Do not cross-reference movementGrade + movementLabel separately.'
         }
       };
 
@@ -239,26 +263,36 @@ function createCompositesHandlers(client, ctx) {
     },
 
     async today(args = {}) {
-      const leagues = Array.isArray(args.leagues) && args.leagues.length ? args.leagues
-        : args.league ? [args.league]
-        : Array.from(DEFAULT_LEAGUES);
+      const leagues =
+        Array.isArray(args.leagues) && args.leagues.length
+          ? args.leagues
+          : args.league
+            ? [args.league]
+            : Array.from(DEFAULT_LEAGUES);
       const book = args.book || 'NoVigApp';
 
       const [slateRes, pendingRes, statsRes, backtestRes] = await Promise.all([
-        ctx.handlers.quick_screen({
-          leagues,
-          book,
-          limit: args.limit || 100,
-          targetTiers: Array.isArray(args.targetTiers) && args.targetTiers.length
-            ? args.targetTiers
-            : ['TIER 1', 'TIER 2'],
-          validate: false,
-          includeResearch: false,
-          lite: true
-        }).catch((err) => ({ ok: false, _error: true, error: `quick_screen: ${err.message}`, results: [] })),
-        ctx.handlers.get_pick_history({ status: 'pending', days: 1 }).catch((err) => ({ ok: false, _error: true, error: `history: ${err.message}`, picks: [] })),
-        ctx.handlers.get_pick_stats({ days: args.statsDays || 30 }).catch((err) => ({ ok: false, _error: true, error: `stats: ${err.message}`, stats: null })),
-        Promise.resolve().then(() => getBacktestSummary({ days: args.statsDays || 30 })).catch((err) => ({ ok: false, _error: true, error: `backtest: ${err.message}`, stats: null }))
+        ctx.handlers
+          .quick_screen({
+            leagues,
+            book,
+            limit: args.limit || 100,
+            targetTiers:
+              Array.isArray(args.targetTiers) && args.targetTiers.length ? args.targetTiers : ['TIER 1', 'TIER 2'],
+            validate: false,
+            includeResearch: false,
+            lite: true
+          })
+          .catch((err) => ({ ok: false, _error: true, error: `quick_screen: ${err.message}`, results: [] })),
+        ctx.handlers
+          .get_pick_history({ status: 'pending', days: 1 })
+          .catch((err) => ({ ok: false, _error: true, error: `history: ${err.message}`, picks: [] })),
+        ctx.handlers
+          .get_pick_stats({ days: args.statsDays || 30 })
+          .catch((err) => ({ ok: false, _error: true, error: `stats: ${err.message}`, stats: null })),
+        Promise.resolve()
+          .then(() => getBacktestSummary({ days: args.statsDays || 30 }))
+          .catch((err) => ({ ok: false, _error: true, error: `backtest: ${err.message}`, stats: null }))
       ]);
 
       const slate = (slateRes.results || []).flatMap((e) =>
@@ -314,23 +348,31 @@ function createCompositesHandlers(client, ctx) {
       const checkpoint = readCheckpoint();
       const now = new Date().toISOString();
       const alerts = [];
-
       const errors = [];
       for (const league of leagues) {
         try {
-          const screenResult = await ctx.handlers.screen_ranked({
-            league,
-            market: 'Moneyline',
-            limit: 20,
-            includeAll: true,
-            debug: false,
-            compact: true,
-            skipHistory: false,
-            lookbackHours,
-            is_live: false
-          });
-
-          const rows = Array.isArray(screenResult?.result) ? screenResult.result : [];
+          const defaultMarkets =
+            league.toUpperCase() === 'SOCCER'
+              ? ['Draw No Bet', 'Match Handicap', 'Total Goals']
+              : ['Moneyline', 'Spread', 'Total'];
+          // Fan out across per-league default markets instead of Moneyline-only
+          const allRows = [];
+          for (const market of defaultMarkets) {
+            const screenResult = await ctx.handlers.screen_ranked({
+              league,
+              market,
+              limit: 20,
+              includeAll: true,
+              debug: false,
+              compact: true,
+              skipHistory: false,
+              lookbackHours,
+              is_live: false
+            });
+            const rows = Array.isArray(screenResult?.result) ? screenResult.result : [];
+            allRows.push(...rows);
+          }
+          const rows = allRows;
           if (!rows.length) continue;
 
           const lastChecked = checkpoint.leagues[league];

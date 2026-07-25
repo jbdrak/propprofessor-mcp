@@ -1,239 +1,282 @@
 'use strict';
 
+const { test } = require('node:test');
+const assert = require('node:assert');
 const { MARKET_ALIASES, resolveMarketName } = require('../lib/propprofessor-shared-utils');
 
-let passCount = 0;
-let failCount = 0;
+test('MARKET_ALIASES structure', async (t) => {
+  await t.test('is defined', () => {
+    assert.ok(MARKET_ALIASES !== undefined && typeof MARKET_ALIASES === 'object');
+  });
+  await t.test('total exists', () => {
+    assert.ok(MARKET_ALIASES.total !== undefined && typeof MARKET_ALIASES.total === 'object');
+  });
+  await t.test('spread exists', () => {
+    assert.ok(MARKET_ALIASES.spread !== undefined && typeof MARKET_ALIASES.spread === 'object');
+  });
+  await t.test('puck_line exists', () => {
+    assert.ok(MARKET_ALIASES.puck_line !== undefined);
+  });
+  await t.test('run_line exists', () => {
+    assert.ok(MARKET_ALIASES.run_line !== undefined);
+  });
+  await t.test('total_goals exists', () => {
+    assert.ok(MARKET_ALIASES.total_goals !== undefined);
+  });
+  await t.test('total_runs exists', () => {
+    assert.ok(MARKET_ALIASES.total_runs !== undefined);
+  });
+  await t.test('total_points exists', () => {
+    assert.ok(MARKET_ALIASES.total_points !== undefined);
+  });
+});
 
-function assert(condition, message) {
-  if (condition) {
-    console.log(`  ✓ ${message}`);
-    passCount++;
-  } else {
-    console.error(`  ✗ ${message}`);
-    failCount++;
-  }
-}
+test('resolveMarketName Total aliases', async (t) => {
+  await t.test('"Total" + NHL -> "Total Goals"', () => {
+    assert.deepStrictEqual(resolveMarketName('Total', 'NHL'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'Total',
+      aliasKey: 'total'
+    });
+  });
+  await t.test('"Total" + MLB -> "Total Runs"', () => {
+    assert.deepStrictEqual(resolveMarketName('Total', 'MLB'), {
+      resolved: 'Total Runs',
+      wasAliased: true,
+      original: 'Total',
+      aliasKey: 'total'
+    });
+  });
+  await t.test('"Total" + NBA -> "Total Points"', () => {
+    assert.deepStrictEqual(resolveMarketName('Total', 'NBA'), {
+      resolved: 'Total Points',
+      wasAliased: true,
+      original: 'Total',
+      aliasKey: 'total'
+    });
+  });
+  await t.test('"Total" + WNBA -> "Total Points"', () => {
+    assert.deepStrictEqual(resolveMarketName('Total', 'WNBA'), {
+      resolved: 'Total Points',
+      wasAliased: true,
+      original: 'Total',
+      aliasKey: 'total'
+    });
+  });
+  await t.test('"Total" + SOCCER -> "Total Goals"', () => {
+    assert.deepStrictEqual(resolveMarketName('Total', 'SOCCER'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'Total',
+      aliasKey: 'total'
+    });
+  });
+});
 
-function assertEqual(actual, expected, message) {
-  const ok = JSON.stringify(actual) === JSON.stringify(expected);
-  if (ok) {
-    console.log(`  ✓ ${message}`);
-    passCount++;
-  } else {
-    console.error(`  ✗ ${message}`);
-    console.error(`    Expected: ${JSON.stringify(expected)}`);
-    console.error(`    Actual:   ${JSON.stringify(actual)}`);
-    failCount++;
-  }
-}
+test('resolveMarketName Spread aliases', async (t) => {
+  await t.test('"Spread" + NHL -> "Puck Line"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'NHL'), {
+      resolved: 'Puck Line',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+  await t.test('"Spread" + MLB -> "Run Line"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'MLB'), {
+      resolved: 'Run Line',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+  await t.test('"Spread" + NBA -> "Point Spread"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'NBA'), {
+      resolved: 'Point Spread',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+  await t.test('"Spread" + WNBA -> "Point Spread"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'WNBA'), {
+      resolved: 'Point Spread',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+  await t.test('"Spread" + NCAAB -> "Point Spread"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'NCAAB'), {
+      resolved: 'Point Spread',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+  await t.test('"Spread" + NCAAF -> "Point Spread"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'NCAAF'), {
+      resolved: 'Point Spread',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+  await t.test('"Spread" + NFL -> "Point Spread"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'NFL'), {
+      resolved: 'Point Spread',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+  await t.test('"Spread" + SOCCER -> "Match Handicap"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'SOCCER'), {
+      resolved: 'Match Handicap',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+  await t.test('"Spread" + TENNIS -> "Game Handicap"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'TENNIS'), {
+      resolved: 'Game Handicap',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+});
 
-console.log('\n=== MARKET_ALIASES tests ===');
+test('resolveMarketName Handicap alias', async (t) => {
+  await t.test('"Handicap" + NBA -> "Point Spread"', () => {
+    assert.deepStrictEqual(resolveMarketName('Handicap', 'NBA'), {
+      resolved: 'Point Spread',
+      wasAliased: true,
+      original: 'Handicap',
+      aliasKey: 'handicap'
+    });
+  });
+  await t.test('"Handicap" + WNBA -> "Point Spread"', () => {
+    assert.deepStrictEqual(resolveMarketName('Handicap', 'WNBA'), {
+      resolved: 'Point Spread',
+      wasAliased: true,
+      original: 'Handicap',
+      aliasKey: 'handicap'
+    });
+  });
+  await t.test('"Handicap" + NHL -> "Puck Line"', () => {
+    assert.deepStrictEqual(resolveMarketName('Handicap', 'NHL'), {
+      resolved: 'Puck Line',
+      wasAliased: true,
+      original: 'Handicap',
+      aliasKey: 'handicap'
+    });
+  });
+});
 
-// Test MARKET_ALIASES structure exists
-assert(MARKET_ALIASES !== undefined && typeof MARKET_ALIASES === 'object', 'MARKET_ALIASES is defined');
-assert(MARKET_ALIASES.total !== undefined && typeof MARKET_ALIASES.total === 'object', 'MARKET_ALIASES.total exists');
-assert(
-  MARKET_ALIASES.spread !== undefined && typeof MARKET_ALIASES.spread === 'object',
-  'MARKET_ALIASES.spread exists'
-);
-assert(MARKET_ALIASES.puck_line !== undefined, 'MARKET_ALIASES.puck_line exists');
-assert(MARKET_ALIASES.run_line !== undefined, 'MARKET_ALIASES.run_line exists');
-assert(MARKET_ALIASES.total_goals !== undefined, 'MARKET_ALIASES.total_goals exists');
-assert(MARKET_ALIASES.total_runs !== undefined, 'MARKET_ALIASES.total_runs exists');
-assert(MARKET_ALIASES.total_points !== undefined, 'MARKET_ALIASES.total_points exists');
+test('resolveMarketName case/whitespace/shorthand', async (t) => {
+  await t.test('whitespace trimmed + Total -> "Total Goals"', () => {
+    assert.deepStrictEqual(resolveMarketName('  total  ', 'NHL'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'total',
+      aliasKey: 'total'
+    });
+  });
+  await t.test('uppercase TOTAL -> "Total Goals"', () => {
+    assert.deepStrictEqual(resolveMarketName('TOTAL', 'NHL'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'TOTAL',
+      aliasKey: 'total'
+    });
+  });
+  await t.test('"rl" + MLB -> "Run Line"', () => {
+    assert.deepStrictEqual(resolveMarketName('rl', 'MLB'), {
+      resolved: 'Run Line',
+      wasAliased: true,
+      original: 'rl',
+      aliasKey: 'rl'
+    });
+  });
+  await t.test('"pl" + NHL -> "Puck Line"', () => {
+    assert.deepStrictEqual(resolveMarketName('pl', 'NHL'), {
+      resolved: 'Puck Line',
+      wasAliased: true,
+      original: 'pl',
+      aliasKey: 'pl'
+    });
+  });
+  await t.test('"run line" + MLB -> "Run Line"', () => {
+    assert.deepStrictEqual(resolveMarketName('run line', 'MLB'), {
+      resolved: 'Run Line',
+      wasAliased: true,
+      original: 'run line',
+      aliasKey: 'run_line'
+    });
+  });
+});
 
-console.log('\n=== resolveMarketName tests ===');
+test('resolveMarketName passthrough and defaults', async (t) => {
+  await t.test('"Moneyline" + NBA -> passthrough', () => {
+    assert.deepStrictEqual(resolveMarketName('Moneyline', 'NBA'), {
+      resolved: 'Moneyline',
+      wasAliased: false,
+      original: 'Moneyline',
+      aliasKey: null
+    });
+  });
+  await t.test('"Puck Line" + NHL -> alias recognized, resolved same', () => {
+    assert.deepStrictEqual(resolveMarketName('Puck Line', 'NHL'), {
+      resolved: 'Puck Line',
+      wasAliased: true,
+      original: 'Puck Line',
+      aliasKey: 'puck_line'
+    });
+  });
+  await t.test('undefined + NBA -> "Moneyline" (default)', () => {
+    assert.deepStrictEqual(resolveMarketName(undefined, 'NBA'), {
+      resolved: 'Moneyline',
+      wasAliased: false,
+      original: '',
+      aliasKey: null
+    });
+  });
+  await t.test('empty string + NHL -> "Moneyline" (default)', () => {
+    assert.deepStrictEqual(resolveMarketName('', 'NHL'), {
+      resolved: 'Moneyline',
+      wasAliased: false,
+      original: '',
+      aliasKey: null
+    });
+  });
+  await t.test('unknown market -> passthrough', () => {
+    assert.deepStrictEqual(resolveMarketName('Unknown Market', 'NBA'), {
+      resolved: 'Unknown Market',
+      wasAliased: false,
+      original: 'Unknown Market',
+      aliasKey: null
+    });
+  });
+});
 
-// Total aliases
-assertEqual(
-  resolveMarketName('Total', 'NHL'),
-  { resolved: 'Total Goals', wasAliased: true, original: 'Total', aliasKey: 'total' },
-  '"Total" + NHL -> "Total Goals"'
-);
-
-assertEqual(
-  resolveMarketName('Total', 'MLB'),
-  { resolved: 'Total Runs', wasAliased: true, original: 'Total', aliasKey: 'total' },
-  '"Total" + MLB -> "Total Runs"'
-);
-
-assertEqual(
-  resolveMarketName('Total', 'NBA'),
-  { resolved: 'Total Points', wasAliased: true, original: 'Total', aliasKey: 'total' },
-  '"Total" + NBA -> "Total Points"'
-);
-
-assertEqual(
-  resolveMarketName('Total', 'WNBA'),
-  { resolved: 'Total Points', wasAliased: true, original: 'Total', aliasKey: 'total' },
-  '"Total" + WNBA -> "Total Points"'
-);
-
-assertEqual(
-  resolveMarketName('Total', 'SOCCER'),
-  { resolved: 'Total Goals', wasAliased: true, original: 'Total', aliasKey: 'total' },
-  '"Total" + SOCCER -> "Total Goals"'
-);
-
-// Spread aliases
-assertEqual(
-  resolveMarketName('Spread', 'NHL'),
-  { resolved: 'Puck Line', wasAliased: true, original: 'Spread', aliasKey: 'spread' },
-  '"Spread" + NHL -> "Puck Line"'
-);
-
-assertEqual(
-  resolveMarketName('Spread', 'MLB'),
-  { resolved: 'Run Line', wasAliased: true, original: 'Spread', aliasKey: 'spread' },
-  '"Spread" + MLB -> "Run Line"'
-);
-
-assertEqual(
-  resolveMarketName('Spread', 'NBA'),
-  { resolved: 'Point Spread', wasAliased: true, original: 'Spread', aliasKey: 'spread' },
-  '"Spread" + NBA -> "Point Spread"'
-);
-
-// Regression: basketball/football/soccer spread must be "Point Spread" (canonical
-// PropProfessor /screen market name), not "Spread". Discovered 2026-06-12: live
-// /screen endpoint serves "Point Spread" for NBA/WNBA/NCAAB/NCAAF/NFL/SOCCER;
-// the previous alias table pointed at "Spread" which made the screen return
-// empty payloads for every spread query on these leagues.
-assertEqual(
-  resolveMarketName('Spread', 'WNBA'),
-  { resolved: 'Point Spread', wasAliased: true, original: 'Spread', aliasKey: 'spread' },
-  '"Spread" + WNBA -> "Point Spread"'
-);
-assertEqual(
-  resolveMarketName('Spread', 'NCAAB'),
-  { resolved: 'Point Spread', wasAliased: true, original: 'Spread', aliasKey: 'spread' },
-  '"Spread" + NCAAB -> "Point Spread"'
-);
-assertEqual(
-  resolveMarketName('Spread', 'NCAAF'),
-  { resolved: 'Point Spread', wasAliased: true, original: 'Spread', aliasKey: 'spread' },
-  '"Spread" + NCAAF -> "Point Spread"'
-);
-assertEqual(
-  resolveMarketName('Spread', 'NFL'),
-  { resolved: 'Point Spread', wasAliased: true, original: 'Spread', aliasKey: 'spread' },
-  '"Spread" + NFL -> "Point Spread"'
-);
-assertEqual(
-  resolveMarketName('Spread', 'SOCCER'),
-  { resolved: 'Match Handicap', wasAliased: true, original: 'Spread', aliasKey: 'spread' },
-  '"Spread" + SOCCER -> "Match Handicap"'
-);
-
-// Tennis resolves "Spread" to "Game Handicap" (consistent with other sports).
-assertEqual(
-  resolveMarketName('Spread', 'TENNIS'),
-  { resolved: 'Game Handicap', wasAliased: true, original: 'Spread', aliasKey: 'spread' },
-  '"Spread" + TENNIS -> "Game Handicap"'
-);
-
-// Handicap alias follows the same per-league mapping.
-assertEqual(
-  resolveMarketName('Handicap', 'NBA'),
-  { resolved: 'Point Spread', wasAliased: true, original: 'Handicap', aliasKey: 'handicap' },
-  '"Handicap" + NBA -> "Point Spread"'
-);
-assertEqual(
-  resolveMarketName('Handicap', 'WNBA'),
-  { resolved: 'Point Spread', wasAliased: true, original: 'Handicap', aliasKey: 'handicap' },
-  '"Handicap" + WNBA -> "Point Spread"'
-);
-assertEqual(
-  resolveMarketName('Handicap', 'NHL'),
-  { resolved: 'Puck Line', wasAliased: true, original: 'Handicap', aliasKey: 'handicap' },
-  '"Handicap" + NHL -> "Puck Line"'
-);
-
-// Case insensitivity and whitespace handling
-assertEqual(
-  resolveMarketName('  total  ', 'NHL'),
-  { resolved: 'Total Goals', wasAliased: true, original: 'total', aliasKey: 'total' },
-  'whitespace trimmed + Total -> "Total Goals"'
-);
-
-assertEqual(
-  resolveMarketName('TOTAL', 'NHL'),
-  { resolved: 'Total Goals', wasAliased: true, original: 'TOTAL', aliasKey: 'total' },
-  'uppercase TOTAL -> "Total Goals"'
-);
-
-// Shorthand aliases
-assertEqual(
-  resolveMarketName('rl', 'MLB'),
-  { resolved: 'Run Line', wasAliased: true, original: 'rl', aliasKey: 'rl' },
-  '"rl" + MLB -> "Run Line"'
-);
-
-assertEqual(
-  resolveMarketName('pl', 'NHL'),
-  { resolved: 'Puck Line', wasAliased: true, original: 'pl', aliasKey: 'pl' },
-  '"pl" + NHL -> "Puck Line"'
-);
-
-assertEqual(
-  resolveMarketName('run line', 'MLB'),
-  { resolved: 'Run Line', wasAliased: true, original: 'run line', aliasKey: 'run_line' },
-  '"run line" + MLB -> "Run Line"'
-);
-
-// No alias - passthrough
-assertEqual(
-  resolveMarketName('Moneyline', 'NBA'),
-  { resolved: 'Moneyline', wasAliased: false, original: 'Moneyline', aliasKey: null },
-  '"Moneyline" + NBA -> "Moneyline" (passthrough)'
-);
-
-// Canonical name that has a matching alias entry (e.g. "puck_line" alias maps to "Puck Line")
-// wasAliased is true because the alias was recognized, even though the resolved value matches input
-assertEqual(
-  resolveMarketName('Puck Line', 'NHL'),
-  { resolved: 'Puck Line', wasAliased: true, original: 'Puck Line', aliasKey: 'puck_line' },
-  '"Puck Line" + NHL -> "Puck Line" (alias recognized, resolved same)'
-);
-
-// Empty/undefined -> default Moneyline
-assertEqual(
-  resolveMarketName(undefined, 'NBA'),
-  { resolved: 'Moneyline', wasAliased: false, original: '', aliasKey: null },
-  'undefined + NBA -> "Moneyline" (default)'
-);
-
-assertEqual(
-  resolveMarketName('', 'NHL'),
-  { resolved: 'Moneyline', wasAliased: false, original: '', aliasKey: null },
-  'empty string + NHL -> "Moneyline" (default)'
-);
-
-// Unknown market -> passthrough
-assertEqual(
-  resolveMarketName('Unknown Market', 'NBA'),
-  { resolved: 'Unknown Market', wasAliased: false, original: 'Unknown Market', aliasKey: null },
-  'unknown market -> passthrough'
-);
-
-// Specific canonical names that have alias entries (wasAliased=true because alias was recognized)
-assertEqual(
-  resolveMarketName('Total Goals', 'NHL'),
-  { resolved: 'Total Goals', wasAliased: true, original: 'Total Goals', aliasKey: 'total_goals' },
-  '"Total Goals" + NHL -> "Total Goals" (alias recognized)'
-);
-
-assertEqual(
-  resolveMarketName('Total Points', 'NBA'),
-  { resolved: 'Total Points', wasAliased: true, original: 'Total Points', aliasKey: 'total_points' },
-  '"Total Points" + NBA -> "Total Points" (alias recognized)'
-);
-
-console.log('\n=== Summary ===');
-console.log(`Passed: ${passCount}`);
-console.log(`Failed: ${failCount}`);
-
-if (failCount > 0) {
-  process.exit(1);
-}
+test('resolveMarketName canonical names with alias entries', async (t) => {
+  await t.test('"Total Goals" + NHL -> alias recognized', () => {
+    assert.deepStrictEqual(resolveMarketName('Total Goals', 'NHL'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'Total Goals',
+      aliasKey: 'total_goals'
+    });
+  });
+  await t.test('"Total Points" + NBA -> alias recognized', () => {
+    assert.deepStrictEqual(resolveMarketName('Total Points', 'NBA'), {
+      resolved: 'Total Points',
+      wasAliased: true,
+      original: 'Total Points',
+      aliasKey: 'total_points'
+    });
+  });
+});

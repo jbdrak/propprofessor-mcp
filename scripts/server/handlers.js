@@ -79,11 +79,7 @@ const {
   buildCanonicalPlayId,
   getDebugFlag
 } = require('../../lib/propprofessor-mcp-ranked-screen');
-const {
-  getSharpBookComparisonSet,
-  ALL_SCREEN_BOOKS,
-  uniqueBooks
-} = require('../../lib/propprofessor-sharp-books');
+const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../lib/propprofessor-sharp-books');
 const { resolveHistoryForEntity } = require('../../lib/propprofessor-history');
 const { categorizeError } = require('../../lib/propprofessor-mcp-stdio');
 const { computeMovementDisposition } = require('../../lib/propprofessor-movement-disposition');
@@ -95,11 +91,7 @@ const {
   DEFAULT_WINDOWS,
   DEFAULT_SHARP_BOOKS
 } = require('../../lib/propprofessor-sharp-consensus');
-const {
-  getConfidenceTierStable,
-  clearTierCache,
-  suggestStakes
-} = require('../../lib/propprofessor-risk-score');
+const { getConfidenceTierStable, clearTierCache, suggestStakes } = require('../../lib/propprofessor-risk-score');
 const { getMlbGameContext, findMlbGamePk } = require('../../lib/propprofessor-mlb-game-context');
 const { getGameContext } = require('../../lib/propprofessor-game-context');
 const { runResearchOnTopRows } = require('../../lib/propprofessor-research-runner');
@@ -327,9 +319,8 @@ function applyValidatedFields(target, validationResult) {
   // Do NOT fall back to the screen's (now-stale) consensusBookCount, or agents
   // see a phantom "5 books" on a play that doesn't exist anymore. Mark it
   // 0 + unverified so the drift is visible instead of buried.
-  target.validatedConsensusBookCount = playPresent && Number.isFinite(Number(play.consensusBookCount))
-    ? Number(play.consensusBookCount)
-    : 0;
+  target.validatedConsensusBookCount =
+    playPresent && Number.isFinite(Number(play.consensusBookCount)) ? Number(play.consensusBookCount) : 0;
   target.validatedUnverified = !playPresent;
   // Thread consensus drift so applyFinalVerdict can downgrade a BET that
   // was built on a consensus that evaporated between screen and validate.
@@ -499,8 +490,8 @@ function flagContradictoryPlays(plays) {
 
     const overMovScore = overPlays.reduce((s, p) => s + movementScore(p), 0);
     const underMovScore = underPlays.reduce((s, p) => s + movementScore(p), 0);
-    const overBestEdge = Math.max(...overPlays.map(p => Number(p.edge || 0)));
-    const underBestEdge = Math.max(...underPlays.map(p => Number(p.edge || 0)));
+    const overBestEdge = Math.max(...overPlays.map((p) => Number(p.edge || 0)));
+    const underBestEdge = Math.max(...underPlays.map((p) => Number(p.edge || 0)));
 
     // Primary: side with more total movement score wins.
     // Tie-breaker: best edge.
@@ -542,7 +533,7 @@ function flagContradictoryPlays(plays) {
       const m = String(p.movementDisposition || p.movement || '').toLowerCase();
       return m.includes('supportive');
     });
-    
+
     for (const s of strongerPlays) {
       s.finalWarnings = [...(s.finalWarnings || []), `contradictory-signal:opposing:${detail}`];
       if (weakerAllSupportive && (s.finalVerdict === 'BET' || s.kaiCall === 'BET')) {
@@ -665,9 +656,16 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
    * calls; without an explicit hint the engine may hold young-generation
    * objects far longer than needed, ballooning RSS by 500+ MB per call.
    */
-  const _maybeGc = typeof global.gc === 'function'
-    ? () => { try { global.gc(); } catch { /* best-effort */ } }
-    : () => {};
+  const _maybeGc =
+    typeof global.gc === 'function'
+      ? () => {
+          try {
+            global.gc();
+          } catch {
+            /* best-effort */
+          }
+        }
+      : () => {};
 
   // Single shared response cache — backed directly by LruCache (lib/propprofessor-lru-cache.js).
   // TTL is applied per-set since LruCache supports per-entry TTL.
@@ -800,7 +798,10 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
     // Both are no-ops when the params are missing.
     if (Array.isArray(response.result)) {
       response.result = sortRows(
-        filterRowsByMinEV(filterRowsByMovement(filterRowsByKaiCall(response.result, args.kaiCall), args.movement), args.minEV),
+        filterRowsByMinEV(
+          filterRowsByMovement(filterRowsByKaiCall(response.result, args.kaiCall), args.movement),
+          args.minEV
+        ),
         {
           sortBy: args.sortBy,
           sortDir: args.sortDir
@@ -837,9 +838,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
     // the website's +EV feed hides) in one call instead of N.
     if (!args.market) {
       const markets = getDefaultMarketsForLeague(league);
-      const perMarket = await Promise.all(
-        markets.map((m) => runGetPlayDetailsImpl(client, { ...args, market: m }))
-      );
+      const perMarket = await Promise.all(markets.map((m) => runGetPlayDetailsImpl(client, { ...args, market: m })));
       const combined = [];
       const metaList = [];
       let firstError = null;
@@ -981,7 +980,10 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
     // timestamp segment (e.g. "Tennis:PREMATCH:Jovic:Pegula:1783252800")
     // and sometimes without. If the two API calls disagree on format,
     // strict Set.has() comparison would return zero matching rows.
-    const normalizeGameId = (id) => String(id || '').replace(/:\d{10,}$/, '').trim();
+    const normalizeGameId = (id) =>
+      String(id || '')
+        .replace(/:\d{10,}$/, '')
+        .trim();
     const normalizedRequested = gameIds.map(normalizeGameId);
     const gameIdSet = new Set(normalizedRequested);
     const safeResult = Array.isArray(response.result) ? response.result : [];
@@ -1037,15 +1039,11 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
         // SportsbookData carries hydrated per-book entries.
         const sb = Array.isArray(row?.sportsbookData) ? row.sportsbookData : [];
         const sharpBookNames = new Set(sharpBookSetDetail.map((b) => b.toLowerCase()));
-        const hasSharpBookOdds = sb.some(
-          (entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase())
-        );
+        const hasSharpBookOdds = sb.some((entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase()));
         if (hasSharpBookOdds) {
           row.sharpBookMovementConfirmed = true;
           // Find the first sharp book with odds as the source.
-          const sourceEntry = sb.find(
-            (entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase())
-          );
+          const sourceEntry = sb.find((entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase()));
           row.sharpBookMovementSource = sourceEntry?.book || sharpBookSetDetail[0] || null;
         }
       }
@@ -1287,7 +1285,13 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
           driftReason = `consensus collapsed (${screenCbk} → ${currentCbk} books)`;
         }
       }
-      if (!consensusDrift && screenExec && screenExec !== 'unknown' && screenExec !== currentExec && currentExec === 'bad') {
+      if (
+        !consensusDrift &&
+        screenExec &&
+        screenExec !== 'unknown' &&
+        screenExec !== currentExec &&
+        currentExec === 'bad'
+      ) {
         consensusDrift = true;
         driftReason = 'execution quality changed';
       }
@@ -1491,7 +1495,8 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
         if (sharpSource) parts.push(`${sharpSource} confirms`);
         if (_disposition === 'supportive_clean') parts.push('clean movement');
         else if (_disposition === 'supportive_bouncy') parts.push('direction right, bouncy path');
-        else if (_disposition === 'adverse_recent' || _disposition === 'adverse_full') parts.push('movement went against');
+        else if (_disposition === 'adverse_recent' || _disposition === 'adverse_full')
+          parts.push('movement went against');
         else if (_disposition === 'insufficient') parts.push('no directional signal');
         const cbk = Number(matchingRow?.consensusBookCount || 0);
         if (cbk >= 3) parts.push(`${cbk} books`);
@@ -1954,20 +1959,23 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
         passes: shortlist.bestPasses,
         summaryText: shortlist.summaryText,
         count,
-      resultMeta: {
-        ...rankedResponse.resultMeta,
-        source: 'ufc_card',
-        cardWindow,
-        eventDate,
-        count,
-        // Include aliases from the UFC card's own resolution
-        markets_alias_used: [...(rankedResponse.resultMeta?.markets_alias_used || []), ...marketResolution.aliasesUsed],
-        shortlist: {
-          ...shortlist,
-          count
+        resultMeta: {
+          ...rankedResponse.resultMeta,
+          source: 'ufc_card',
+          cardWindow,
+          eventDate,
+          count,
+          // Include aliases from the UFC card's own resolution
+          markets_alias_used: [
+            ...(rankedResponse.resultMeta?.markets_alias_used || []),
+            ...marketResolution.aliasesUsed
+          ],
+          shortlist: {
+            ...shortlist,
+            count
+          }
         }
-      }
-    };
+      };
     } catch (error) {
       process.stderr.write(`[propprofessor-mcp] ufc_card handler error: ${error.stack || error.message || error}\n`);
       return {
@@ -2117,7 +2125,10 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       // final result set. Both are no-ops when the params are missing.
       if (Array.isArray(response.result)) {
         response.result = sortRows(
-          filterRowsByMinEV(filterRowsByMovement(filterRowsByKaiCall(response.result, args.kaiCall), args.movement), args.minEV),
+          filterRowsByMinEV(
+            filterRowsByMovement(filterRowsByKaiCall(response.result, args.kaiCall), args.movement),
+            args.minEV
+          ),
           {
             sortBy: args.sortBy,
             sortDir: args.sortDir
@@ -2133,73 +2144,32 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
     },
 
     // ─── Smart Money ───────────────────────────────────────────────
-    // Mirrors the website's "Smart Money" page. Surfaces the $ volume
-    // (totalLiquidArb) and per-side odds range (maxArbOdds/minArbOdds)
-    // the +EV feed hides — the sharp-money signal the MCP otherwise misses.
-    async smart_money(args = {}) {
-      const leagues = Array.isArray(args.leagues) && args.leagues.length ? args.leagues
-        : args.league ? [args.league]
-        : ['NBA', 'MLB', 'NHL', 'WNBA', 'NFL'];
-      const filters = { leagues, userState: String(args.userState || 'tx').toLowerCase() };
-      // Only pass fields when the user explicitly set them. If we pass
-      // `sportsbooks: undefined`, the spread in client.querySmartMoney drops
-      // the key (good), but if we pass an empty array `[]`, the backend
-      // rejects with "Invalid sportsbooks value" — the backend requires
-      // either a valid list or no key at all. So: only set when non-empty.
-      if (Array.isArray(args.sportsbooks) && args.sportsbooks.length) filters.sportsbooks = args.sportsbooks;
-      if (Array.isArray(args.marketTypes) && args.marketTypes.length) filters.marketTypes = args.marketTypes;
-      if (Array.isArray(args.periodTypes) && args.periodTypes.length) filters.periodTypes = args.periodTypes;
-      if (Number.isFinite(Number(args.minLiquidity))) filters.minLiquidity = Number(args.minLiquidity);
-      if (Number.isFinite(Number(args.minHoursAway))) filters.minHoursAway = Number(args.minHoursAway);
-      if (Number.isFinite(Number(args.maxHoursAway))) filters.maxHoursAway = Number(args.maxHoursAway);
-      // Audit fix (2026-07-11): if no explicit user choice, the client
-      // provides sensible defaults for hideNCAAPlayerProps. We don't
-      // override it when the user didn't pass it.
-      if (args.hideNCAAPlayerProps !== undefined) filters.hideNCAAPlayerProps = Boolean(args.hideNCAAPlayerProps);
-      let raw;
-      try {
-        raw = await client.querySmartMoney(filters);
-      } catch (err) {
-        return { ok: false, error: { code: 'SMART_MONEY_FAILED', message: err?.message || String(err) } };
-      }
-      const rows = Array.isArray(raw) ? raw : [];
-      const result = rows.map((r) => ({
-        gameId: r.gameId || null,
-        league: r.league || null,
-        market: r.market || null,
-        selection: r.selection || null,
-        subSelection: r.subSelection || null,
-        site: r.site || null,
-        url: r.url || null,
-        // The sharp-money signal the website shows but no other MCP tool returns.
-        volumeUsd: typeof r.totalLiquidArb === 'number' ? r.totalLiquidArb : null,
-        oddsRange:
-          Number.isFinite(Number(r.minArbOdds)) && Number.isFinite(Number(r.maxArbOdds))
-            ? { min: r.minArbOdds, max: r.maxArbOdds }
-            : null,
-        isLive: Boolean(r.isLive),
-        start: r.start || null,
-        sportsbookCount: Array.isArray(r.sportsbookData) ? r.sportsbookData.length : 0
-      }));
-      // Sort by volume descending so the biggest sharp action surfaces first.
-      result.sort((a, b) => (b.volumeUsd || 0) - (a.volumeUsd || 0));
-      return {
-        ok: true,
-        count: result.length,
-        result,
-        resultMeta: { leagues, volumeTotalUsd: result.reduce((s, r) => s + (r.volumeUsd || 0), 0) }
-      };
-    },
+    // smart_money is registered by createDiscoveryHandlers() at line 4261.
+    // The inline copy here is dead code — intentionally removed.
 
     // scan: Simplified one-call entry point. Same engine as quick_screen
     // but with agent-friendly defaults and cleaner output. The preferred
     // tool for AI agents — quick_screen remains for backward compat.
     async scan(args = {}) {
       // Map sport→league for user ergonomics
-      const sport = String(args.sport || '').trim().toLowerCase();
-      const leagueMap = { tennis: 'Tennis', nba: 'NBA', mlb: 'MLB', nfl: 'NFL', nhl: 'NHL', wnba: 'WNBA', ufc: 'UFC', soccer: 'Soccer', ncaab: 'NCAAB', ncaaf: 'NCAAF', nbasl: 'NBASL' };
-      const resolvedLeague = args.league || (sport ? (leagueMap[sport] || args.sport) : undefined);
-      
+      const sport = String(args.sport || '')
+        .trim()
+        .toLowerCase();
+      const leagueMap = {
+        tennis: 'Tennis',
+        nba: 'NBA',
+        mlb: 'MLB',
+        nfl: 'NFL',
+        nhl: 'NHL',
+        wnba: 'WNBA',
+        ufc: 'UFC',
+        soccer: 'Soccer',
+        ncaab: 'NCAAB',
+        ncaaf: 'NCAAF',
+        nbasl: 'NBASL'
+      };
+      const resolvedLeague = args.league || (sport ? leagueMap[sport] || args.sport : undefined);
+
       return handlers.quick_screen({
         ...args,
         league: resolvedLeague,
@@ -2272,8 +2242,17 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       if (lite) {
         args.compact = true;
         args.fields = [
-          'game', 'selection', 'odds', 'edge', 'clv', 'confidenceTier',
-          'riskScore', 'startCST', 'movementDisposition', 'riskFlag', 'screenScore'
+          'game',
+          'selection',
+          'odds',
+          'edge',
+          'clv',
+          'confidenceTier',
+          'riskScore',
+          'startCST',
+          'movementDisposition',
+          'riskFlag',
+          'screenScore'
         ];
       }
 
@@ -2390,9 +2369,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       if (cardWindow === 'today' || cardWindow === 'next') {
         const tz = getLocalTimezone();
         let targetDateKey =
-          cardWindow === 'today'
-            ? localDateKey(Date.now(), tz)
-            : localDateKey(Date.now() + 24 * 60 * 60 * 1000, tz);
+          cardWindow === 'today' ? localDateKey(Date.now(), tz) : localDateKey(Date.now() + 24 * 60 * 60 * 1000, tz);
 
         const filterBy = (key) => {
           for (const entry of allCandidates) {
@@ -2498,7 +2475,6 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       // any time field. The raw start times embedded in odds-feed game IDs
       // are good enough for display ordering. No ESPN corrections needed.
 
-
       const activeSlate = allCandidates
         .filter((r) => r.candidates && r.candidates.length > 0)
         .map((r) => ({
@@ -2521,7 +2497,8 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       // validateTop limits validation to N best candidates when validate is false/omitted
       // When validate is explicitly false, skip validation entirely.
       const validateAll = args.validate === true; // default false, validate top 10 only
-      const validateTop = args.validate === false ? 0 : (Number.isFinite(Number(args.validateTop)) ? Number(args.validateTop) : 10);
+      const validateTop =
+        args.validate === false ? 0 : Number.isFinite(Number(args.validateTop)) ? Number(args.validateTop) : 10;
 
       if (validateAll || validateTop > 0) {
         const validationCache = new Map(); // gameId → validated result, shared across candidates
@@ -2584,7 +2561,10 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
                     screenSharpBookConfirmed: candidate.sharpBookMovementConfirmed || false
                   });
                   const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error(`Validation timeout for ${candidate.gameId}:${candidate.selection}`)), VALIDATION_TIMEOUT_MS)
+                    setTimeout(
+                      () => reject(new Error(`Validation timeout for ${candidate.gameId}:${candidate.selection}`)),
+                      VALIDATION_TIMEOUT_MS
+                    )
                   );
                   const result = await Promise.race([validatePromise, timeoutPromise]);
                   if (candidate.gameId && result && result.ok) {
@@ -2599,11 +2579,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
           }
         }
 
-        const validationResults = await mapWithConcurrency(
-          validationPromises,
-          async (p) => p,
-          { concurrency: 5 }
-        );
+        const validationResults = await mapWithConcurrency(validationPromises, async (p) => p, { concurrency: 5 });
 
         for (const vr of validationResults) {
           if (!vr.result || !vr.result.ok || !vr.result.verdictSummary) continue;
@@ -2637,9 +2613,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       for (const entry of allCandidates) {
         if (!entry.candidates || entry.candidates.length > 0) continue;
         if (entry.error) continue; // already tracked — backend returned error
-        const wasEmpty = emptySlate.some(
-          (e) => e.league === entry.league && e.market === entry.market
-        );
+        const wasEmpty = emptySlate.some((e) => e.league === entry.league && e.market === entry.market);
         if (!wasEmpty) {
           emptySlate.push({
             league: entry.league,
@@ -2659,8 +2633,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
         for (const entry of allCandidates) {
           if (!entry.candidates || !entry.candidates.length) continue;
           entry.candidates = entry.candidates.filter((c) => {
-            const liveTier =
-              c.finalConfidenceTier || c.confidenceTierLive || c.confidenceTier || 'TIER 4';
+            const liveTier = c.finalConfidenceTier || c.confidenceTierLive || c.confidenceTier || 'TIER 4';
             return args.targetTiers.includes(liveTier);
           });
         }
@@ -2672,11 +2645,15 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       for (const entry of allCandidates) {
         if (!entry.candidates || !entry.candidates.length) continue;
         entry.candidates = sortRows(
-          filterRowsByMinEV(filterRowsByMovement(filterRowsByKaiCall(entry.candidates, args.kaiCall), args.movement), args.minEV),
+          filterRowsByMinEV(
+            filterRowsByMovement(filterRowsByKaiCall(entry.candidates, args.kaiCall), args.movement),
+            args.minEV
+          ),
           {
             sortBy: args.sortBy,
-          sortDir: args.sortDir
-        });
+            sortDir: args.sortDir
+          }
+        );
       }
 
       // === onlyBets: collapse to BET-tier rows only (server-side) ===
@@ -2801,10 +2778,12 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
               byTier: stats?.stats?.byTier || null,
               backtest: backtest?.ok ? backtest : null
             };
-          } catch { return null; }
+          } catch {
+            return null;
+          }
         })(),
         _meta:
-          (validateAll || validateTop > 0)
+          validateAll || validateTop > 0
             ? {
                 validation: {
                   requested: validateTop,
@@ -2841,17 +2820,22 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
         let estimatedSizeBytes = 0;
         try {
           estimatedSizeBytes = JSON.stringify(formattedResponse).length;
-        } catch { /* non-serializable — skip caching */ }
+        } catch {
+          /* non-serializable — skip caching */
+        }
         // Per-league caches already filter empty responses; aggregate cache stores whatever we got
         responseCache.set(args._aggregateCacheKey, formattedResponse, responseCacheTtlMs, estimatedSizeBytes);
       }
       // Log large responses for monitoring
       try {
         const responseSize = JSON.stringify(formattedResponse).length;
-        if (responseSize > 500000) { // 500KB
+        if (responseSize > 500000) {
+          // 500KB
           console.warn(`[PropProfessor MCP] Large quick_screen response: ${(responseSize / 1024).toFixed(1)}KB`);
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       _maybeGc();
       return ok(formattedResponse);
     },
@@ -2861,7 +2845,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       // Reset per-call tier hysteresis so each screen call starts clean
       // (prevents cross-call tier drift from stale cache state).
       clearTierCache();
-      const leagues = Array.isArray(args.leagues) && args.leagues.length ? args.leagues : ['WNBA', 'NBA', 'MLB', 'NFL'];
+      const leagues = Array.isArray(args.leagues) && args.leagues.length ? args.leagues : Array.from(DEFAULT_LEAGUES);
       // Resolve markets using aliases for each league
       const allAliasesUsed = [];
       const resolvedMarketsByLeague = {};
@@ -2910,10 +2894,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
                 // let one hung call hang the whole recommended_bets response —
                 // time it out and contribute 0 rows for that market.
                 const withTimeout = (p, ms) =>
-                  Promise.race([
-                    p,
-                    new Promise((_, rej) => setTimeout(() => rej(new Error('screen timeout')), ms))
-                  ]);
+                  Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('screen timeout')), ms))]);
                 let screenResult;
                 try {
                   screenResult = await withTimeout(
@@ -2975,7 +2956,8 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
             {
               const kaiFiltered =
                 args.kaiCall != null ? filterRowsByKaiCall(recommended, args.kaiCall) : recommended.slice();
-              const movementFiltered = args.movement != null ? filterRowsByMovement(kaiFiltered, args.movement) : kaiFiltered;
+              const movementFiltered =
+                args.movement != null ? filterRowsByMovement(kaiFiltered, args.movement) : kaiFiltered;
               const filtered = args.minEV != null ? filterRowsByMinEV(movementFiltered, args.minEV) : movementFiltered;
               const sorted = args.sortBy
                 ? sortRows(filtered, { sortBy: args.sortBy, sortDir: args.sortDir })
@@ -3058,7 +3040,8 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       // validateTopRB limits validation to N best plays when validate is false/omitted
       // When validate is explicitly false, skip validation entirely.
       const validateAllRB = args.validate === true; // default false, validate top 10 only
-      const validateTopRB = args.validate === false ? 0 : (Number.isFinite(Number(args.validateTop)) ? Number(args.validateTop) : 10);
+      const validateTopRB =
+        args.validate === false ? 0 : Number.isFinite(Number(args.validateTop)) ? Number(args.validateTop) : 10;
 
       if (validateAllRB || validateTopRB > 0) {
         const validationCache = new Map();
@@ -3119,7 +3102,10 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
                     screenSharpBookConfirmed: play.sharpBookMovementConfirmed || false
                   });
                   const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error(`Validation timeout for ${play.gameId}:${play.selection}`)), VALIDATION_TIMEOUT_MS)
+                    setTimeout(
+                      () => reject(new Error(`Validation timeout for ${play.gameId}:${play.selection}`)),
+                      VALIDATION_TIMEOUT_MS
+                    )
                   );
                   const result = await Promise.race([validatePromise, timeoutPromise]);
                   if (play.gameId && result && result.ok) {
@@ -3134,11 +3120,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
           }
         }
 
-        const validationResults = await mapWithConcurrency(
-          validationPromises,
-          async (p) => p,
-          { concurrency: 5 }
-        );
+        const validationResults = await mapWithConcurrency(validationPromises, async (p) => p, { concurrency: 5 });
 
         for (const vr of validationResults) {
           if (!vr.result || !vr.result.ok || !vr.result.verdictSummary) continue;
@@ -3195,7 +3177,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
           return breakdown;
         })(),
         _meta:
-          (validateAllRB || validateTopRB > 0)
+          validateAllRB || validateTopRB > 0
             ? {
                 validation: {
                   requested: validateTopRB,
@@ -3411,7 +3393,6 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       };
     },
 
-
     async sharp_consensus(args = {}) {
       const league = String(args.league || 'Tennis').trim();
       const marketResolution = resolveMarkets(args, league);
@@ -3475,14 +3456,19 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
           ? args.leagues.map((l) => String(l).trim()).filter(Boolean)
           : Array.from(DEFAULT_LEAGUES);
       const allAliasesUsed = [];
+      // Fan out across per-league default markets instead of single-market
       const marketResolutionByLeague = {};
       for (const league of leagues) {
-        const marketResolution = resolveMarkets(args, league);
-        marketResolutionByLeague[league] = marketResolution.single;
-        allAliasesUsed.push(...marketResolution.aliasesUsed);
+        const userProvidedMarkets = !(args.markets === undefined && args.market === undefined);
+        const markets = userProvidedMarkets ? args.markets || [args.market] : getDefaultMarketsForLeague(league);
+        const resolvedMarkets = [];
+        for (const m of Array.isArray(markets) ? markets : [markets]) {
+          const marketResolution = resolveMarkets({ market: m }, league);
+          resolvedMarkets.push(marketResolution.single);
+          allAliasesUsed.push(...marketResolution.aliasesUsed);
+        }
+        marketResolutionByLeague[league] = resolvedMarkets;
       }
-      // Use first league's market as default
-      const market = marketResolutionByLeague[leagues[0]] || 'Moneyline';
       const limit = getLimit({ limit: args.limit || 15 });
 
       const results = await mapWithConcurrency(
@@ -3490,50 +3476,52 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
         async (league) => {
           try {
             const leagueKey = league.toUpperCase();
-            const resolvedMarket = marketResolutionByLeague[league] || market;
-            if (leagueKey === 'TENNIS') {
-              const tennisResult = await runTennisScreen({
-                market: resolvedMarket,
-                limit,
-                includeAll: args.includeAll,
-                lookbackHours: args.lookbackHours,
-                is_live: false,
-                compact: Boolean(args.compact),
-                fields: Array.isArray(args.fields) ? args.fields : undefined,
-                include: Array.isArray(args.include) ? args.include : undefined,
-                skipHistory: args.skipHistory === true
-              });
-              return {
-                league,
-                rows: tennisResult.result || [],
-                meta: {
-                  rowCount: (tennisResult.result || []).length,
-                  source: tennisResult.source || 'screen',
-                  ...(tennisResult.warnings ? { warnings: tennisResult.warnings } : {})
-                }
-              };
+            const resolvedMarkets = marketResolutionByLeague[league] || ['Moneyline'];
+            let allRows = [];
+            let source = 'screen';
+            let warnings = undefined;
+            for (const resolvedMarket of resolvedMarkets) {
+              if (leagueKey === 'TENNIS') {
+                const tennisResult = await runTennisScreen({
+                  market: resolvedMarket,
+                  limit,
+                  includeAll: args.includeAll,
+                  lookbackHours: args.lookbackHours,
+                  is_live: false,
+                  compact: Boolean(args.compact),
+                  fields: Array.isArray(args.fields) ? args.fields : undefined,
+                  include: Array.isArray(args.include) ? args.include : undefined,
+                  skipHistory: args.skipHistory === true
+                });
+                allRows.push(...(tennisResult.result || []));
+                source = tennisResult.source || source;
+                warnings = tennisResult.warnings || warnings;
+              } else {
+                const leagueResult = await runLeagueScreen(
+                  {
+                    market: resolvedMarket,
+                    limit,
+                    includeAll: args.includeAll,
+                    lookbackHours: args.lookbackHours,
+                    is_live: false,
+                    compact: Boolean(args.compact),
+                    fields: Array.isArray(args.fields) ? args.fields : undefined,
+                    include: Array.isArray(args.include) ? args.include : undefined,
+                    skipHistory: args.skipHistory === true
+                  },
+                  league
+                );
+                allRows.push(...(leagueResult.result || []));
+                warnings = leagueResult.warnings || warnings;
+              }
             }
-            const leagueResult = await runLeagueScreen(
-              {
-                market,
-                limit,
-                includeAll: args.includeAll,
-                lookbackHours: args.lookbackHours,
-                is_live: false,
-                compact: Boolean(args.compact),
-                fields: Array.isArray(args.fields) ? args.fields : undefined,
-                include: Array.isArray(args.include) ? args.include : undefined,
-                skipHistory: args.skipHistory === true
-              },
-              league
-            );
             return {
               league,
-              rows: leagueResult.result || [],
+              rows: allRows,
               meta: {
-                rowCount: (leagueResult.result || []).length,
-                source: 'screen',
-                ...(leagueResult.warnings ? { warnings: leagueResult.warnings } : {})
+                rowCount: allRows.length,
+                source,
+                ...(warnings ? { warnings } : {})
               }
             };
           } catch (error) {
@@ -3582,8 +3570,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       const storePath = args.storePath || defaultPath();
       const dedupWindowMs =
         (Number.isFinite(Number(args.dedupWindowMinutes)) ? Number(args.dedupWindowMinutes) : 360) * 60000;
-      const sinceMs =
-        (Number.isFinite(Number(args.sinceMinutes)) ? Number(args.sinceMinutes) : 2880) * 60000;
+      const sinceMs = (Number.isFinite(Number(args.sinceMinutes)) ? Number(args.sinceMinutes) : 2880) * 60000;
       const floor = ['TIER 1', 'TIER 2', 'TIER 3'].indexOf(args.minFinalTier || 'TIER 1');
 
       // Delegate to quick_screen with validation + research on (reuses all filters).
@@ -3669,7 +3656,6 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       return runGetPlayDetailsImpl(client, args);
     },
 
-
     /**
      * validate_play (v2.1.8): bundle a get_play_details + player_context +
      * execution check into a single call. Returns a single BET / CONSIDER /
@@ -3693,7 +3679,6 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       }
       return ok(result);
     },
-
 
     async health_status() {
       const authFile = resolveAuthFile();
@@ -3765,9 +3750,6 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       };
     },
 
-
-
-
     // ─── Line Shopping ──────────────────────────────────────────────
     async find_best_price(args = {}) {
       const league = args.league || 'NBA';
@@ -3819,10 +3801,14 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       // Build pure-args objects for each branch so we can attach
       // _suggestedTool metadata regardless of which path was taken.
       const queryArgs = {
-        query, parsed: {
-          league: parsed.league, book: parsed.book,
-          market: parsed.market, side: parsed.side,
-          line: parsed.line, player: parsed.player,
+        query,
+        parsed: {
+          league: parsed.league,
+          book: parsed.book,
+          market: parsed.market,
+          side: parsed.side,
+          line: parsed.line,
+          player: parsed.player,
           rawText: parsed.raw
         }
       };
@@ -3868,7 +3854,6 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       };
     },
 
-
     async get_started(args = {}) {
       const userType = args.user_type || 'intermediate';
 
@@ -3882,7 +3867,8 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
             '4. Skip sharp_consensus and ev_candidates — those are for advanced users.'
           ],
           key_tools: ['today', 'quick_screen', 'player_context'],
-          pitfall: 'tier/kaiCall/edge are signal-quality ratings, not win predictions. TIER 1 means sharp books agree — it does not mean the side will win.'
+          pitfall:
+            'tier/kaiCall/edge are signal-quality ratings, not win predictions. TIER 1 means sharp books agree — it does not mean the side will win.'
         },
         intermediate: {
           summary: 'For bettors who understand edge and tier.',
@@ -3895,8 +3881,17 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
             '6. To bet: place_bet({ league, gameId, playId, selection, market, book, stake }). It validates first and rejects PASS plays.',
             '7. After games settle: resolve_pick({ id, result }) for each logged pick.'
           ],
-          key_tools: ['today', 'quick_screen', 'validate_play', 'player_context', 'place_bet', 'resolve_pick', 'find_best_price'],
-          pitfall: 'Always pass playId to validate_play — bare selection strings fail. Use league-specific market names (get_market_registry for the mapping).'
+          key_tools: [
+            'today',
+            'quick_screen',
+            'validate_play',
+            'player_context',
+            'place_bet',
+            'resolve_pick',
+            'find_best_price'
+          ],
+          pitfall:
+            'Always pass playId to validate_play — bare selection strings fail. Use league-specific market names (get_market_registry for the mapping).'
         },
         sharp: {
           summary: 'For sharp bettors who want full data and control.',
@@ -3910,8 +3905,18 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
             '7. staking_plan({ picks: [...] }) for Kelly sizing.',
             '8. place_bet + resolve_pick for tracking.'
           ],
-          key_tools: ['today', 'quick_screen', 'sharp_consensus', 'validate_play', 'get_play_details', 'staking_plan', 'place_bet', 'resolve_pick'],
-          pitfall: 'movementDisposition is the single field to check: supportive_clean = BET, supportive_bouncy = CONSIDER, adverse = PASS. Do not cross-reference movementGrade + movementLabel separately.'
+          key_tools: [
+            'today',
+            'quick_screen',
+            'sharp_consensus',
+            'validate_play',
+            'get_play_details',
+            'staking_plan',
+            'place_bet',
+            'resolve_pick'
+          ],
+          pitfall:
+            'movementDisposition is the single field to check: supportive_clean = BET, supportive_bouncy = CONSIDER, adverse = PASS. Do not cross-reference movementGrade + movementLabel separately.'
         }
       };
 
@@ -4070,26 +4075,32 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
     // your recent stats. Replaces the 3-call pattern (quick_screen +
     // get_pick_history + get_pick_stats) with a single call.
     async today(args = {}) {
-      const leagues = Array.isArray(args.leagues) && args.leagues.length ? args.leagues
-        : args.league ? [args.league]
-        : Array.from(DEFAULT_LEAGUES);
+      const leagues =
+        Array.isArray(args.leagues) && args.leagues.length
+          ? args.leagues
+          : args.league
+            ? [args.league]
+            : Array.from(DEFAULT_LEAGUES);
       const book = args.book || 'NoVigApp';
 
       const [slateRes, pendingRes, statsRes, backtestRes] = await Promise.all([
-        handlers.quick_screen({
-          leagues,
-          book,
-          limit: args.limit || 10,
-          targetTiers: Array.isArray(args.targetTiers) && args.targetTiers.length
-            ? args.targetTiers
-            : ['TIER 1', 'TIER 2'],
-          validate: false,
-          includeResearch: false,
-          lite: true
-        }).catch(() => ({ ok: true, results: [] })),
+        handlers
+          .quick_screen({
+            leagues,
+            book,
+            limit: args.limit || 10,
+            targetTiers:
+              Array.isArray(args.targetTiers) && args.targetTiers.length ? args.targetTiers : ['TIER 1', 'TIER 2'],
+            validate: false,
+            includeResearch: false,
+            lite: true
+          })
+          .catch(() => ({ ok: true, results: [] })),
         handlers.get_pick_history({ status: 'pending', days: 1 }).catch(() => ({ ok: true, picks: [] })),
         handlers.get_pick_stats({ days: args.statsDays || 30 }).catch(() => ({ ok: true, stats: null })),
-        Promise.resolve().then(() => getBacktestSummary({ days: args.statsDays || 30 })).catch(() => ({ ok: false, stats: null }))
+        Promise.resolve()
+          .then(() => getBacktestSummary({ days: args.statsDays || 30 }))
+          .catch(() => ({ ok: false, stats: null }))
       ]);
 
       const slate = (slateRes.results || []).flatMap((e) =>

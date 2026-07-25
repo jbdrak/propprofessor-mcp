@@ -7,6 +7,7 @@
 
 const { defined } = require('./handler-utils');
 const { validatePositiveEvCandidates } = require('../../../lib/validate-ev-candidates');
+const { DEFAULT_LEAGUES } = require('../../../lib/propprofessor-shared-utils');
 
 function createDiscoveryHandlers(client, _ctx) {
   return {
@@ -66,9 +67,12 @@ function createDiscoveryHandlers(client, _ctx) {
     },
 
     async smart_money(args = {}) {
-      const leagues = Array.isArray(args.leagues) && args.leagues.length ? args.leagues
-        : args.league ? [args.league]
-        : ['NBA', 'MLB', 'NHL', 'WNBA', 'NFL'];
+      const leagues =
+        Array.isArray(args.leagues) && args.leagues.length
+          ? args.leagues
+          : args.league
+            ? [args.league]
+            : Array.from(DEFAULT_LEAGUES);
       const filters = { leagues, userState: String(args.userState || 'tx').toLowerCase() };
       if (Array.isArray(args.sportsbooks) && args.sportsbooks.length) filters.sportsbooks = args.sportsbooks;
       if (Array.isArray(args.marketTypes) && args.marketTypes.length) filters.marketTypes = args.marketTypes;

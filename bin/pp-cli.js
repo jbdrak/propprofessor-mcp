@@ -10,18 +10,28 @@
 const PROJECT = __dirname.replace(/\/bin$/, '');
 const { createPropProfessorClient } = require(PROJECT + '/lib/propprofessor-api');
 const { createMcpHandlers } = require(PROJECT + '/scripts/server/handlers');
+const { getLocalTimezone } = require(PROJECT + '/lib/mcp-runtime-config');
+const { parseGameStartMs } = require(PROJECT + '/lib/propprofessor-shared-utils');
 
 // ── color support ───────────────────────────────────────────────
 
-const NO_COLOR = process.argv.some(a =>
-  a === '--no-color' || a === '--no-colour'
-) || process.env.NO_COLOR === '1' || !process.stdout.isTTY;
+const NO_COLOR =
+  process.argv.some((a) => a === '--no-color' || a === '--no-colour') ||
+  process.env.NO_COLOR === '1' ||
+  !process.stdout.isTTY;
 
-const TIER_COLORS = NO_COLOR ? {} : { 'TIER 1': '\x1b[32m', 'TIER 2': '\x1b[33m', 'TIER 3': '\x1b[36m', 'TIER 4': '\x1b[31m' };
-const MOVEMENT_COLORS = NO_COLOR ? {} : {
-  supportive_clean: '\x1b[32m', supportive_bouncy: '\x1b[36m',
-  insufficient: '\x1b[33m', adverse_full: '\x1b[31m', adverse_recent: '\x1b[31m'
-};
+const TIER_COLORS = NO_COLOR
+  ? {}
+  : { 'TIER 1': '\x1b[32m', 'TIER 2': '\x1b[33m', 'TIER 3': '\x1b[36m', 'TIER 4': '\x1b[31m' };
+const MOVEMENT_COLORS = NO_COLOR
+  ? {}
+  : {
+      supportive_clean: '\x1b[32m',
+      supportive_bouncy: '\x1b[36m',
+      insufficient: '\x1b[33m',
+      adverse_full: '\x1b[31m',
+      adverse_recent: '\x1b[31m'
+    };
 const R = NO_COLOR ? '' : '\x1b[0m';
 const B = NO_COLOR ? '' : '\x1b[1m';
 const G = NO_COLOR ? '' : '\x1b[32m';
@@ -37,7 +47,10 @@ function parseArgs(argv) {
   let i = 2;
   while (i < argv.length) {
     const a = argv[i];
-    if (a === '--no-color' || a === '--no-colour') { i++; continue; }
+    if (a === '--no-color' || a === '--no-colour') {
+      i++;
+      continue;
+    }
     if (a.startsWith('--')) {
       const key = a.replace(/^--/, '');
       const val = argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[++i] : true;
@@ -138,6 +151,7 @@ Flags:
   -j, --json                Raw JSON output
   --fast                    Quick scan (5 fastest leagues)
   --validate-all            Full validation on all candidates (slow)
+  --tz <IANA>                Timezone for display (default: America/Chicago). Overrides LOCALTIMEZONE env var.
 
 Examples:
   pp scan tennis wnba
@@ -173,6 +187,7 @@ Flags:
   -t, --tier <1|2|1-2>      Tier filter. Default: 1-2
   -n, --limit <N>           Max slate size. Default: 10
   -j, --json                Raw JSON output
+  --tz <IANA>                Timezone for display (default: America/Chicago). Overrides LOCALTIMEZONE env var.
 `,
     picks: `pp picks [flags]
 
@@ -307,7 +322,7 @@ function formatScan(results) {
       const verdict = verdictSymbol(p.verdict || p.finalVerdict || p.kaiCall || '');
       const oddsStr = p.odds > 0 ? '+' + p.odds : String(p.odds);
       const clvStr = clvColor(p.clv);
-      const edgeStr = p.edge != null ? (p.edge >= 0 ? G : RED) + (p.edge).toFixed(1) + '%' + R : '';
+      const edgeStr = p.edge != null ? (p.edge >= 0 ? G : RED) + p.edge.toFixed(1) + '%' + R : '';
       out += '  ' + p.selection + ' @ ' + oddsStr + '  |  ' + tier + '  ' + verdict + '\n';
       const details = [];
       if (edgeStr) details.push(edgeStr);
@@ -315,7 +330,8 @@ function formatScan(results) {
       details.push('mv ' + mv);
       if (p.books) details.push(p.books + ' books');
       if (p.executionQuality) details.push('exec:' + p.executionQuality);
-      if (p.consensusEdge != null) details.push('edge ' + (p.consensusEdge >= 0 ? '+' : '') + (p.consensusEdge * 100).toFixed(1) + '%');
+      if (p.consensusEdge != null)
+        details.push('edge ' + (p.consensusEdge >= 0 ? '+' : '') + (p.consensusEdge * 100).toFixed(1) + '%');
       out += '    ' + details.join('  ·  ') + '\n';
       const momentum = momentumLabel(p);
       if (momentum) out += '    ' + momentum + '\n';
@@ -331,9 +347,50 @@ function formatToday(data) {
   let out = '';
   const slate = data.slate || data.data?.slate || [];
   if (slate.length) {
+    // Build a date-range header from actual times
+    const allStarts = [];
+    for (const p of slate) {
+      const ms = parseGameStartMs(p.start || p.startTime);
+      if (Number.isFinite(ms)) allStarts.push(ms);
+    }
+    const tz = getLocalTimezone();
+    const fmtDateTime = (ms) => {
+      try {
+        return new Intl.DateTimeFormat('en-US', {
+          timeZone: tz,
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZoneName: 'shortGeneric'
+        }).format(new Date(ms));
+      } catch {
+        return '';
+      }
+    };
+    if (allStarts.length) {
+      const earliest = Math.min(...allStarts);
+      const latest = Math.max(...allStarts);
+      const rangeStr =
+        earliest === latest ? fmtDateTime(earliest) : `${fmtDateTime(earliest)} → ${fmtDateTime(latest)}`;
+      out += `\n${B}Today: ${rangeStr}${R}\n`;
+    }
     out += B + "Today's slate" + R + ' (' + slate.length + ' plays)\n';
     for (const p of slate) {
-      out += '  ' + (p.startCST || '?') + '  ' + (p.game || p.matchup) + '  ' + p.selection + '  ' + p.odds + '  ' + tierColor(p.tier || '') + '\n';
+      out +=
+        '  ' +
+        (p.startCST || '?') +
+        '  ' +
+        (p.game || p.matchup) +
+        '  ' +
+        p.selection +
+        '  ' +
+        p.odds +
+        '  ' +
+        tierColor(p.tier || '') +
+        '\n';
     }
   } else {
     out += "No plays on today's slate.\n";
@@ -354,7 +411,12 @@ function formatValidate(data) {
   let out = '';
   out += B + d.selection + R + '  —  ' + verdictSymbol(d.verdict) + '  ' + tierColor(d.tier) + '\n';
   out += 'odds: ' + (d.play?.odds || '?') + '  |  books: ' + (d.play?.consensusBookCount || '?') + '\n';
-  out += 'movement: ' + movementColor(d.verdictSummary?.movementDisposition || '?') + '  |  label: ' + (d.play?.movementLabel || '?') + '\n';
+  out +=
+    'movement: ' +
+    movementColor(d.verdictSummary?.movementDisposition || '?') +
+    '  |  label: ' +
+    (d.play?.movementLabel || '?') +
+    '\n';
   out += 'execution: ' + (d.play?.executionQuality || '?') + '\n';
   if (d.verdictSummary?.actionableSummary) out += d.verdictSummary.actionableSummary + '\n';
   if (d.reasons?.length) out += 'reasons: ' + d.reasons.join(', ') + '\n';
@@ -379,7 +441,10 @@ function formatError(err, context) {
 
 async function cmdScan(handlers, positional, flags) {
   const FAST_LEAGUES = ['MLB', 'Tennis', 'NBA', 'WNBA', 'Soccer'];
-  let leagues = positional.length > 1 ? positional.slice(1) : ['MLB', 'NBA', 'WNBA', 'Tennis', 'UFC', 'NFL', 'NHL', 'Soccer', 'NCAAB', 'NCAAF', 'NBASL'];
+  let leagues =
+    positional.length > 1
+      ? positional.slice(1)
+      : ['MLB', 'NBA', 'WNBA', 'Tennis', 'UFC', 'NFL', 'NHL', 'Soccer', 'NCAAB', 'NCAAF', 'NBASL'];
 
   // --fast mode
   if (flags.fast && positional.length <= 1) {
@@ -397,8 +462,8 @@ async function cmdScan(handlers, positional, flags) {
 
   // Map sort aliases to handler field names
   const SORT_FIELD_MAP = {
-    'clv': 'clvProxyPct',
-    'momentum': 'riskScore',
+    clv: 'clvProxyPct',
+    momentum: 'riskScore'
   };
   const resolvedSortBy = SORT_FIELD_MAP[sortBy] || sortBy;
   const resolvedSortDir = sortBy === 'momentum' ? 'asc' : sortDir; // momentum = lowest risk first
@@ -408,31 +473,47 @@ async function cmdScan(handlers, positional, flags) {
   // pregame-only — if odds are present the match is still bettable. Pass
   // --card-window today to narrow back to a single UTC day.
   const cardWindow = flags['card-window'] || flags.cardWindow || 'all';
+  const tz = flags.tz || flags['tz'] || undefined;
+  if (tz) process.env.LOCAL_TIMEZONE = tz;
   const jsonOut = flags.j || flags.json || false;
   const validateAll = flags['validate-all'] || false;
 
-  const targetTiers = tier ? (tier === '1' ? ['TIER 1'] : tier === '2' ? ['TIER 2'] : ['TIER 1', 'TIER 2']) : ['TIER 1', 'TIER 2'];
+  const targetTiers = tier
+    ? tier === '1'
+      ? ['TIER 1']
+      : tier === '2'
+        ? ['TIER 2']
+        : ['TIER 1', 'TIER 2']
+    : ['TIER 1', 'TIER 2'];
   // minFinalTier must track targetTiers so onlyBets doesn't silently downgrade the floor to TIER 1.
   const minFinalTier = tier ? (tier === '1' ? 'TIER 1' : tier === '2' ? 'TIER 2' : 'TIER 2') : 'TIER 2';
 
   const MOVEMENT_ALIASES = {
-    'supportive': ['supportive_clean', 'supportive_bouncy'],
-    'clean': ['supportive_clean'],
-    'bouncy': ['supportive_bouncy'],
-    'good': ['supportive_clean', 'supportive_bouncy'],
-    'insufficient': ['insufficient'],
-    'adverse': ['adverse_full', 'adverse_recent'],
+    supportive: ['supportive_clean', 'supportive_bouncy'],
+    clean: ['supportive_clean'],
+    bouncy: ['supportive_bouncy'],
+    good: ['supportive_clean', 'supportive_bouncy'],
+    insufficient: ['insufficient'],
+    adverse: ['adverse_full', 'adverse_recent']
   };
   const movement = flags.M || flags.movement || undefined;
   const movementList = movement ? (Array.isArray(movement) ? movement : movement.split(',')) : undefined;
   const resolvedMovement = movementList
-    ? movementList.flatMap(m => MOVEMENT_ALIASES[m] || [m])
-    : (onlyBets ? ['supportive_clean', 'supportive_bouncy'] : undefined);
+    ? movementList.flatMap((m) => MOVEMENT_ALIASES[m] || [m])
+    : onlyBets
+      ? ['supportive_clean', 'supportive_bouncy']
+      : undefined;
 
   const ctx = leagues.join(', ');
-  console.error('Scanning ' + leagues.join(', ') + ' on ' + book + '...' +
-    (resolvedMovement ? ' [mv: ' + resolvedMovement.join(',') + ']' : '') +
-    (flags.fast ? ' [fast]' : ''));
+  console.error(
+    'Scanning ' +
+      leagues.join(', ') +
+      ' on ' +
+      book +
+      '...' +
+      (resolvedMovement ? ' [mv: ' + resolvedMovement.join(',') + ']' : '') +
+      (flags.fast ? ' [fast]' : '')
+  );
 
   const startTime = Date.now();
   const spinner = setInterval(() => {
@@ -457,15 +538,51 @@ async function cmdScan(handlers, positional, flags) {
       verbosity: 'bets',
       validate: validateAll ? true : undefined,
       validateTop: validateAll ? undefined : 10,
-      includeResearch: false,
+      includeResearch: false
     });
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
 
     const results = res.data?.results || res.results || [];
+    // Build the date-range header line using actual candidate start times
+    const allStarts = [];
+    for (const r of results) {
+      for (const p of r.plays || r.candidates || []) {
+        const ms = parseGameStartMs(p.start || p.startCST);
+        if (Number.isFinite(ms)) allStarts.push(ms);
+      }
+    }
+    const localTz = getLocalTimezone();
+    const fmtDateTime = (ms) => {
+      try {
+        return new Intl.DateTimeFormat('en-US', {
+          timeZone: localTz,
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZoneName: 'shortGeneric'
+        }).format(new Date(ms));
+      } catch {
+        return '';
+      }
+    };
+    const windowLabel = cardWindow === 'today' ? 'Today' : cardWindow === 'next' ? 'Next day' : 'All upcoming';
+    let rangeHeader = '';
+    if (allStarts.length) {
+      const earliest = Math.min(...allStarts);
+      const latest = Math.max(...allStarts);
+      rangeHeader =
+        earliest === latest
+          ? `${windowLabel}: ${fmtDateTime(earliest)}`
+          : `${windowLabel}: ${fmtDateTime(earliest)} → ${fmtDateTime(latest)}`;
+    }
     if (jsonOut) {
       console.log(JSON.stringify(results, null, 2));
     } else {
+      if (rangeHeader) console.log(B + rangeHeader + R + '\n');
       console.log(formatScan(results));
       const total = results.reduce((s, r) => s + (r.plays || []).length, 0);
       console.log('\n' + total + ' plays across ' + results.length + ' markets');
@@ -531,11 +648,21 @@ async function cmdGame(handlers, positional, flags) {
     console.log(JSON.stringify(res, null, 2));
   } else {
     const rows = res.result || res.data || [];
-    if (!rows.length) { console.log('No data.'); return; }
+    if (!rows.length) {
+      console.log('No data.');
+      return;
+    }
     const r = rows[0];
     console.log(B + (r.awayTeam || 'Away') + ' @ ' + (r.homeTeam || 'Home') + R);
     console.log('start: ' + r.start + '  |  market: ' + r.market + '  |  defaultKey: ' + r.defaultKey);
-    console.log('movementLabel: ' + r.movementLabel + '  |  grade: ' + r.movementGrade + '  |  disposition: ' + movementColor(r.movementDisposition));
+    console.log(
+      'movementLabel: ' +
+        r.movementLabel +
+        '  |  grade: ' +
+        r.movementGrade +
+        '  |  disposition: ' +
+        movementColor(r.movementDisposition)
+    );
     if (r.selections) {
       console.log('\n' + B + 'Lines:' + R);
       for (const [key, sel] of Object.entries(r.selections)) {
@@ -552,6 +679,8 @@ async function cmdToday(handlers, positional, flags) {
   const tier = flags.t || flags.tier || undefined;
   const limit = parseInt(flags.n || flags.limit || 10);
   const jsonOut = flags.j || flags.json || false;
+  const tz = flags.tz || flags['tz'] || undefined;
+  if (tz) process.env.LOCAL_TIMEZONE = tz;
   const args = {};
   if (tier) args.targetTiers = tier === '1' ? ['TIER 1'] : ['TIER 1', 'TIER 2'];
   if (limit) args.limit = limit;
@@ -576,11 +705,25 @@ async function cmdPicks(handlers, positional, flags) {
     console.log(JSON.stringify(picks, null, 2));
     return;
   }
-  if (!picks.length) { console.log('No recent picks.'); return; }
+  if (!picks.length) {
+    console.log('No recent picks.');
+    return;
+  }
   console.log(B + 'Recent picks' + R + ' (' + picks.length + ')');
   for (const p of picks) {
     const verdict = verdictSymbol(p.verdict || p.status || p.outcome || '');
-    console.log('  ' + (p.game || p.matchup || '') + '  ' + (p.selection || '') + '  ' + (p.odds || '') + '  ' + verdict + '  ' + (p.startCST || ''));
+    console.log(
+      '  ' +
+        (p.game || p.matchup || '') +
+        '  ' +
+        (p.selection || '') +
+        '  ' +
+        (p.odds || '') +
+        '  ' +
+        verdict +
+        '  ' +
+        (p.startCST || '')
+    );
     if (p.edge) console.log('    edge: ' + p.edge + '%  |  tier: ' + (p.tier || ''));
   }
 }
@@ -617,7 +760,7 @@ async function cmdLog(handlers, positional, flags) {
     stake: stake || undefined,
     kaiCall: kaiCall || undefined,
     confidenceTier: confidenceTier || undefined,
-    notes: notes || undefined,
+    notes: notes || undefined
   });
 
   if (jsonOut) {
@@ -647,7 +790,7 @@ async function cmdPlayer(handlers, positional, flags) {
 
   const res = await handlers.player_context({
     player: name,
-    sport: league || undefined,
+    sport: league || undefined
   });
 
   if (jsonOut) {
@@ -665,7 +808,8 @@ async function cmdPlayer(handlers, positional, flags) {
 
   console.log(B + player.name + R + (player.team ? ' — ' + player.team : ''));
   if (player.league) console.log('league: ' + player.league);
-  if (player.injuryStatus) console.log('injury: ' + (player.injuryStatus === 'Active' ? G : RED) + player.injuryStatus + R);
+  if (player.injuryStatus)
+    console.log('injury: ' + (player.injuryStatus === 'Active' ? G : RED) + player.injuryStatus + R);
   if (player.riskFlag) console.log('risk: ' + (player.riskFlag === 'high' ? RED : Y) + player.riskFlag + R);
   if (player.riskSummary) console.log('summary: ' + player.riskSummary);
   if (player.recentForm) console.log('form: ' + player.recentForm);
@@ -698,7 +842,7 @@ async function cmdPrices(handlers, positional, flags) {
     league,
     market,
     game: bareGameId,
-    selection: selection || undefined,
+    selection: selection || undefined
   });
 
   if (jsonOut) {
@@ -711,7 +855,7 @@ async function cmdPrices(handlers, positional, flags) {
   const prices = data?.allPrices || res?.allPrices || res?.prices || res?.comparison || [];
   const best = data?.bestPrice || res?.bestPrice || res?.best;
 
-  if ((Array.isArray(prices) && !prices.length) && !best) {
+  if (Array.isArray(prices) && !prices.length && !best) {
     console.log('No price data found.');
     return;
   }
@@ -746,7 +890,7 @@ async function cmdRank(handlers, positional, flags) {
     books: [book],
     limit,
     verbosity: jsonOut ? 'full' : 'standard',
-    includeResearch: false,
+    includeResearch: false
   });
 
   if (jsonOut) {
@@ -755,7 +899,10 @@ async function cmdRank(handlers, positional, flags) {
   }
 
   const rows = res?.result || res?.data || res?.rows || [];
-  if (!rows.length) { console.log('No ranked plays for ' + league); return; }
+  if (!rows.length) {
+    console.log('No ranked plays for ' + league);
+    return;
+  }
 
   console.log(B + league + ' ranked plays' + R + ' (' + rows.length + ')');
   for (const r of rows) {
@@ -763,7 +910,10 @@ async function cmdRank(handlers, positional, flags) {
     const tier = tierColor(r.confidenceTier || '?');
     const oddsStr = r.odds > 0 ? '+' + r.odds : String(r.odds);
     console.log('  ' + (r.selection || r.participant || '?') + ' @ ' + oddsStr + '  ' + tier + '  |  mv ' + mv);
-    if (r.consensusBookCount) console.log('    books: ' + r.consensusBookCount + '  |  edge: ' + (r.edge || 0).toFixed(1) + '%  |  CLV: ' + (r.clv || '?'));
+    if (r.consensusBookCount)
+      console.log(
+        '    books: ' + r.consensusBookCount + '  |  edge: ' + (r.edge || 0).toFixed(1) + '%  |  CLV: ' + (r.clv || '?')
+      );
   }
 }
 
@@ -777,7 +927,9 @@ async function cmdFantasy(handlers, positional, flags) {
   const fantasyApps = app ? (Array.isArray(app) ? app : [app]) : ['PrizePicks', 'Underdog', 'DraftKings6'];
   const leagues = league ? (Array.isArray(league) ? league : [league]) : undefined;
 
-  console.error('Fetching fantasy props: ' + fantasyApps.join(', ') + (leagues ? ' (' + leagues.join(', ') + ')' : '') + '...');
+  console.error(
+    'Fetching fantasy props: ' + fantasyApps.join(', ') + (leagues ? ' (' + leagues.join(', ') + ')' : '') + '...'
+  );
 
   const res = await handlers.fantasy_optimizer({ fantasyApps, leagues, verbosity: 'standard' });
 
@@ -787,7 +939,10 @@ async function cmdFantasy(handlers, positional, flags) {
   }
 
   const picks = Array.isArray(res) ? res : res?.result || res?.picks || [];
-  if (!picks.length) { console.log('No fantasy props found.'); return; }
+  if (!picks.length) {
+    console.log('No fantasy props found.');
+    return;
+  }
 
   const byApp = {};
   for (const p of picks) {
@@ -801,7 +956,21 @@ async function cmdFantasy(handlers, positional, flags) {
     for (const p of appPicks.slice(0, 15)) {
       const valStr = p.value ? G + p.value + '%' + R : '';
       const dir = p.selectionType === 'Over' ? 'O' : p.selectionType === 'Under' ? 'U' : '';
-      console.log('  ' + (p.league || '') + '  ' + (p.participant || '') + ' ' + dir + (p.line || '') + '  ' + (p.selection || '') + '  ' + (p.odds || '') + '  ' + valStr);
+      console.log(
+        '  ' +
+          (p.league || '') +
+          '  ' +
+          (p.participant || '') +
+          ' ' +
+          dir +
+          (p.line || '') +
+          '  ' +
+          (p.selection || '') +
+          '  ' +
+          (p.odds || '') +
+          '  ' +
+          valStr
+      );
     }
     if (appPicks.length > 15) console.log('    ... and ' + (appPicks.length - 15) + ' more');
   }
@@ -817,7 +986,7 @@ async function cmdHealth(handlers) {
 // ── main ────────────────────────────────────────────────────────
 
 async function main() {
-  const filteredArgv = process.argv.filter(a => a !== '--no-color' && a !== '--no-colour');
+  const filteredArgv = process.argv.filter((a) => a !== '--no-color' && a !== '--no-colour');
   const { positional, flags } = parseArgs(filteredArgv);
 
   // ── MCP server mode ──────────────────────────────
@@ -825,7 +994,7 @@ async function main() {
     if (flags['mode']) process.env.PROPPROFESSOR_MCP_MODE = flags['mode'];
     if (flags['coalesce-ms']) process.env.PROPPROFESSOR_MCP_STDIO_COALESCE_MS = String(flags['coalesce-ms']);
     const { serveStdio } = require(PROJECT + '/scripts/propprofessor-mcp-server');
-    return serveStdio().catch(err => {
+    return serveStdio().catch((err) => {
       console.error(err?.stack || err?.message || String(err));
       process.exit(1);
     });
@@ -850,11 +1019,11 @@ async function main() {
 
   // Backward compat: old pp-query commands
   const OLD_CMD_MAP = {
-    'doctor': 'health',
-    'sync': 'health',
-    'hide': 'log',
-    'unhide': 'log',
-    'hidden': 'picks',
+    doctor: 'health',
+    sync: 'health',
+    hide: 'log',
+    unhide: 'log',
+    hidden: 'picks'
   };
   const resolvedCmd = OLD_CMD_MAP[command];
   if (resolvedCmd) {
@@ -867,17 +1036,39 @@ async function main() {
   const start = Date.now();
 
   switch (resolvedCmd || command) {
-    case 'scan':     await cmdScan(handlers, positional, flags); break;
-    case 'validate': await cmdValidate(handlers, positional, flags); break;
-    case 'game':     await cmdGame(handlers, positional, flags); break;
-    case 'today':    await cmdToday(handlers, positional, flags); break;
-    case 'picks':    await cmdPicks(handlers, positional, flags); break;
-    case 'log':      await cmdLog(handlers, positional, flags); break;
-    case 'player':   await cmdPlayer(handlers, positional, flags); break;
-    case 'prices':   await cmdPrices(handlers, positional, flags); break;
-    case 'rank':     await cmdRank(handlers, positional, flags); break;
-    case 'fantasy':  await cmdFantasy(handlers, positional, flags); break;
-    case 'health':   await cmdHealth(handlers); break;
+    case 'scan':
+      await cmdScan(handlers, positional, flags);
+      break;
+    case 'validate':
+      await cmdValidate(handlers, positional, flags);
+      break;
+    case 'game':
+      await cmdGame(handlers, positional, flags);
+      break;
+    case 'today':
+      await cmdToday(handlers, positional, flags);
+      break;
+    case 'picks':
+      await cmdPicks(handlers, positional, flags);
+      break;
+    case 'log':
+      await cmdLog(handlers, positional, flags);
+      break;
+    case 'player':
+      await cmdPlayer(handlers, positional, flags);
+      break;
+    case 'prices':
+      await cmdPrices(handlers, positional, flags);
+      break;
+    case 'rank':
+      await cmdRank(handlers, positional, flags);
+      break;
+    case 'fantasy':
+      await cmdFantasy(handlers, positional, flags);
+      break;
+    case 'health':
+      await cmdHealth(handlers);
+      break;
     default:
       console.error('Unknown command: ' + (resolvedCmd || command));
       printHelp('');
@@ -887,7 +1078,7 @@ async function main() {
   console.error('\nDone in ' + ((Date.now() - start) / 1000).toFixed(1) + 's');
 }
 
-main().catch(e => {
+main().catch((e) => {
   const context = process.argv.slice(2).join(' ');
   console.error(formatError(e, context));
   process.exit(1);
