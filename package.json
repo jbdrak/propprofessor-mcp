@@ -87,7 +87,7 @@
     "postcss": "8.5.18"
   },
   "optionalDependencies": {
-    "playwright": "^1.52.0"
+    "playwright": "^1.62.0"
   },
   "c8": {
     "all": true,
@@ -112,11 +112,11 @@
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "c8": "^11.0.0",
-    "eslint": "^10.5.0",
+    "eslint": "^10.8.0",
     "eslint-plugin-complexity": "^1.0.2",
-    "globals": "^17.6.0",
+    "globals": "^17.7.0",
     "madge": "^8.0.0",
-    "prettier": "^3.8.4",
+    "prettier": "^3.9.6",
     "typescript": "^5.9.3"
   }
 }
