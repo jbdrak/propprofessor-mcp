@@ -54,13 +54,7 @@ const { getLocalTimezone, localDateKey } = require('../../lib/mcp-runtime-config
  * @returns {string[]} Default market names
  */
 function getDefaultMarketsForLeague(league, _targetBooks) {
-  const leagueUpper = String(league || '')
-    .trim()
-    .toUpperCase();
-  if (leagueUpper === 'SOCCER') {
-    return ['Draw No Bet', 'Match Handicap', 'Total Goals'];
-  }
-  return ['Moneyline', 'Spread', 'Total'];
+  return require('../../lib/propprofessor-market-registry').getMarketsForSport(league, _targetBooks);
 }
 const { getOddsHistoryCache, DEFAULT_ODDS_HISTORY_CACHE_TTL_MS } = require('../../lib/mcp-runtime-config');
 const { buildUfcShortlist } = require('../../lib/propprofessor-sharp-plays');
