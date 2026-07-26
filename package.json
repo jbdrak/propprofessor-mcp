@@ -25,7 +25,8 @@
   "bin": {
     "pp-mcp": "scripts/propprofessor-mcp-server.js",
     "pp-query": "scripts/query-propprofessor.js",
-    "pp": "bin/pp"
+    "pp": "bin/pp",
+    "pp-backtest": "bin/backtest"
   },
   "files": [
     "lib/",

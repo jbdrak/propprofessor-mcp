@@ -145,6 +145,23 @@ Tennis › Total Games  (1)
     Avanesyan vs Oliynykova  Fri, Jul 24, 7:00 AM
 ```
 
+## 📊 Backtesting
+
+PropProfessor includes a backtest runner that prints settled-pick performance across any date range.
+
+```bash
+# Show last 30 days of settled picks
+node scripts/backtest-runner.js --days 30
+
+# Show a specific date range
+node scripts/backtest-runner.js --from 2026-06-01 --to 2026-07-20
+
+# Or use the installed binary
+pp-backtest --days 30
+```
+
+The runner reads from `~/.propprofessor/picks.json` — the same file used by `pp log` and `pp picks`. It shows total picks, settled records, win rate, P&L, and breakdowns by tier and league. It never fabricates ROI. If no settled picks exist in the range, it says so honestly.
+
 ## 🏛 Architecture
 
 PropProfessor MCP follows a layered data pipeline:
