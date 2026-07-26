@@ -85,7 +85,10 @@ describe('validate_play consensus-drift downgrade (regression: 5 books on screen
     assert.equal(result.ok, true);
     assert.equal(result.consensusDrift, true, 'drift must be detected (5 → thin)');
     assert.equal(result.verdict, 'CONSIDER', 'BET built on a phantom 5-book consensus must downgrade to CONSIDER');
-    assert.ok(result.reasons.some((r) => /drift/i.test(r)), 'should mention consensus drift in reasons');
+    assert.ok(
+      result.reasons.some((r) => /drift/i.test(r)),
+      'should mention consensus drift in reasons'
+    );
   });
 
   it('does NOT downgrade when screen and re-fetch agree', async () => {
@@ -126,7 +129,12 @@ describe('quick_screen merge: lookup_failed does not fabricate a stale consensus
     let cand = null;
     for (const entry of result.results || []) {
       for (const c of entry.candidates || []) {
-        if (String(c.selection || '').toLowerCase().includes('minnesota twins -1.5')) cand = c;
+        if (
+          String(c.selection || '')
+            .toLowerCase()
+            .includes('minnesota twins -1.5')
+        )
+          cand = c;
       }
     }
     assert.ok(cand, 'the -1.5 candidate from the screen must be present');

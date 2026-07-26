@@ -3,9 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const {
-  summarizeSharpMovement
-} = require('../lib/propprofessor-sharp-history');
+const { summarizeSharpMovement } = require('../lib/propprofessor-sharp-history');
 
 describe('Opposite-side CLV inversion', () => {
   it('should flag Oleksiejczuk CLV as inverted when computed from Magomedov odds', () => {

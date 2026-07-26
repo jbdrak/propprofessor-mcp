@@ -14,12 +14,21 @@ function makeHandlers() {
   };
   // stub downstream helpers so the handler doesn't crash
   handlers.screen_ranked = async () => ({
-    ok: true, result: [{
-      gameId: 'g1', selection: 'Team A', screenScore: 80,
-      confidenceTier: 'TIER 1', kaiCall: 'BET', odds: -110,
-      consensusEdge: 1.5, movementDisposition: 'supportive_clean',
-      riskScore: 1, research: []
-    }]
+    ok: true,
+    result: [
+      {
+        gameId: 'g1',
+        selection: 'Team A',
+        screenScore: 80,
+        confidenceTier: 'TIER 1',
+        kaiCall: 'BET',
+        odds: -110,
+        consensusEdge: 1.5,
+        movementDisposition: 'supportive_clean',
+        riskScore: 1,
+        research: []
+      }
+    ]
   });
   return { handlers, getCallCount: () => sharpPlaysCalls };
 }
@@ -36,10 +45,8 @@ describe('quick_screen response caching', () => {
 
     const r2 = await handlers.quick_screen(args);
     assert.equal(r2.ok, true);
-    assert.equal(getCallCount(), firstCallCount,
-      'second call with identical args should NOT re-fan-out');
-    assert.equal(r2.resultMeta?.cached, true,
-      'second call should be marked cached');
+    assert.equal(getCallCount(), firstCallCount, 'second call with identical args should NOT re-fan-out');
+    assert.equal(r2.resultMeta?.cached, true, 'second call should be marked cached');
   });
 
   it('does NOT cache when args differ', async () => {
@@ -51,8 +58,7 @@ describe('quick_screen response caching', () => {
     assert.ok(afterFirst > 0);
 
     await handlers.quick_screen({ ...baseArgs, leagues: ['NBA'] });
-    assert.ok(getCallCount() > afterFirst,
-      'different leagues should miss cache and re-fan-out');
+    assert.ok(getCallCount() > afterFirst, 'different leagues should miss cache and re-fan-out');
   });
 
   it('bypasses cache when validate:true', async () => {
@@ -64,7 +70,6 @@ describe('quick_screen response caching', () => {
     assert.ok(afterFirst > 0);
 
     await handlers.quick_screen({ ...args, validate: true });
-    assert.ok(getCallCount() > afterFirst,
-      'validate:true should bypass cache and re-fetch');
+    assert.ok(getCallCount() > afterFirst, 'validate:true should bypass cache and re-fetch');
   });
 });

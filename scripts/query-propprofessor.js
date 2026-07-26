@@ -441,7 +441,11 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
   // Audit fix (2026-07-11): --reset clears the module-level score timeline
   // so a fresh CLI invocation starts with no cross-session tier history.
   if (opts.reset === true) {
-    try { clearScoreTimeline(); } catch { /* defensive: never block startup */ }
+    try {
+      clearScoreTimeline();
+    } catch {
+      /* defensive: never block startup */
+    }
   }
 
   const screenCommand = resolveScreenCommand(command, opts);

@@ -6,7 +6,6 @@ const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 const { parseNaturalLanguagePropQuery } = require('../lib/propprofessor-query-parser');
 
 describe('ask() executes the suggested tool — one-call answer', () => {
-
   describe('ask() - query extraction tests', () => {
     it('"best WNBA play on NoVigApp" extracts player and book', async () => {
       const parsed = parseNaturalLanguagePropQuery('best WNBA play on NoVigApp');
@@ -85,10 +84,7 @@ describe('ask() executes the suggested tool — one-call answer', () => {
 
     it('missing query throws MISSING_PARAMS (preserves existing contract)', async () => {
       const handlers = makeHandlers();
-      await assert.rejects(
-        handlers.ask({}),
-        (err) => err.code === 'MISSING_PARAMS'
-      );
+      await assert.rejects(handlers.ask({}), (err) => err.code === 'MISSING_PARAMS');
     });
   });
 });

@@ -3,10 +3,7 @@
 const { describe, it, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 
-const {
-  DEFAULT_ODDS_HISTORY_LOOKBACK_HOURS,
-  getOddsHistoryLookbackHours,
-} = require('../lib/mcp-runtime-config');
+const { DEFAULT_ODDS_HISTORY_LOOKBACK_HOURS, getOddsHistoryLookbackHours } = require('../lib/mcp-runtime-config');
 const { getDebugFlag } = require('../lib/propprofessor-mcp-ranked-screen');
 
 const ORIGINAL_LOOKBACK = process.env.PROPPROFESSOR_ODDS_HISTORY_LOOKBACK_HOURS;

@@ -10,13 +10,7 @@ describe('verbosity parameter in tool definitions', () => {
 
   const VERBOSITY_ENUM = ['minimal', 'standard', 'full', 'bets'];
 
-  const toolsWithVerbosity = [
-    'screen_ranked',
-    'all_slates',
-    'staking_plan',
-    'ev_candidates',
-    'ufc_card'
-  ];
+  const toolsWithVerbosity = ['screen_ranked', 'all_slates', 'staking_plan', 'ev_candidates', 'ufc_card'];
 
   it('should have correct enum values for verbosity', () => {
     for (const name of toolsWithVerbosity) {

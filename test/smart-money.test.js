@@ -26,7 +26,10 @@ const SAMPLE = [
     minArbOdds: 108,
     isLive: false,
     start: '2026-07-11T22:00:00.000Z',
-    sportsbookData: [{ book: 'Bovada', odds: -105 }, { book: 'DraftKings', odds: -112 }]
+    sportsbookData: [
+      { book: 'Bovada', odds: -105 },
+      { book: 'DraftKings', odds: -112 }
+    ]
   },
   {
     id: 'UFC:PREMATCH:Holloway:Mcgregor:1783797300:NoVigApp:Moneyline:Mcgregor',
@@ -66,7 +69,11 @@ describe('smart_money tool (Task 6)', () => {
 
   it('returns a clean error envelope when the backend fails', async () => {
     const handlers = createMcpHandlers({
-      client: { querySmartMoney: async () => { throw new Error('backend down'); } }
+      client: {
+        querySmartMoney: async () => {
+          throw new Error('backend down');
+        }
+      }
     });
     const result = await handlers.smart_money({});
     assert.equal(result.ok, false);
@@ -94,14 +101,22 @@ describe('smart_money tool (Task 6)', () => {
     await handlers.smart_money({ leagues: ['MLB'] });
     // The handler must NOT include `sportsbooks: undefined` (or any falsy value)
     // in the filter — the live backend rejects with HTTP 400.
-    assert.equal('sportsbooks' in capturedFilters, false,
-      'sportsbooks key must be absent (not undefined) so client defaults apply');
+    assert.equal(
+      'sportsbooks' in capturedFilters,
+      false,
+      'sportsbooks key must be absent (not undefined) so client defaults apply'
+    );
     assert.equal('marketTypes' in capturedFilters, false, 'marketTypes also omitted when not set');
   });
 
   it('passes sportsbooks when explicitly provided', async () => {
     let capturedFilters = null;
-    const client = { querySmartMoney: async (f) => { capturedFilters = f; return []; } };
+    const client = {
+      querySmartMoney: async (f) => {
+        capturedFilters = f;
+        return [];
+      }
+    };
     const handlers = createMcpHandlers({ client });
     await handlers.smart_money({ leagues: ['MLB'], sportsbooks: ['DraftKings', 'FanDuel'] });
     assert.deepEqual(capturedFilters.sportsbooks, ['DraftKings', 'FanDuel']);

@@ -1,6 +1,11 @@
 'use strict';
 const { resolveMarkets } = require('./handler-utils');
-const { analyzeMultiWindow, summarizeResults, DEFAULT_WINDOWS, DEFAULT_SHARP_BOOKS } = require('../../../lib/propprofessor-sharp-consensus');
+const {
+  analyzeMultiWindow,
+  summarizeResults,
+  DEFAULT_WINDOWS,
+  DEFAULT_SHARP_BOOKS
+} = require('../../../lib/propprofessor-sharp-consensus');
 const { parseGameStartMs } = require('../../../lib/propprofessor-shared-utils');
 
 function createConsensusHandlers(client, ctx) {
@@ -66,8 +71,7 @@ function createConsensusHandlers(client, ctx) {
       const storePath = args.storePath || defaultPath();
       const dedupWindowMs =
         (Number.isFinite(Number(args.dedupWindowMinutes)) ? Number(args.dedupWindowMinutes) : 360) * 60000;
-      const sinceMs =
-        (Number.isFinite(Number(args.sinceMinutes)) ? Number(args.sinceMinutes) : 2880) * 60000;
+      const sinceMs = (Number.isFinite(Number(args.sinceMinutes)) ? Number(args.sinceMinutes) : 2880) * 60000;
       const floor = ['TIER 1', 'TIER 2', 'TIER 3'].indexOf(args.minFinalTier || 'TIER 1');
 
       // Delegate to quick_screen with validation + research on (reuses all filters).

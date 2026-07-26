@@ -4,7 +4,6 @@ about: Suggest an idea for the project
 title: ''
 labels: enhancement
 assignees: ''
-
 ---
 
 **Is your feature request related to a problem?**
@@ -21,6 +20,7 @@ Is this for the `pp` CLI, the MCP server, or both?
 
 **Example usage**
 If it's a CLI feature, show what the command would look like:
+
 ```
 pp <new-command> --some-flag
 ```

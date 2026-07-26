@@ -4,7 +4,6 @@ about: Something isn't working as expected
 title: ''
 labels: bug
 assignees: j17drake
-
 ---
 
 **Describe the bug**
@@ -12,6 +11,7 @@ A clear description of what's broken.
 
 **To Reproduce**
 Exact command or MCP call:
+
 ```
 pp scan mlb -M supportive -n3
 ```
@@ -23,6 +23,7 @@ What you expected to happen.
 What actually happened (paste output or error message).
 
 **Environment**
+
 - Node version: `node --version`
 - Package version: `npm ls propprofessor-mcp` (or git SHA)
 - Auth status: does `pp health` work?

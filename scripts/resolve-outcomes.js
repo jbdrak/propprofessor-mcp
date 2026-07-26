@@ -113,7 +113,9 @@ function csvToResultMap(text) {
   const map = new Map();
   for (const r of rows) {
     const id = String(r.playid || r.play_id || r.id || '').trim();
-    const res = String(r.result || '').trim().toLowerCase();
+    const res = String(r.result || '')
+      .trim()
+      .toLowerCase();
     if (!id || !VALID.has(res)) continue;
     const entry = { result: res };
     if (r.odds !== undefined && r.odds !== '') entry.odds = Number(r.odds);

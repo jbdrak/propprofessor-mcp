@@ -17,7 +17,7 @@ Every screen/recommended/staking tool supports a set of params that let you trad
 **Casual bettor asking "what should I bet on tonight?"**
 
 ```js
-recommended_bets({ verbosity: 'minimal' });   // retired — use quick_screen(...)
+recommended_bets({ verbosity: 'minimal' }); // retired — use quick_screen(...)
 ```
 
 Returns plain-English picks with the kaiCall and a one-line reason.

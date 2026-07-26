@@ -28,11 +28,17 @@ describe('reasonCodes exist on ranked rows', () => {
   it('contains reason codes related to the row signals', () => {
     const rows = rankLeagueScreenRows(NBA_MONEYLINE_PAYLOAD, { league: 'NBA', market: 'Moneyline' });
     const validCodes = new Set([
-      'SUPPORTIVE_MOVEMENT', 'ADVERSE_MOVEMENT', 'BOUNCY_MOVEMENT',
+      'SUPPORTIVE_MOVEMENT',
+      'ADVERSE_MOVEMENT',
+      'BOUNCY_MOVEMENT',
       'INSUFFICIENT_HISTORY',
-      'CONSENSUS_8_PLUS', 'CONSENSUS_3_TO_7', 'CONSENSUS_1_TO_2',
-      'EDGE_SIGNIFICANT', 'EDGE_POSITIVE',
-      'CLV_POSITIVE', 'CLV_NEGATIVE'
+      'CONSENSUS_8_PLUS',
+      'CONSENSUS_3_TO_7',
+      'CONSENSUS_1_TO_2',
+      'EDGE_SIGNIFICANT',
+      'EDGE_POSITIVE',
+      'CLV_POSITIVE',
+      'CLV_NEGATIVE'
     ]);
     for (const row of rows) {
       for (const code of row.reasonCodes) {
@@ -54,7 +60,7 @@ describe('reasonCodes exist on ranked rows', () => {
     const rows = rankLeagueScreenRows(NBA_MONEYLINE_PAYLOAD, { league: 'NBA', market: 'Moneyline' });
     for (const row of rows) {
       const cbk = row.consensusBookCount || 0;
-      const hasConsensus = row.reasonCodes.some(c => c.startsWith('CONSENSUS_'));
+      const hasConsensus = row.reasonCodes.some((c) => c.startsWith('CONSENSUS_'));
       if (cbk > 0) {
         assert.ok(hasConsensus, `row with ${cbk} books missing CONSENSUS_ code`);
       }
@@ -62,13 +68,16 @@ describe('reasonCodes exist on ranked rows', () => {
   });
 
   it('does not appear in lite / compact mode output', () => {
-    const rows = rankLeagueScreenRows(
-      WNBA_MONEYLINE_LITE_PAYLOAD,
-      { league: 'WNBA', market: 'Moneyline', compact: true }
-    );
+    const rows = rankLeagueScreenRows(WNBA_MONEYLINE_LITE_PAYLOAD, {
+      league: 'WNBA',
+      market: 'Moneyline',
+      compact: true
+    });
     for (const row of rows) {
-      assert.ok(Array.isArray(row.reasonCodes),
-        `row '${row.selection || row.game}' missing reasonCodes in compact mode output`);
+      assert.ok(
+        Array.isArray(row.reasonCodes),
+        `row '${row.selection || row.game}' missing reasonCodes in compact mode output`
+      );
     }
   });
 });

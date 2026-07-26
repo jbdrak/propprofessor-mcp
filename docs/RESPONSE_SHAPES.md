@@ -56,9 +56,7 @@ When a tool returns ranked rows, each row may include:
 ```jsonc
 {
   "ok": true,
-  "result": [
-    /* ranked rows */
-  ],
+  "result": [/* ranked rows */],
   "resultMeta": {
     "tierCounts": { "TIER 1": 1, "TIER 2": 2, "TIER 3": 0, "TIER 4": 5 },
     "markets_alias_used": []
@@ -155,36 +153,36 @@ When a tool returns ranked rows, each row may include:
 
 #### validated fields (when `validate` is true — the default)
 
-| Field                        | Type     | Source                                                                  |
-| ---------------------------- | -------- | ----------------------------------------------------------------------- |
-| validatedTier                | string   | BET/CONSIDER/PASS from validate_play                                    |
+| Field                        | Type     | Source                                                                                                                                        |
+| ---------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| validatedTier                | string   | BET/CONSIDER/PASS from validate_play                                                                                                          |
 | validatedConsensusBookCount  | number   | Re-fetched consensus count. 0 when the line could not be re-found (validatedUnverified=true) — never silently reuses the screen's stale count |
-| validatedMovementDisposition | string   | supportive_clean / supportive_bouncy / adverse_full / insufficient      |
-| validatedRiskFlags           | string[] | Risk flags from validation                                              |
-| validatedActionableSummary   | string   | Human-readable summary from validate_play verdictSummary                |
-| validatedEdge                | number   | Validated consensus edge (may differ from screen value)                 |
-| validatedClv                 | number   | Validated CLV                                                           |
-| validatedGameContext         | object   | MLB weather/pitchers/park or Tennis surface/tournament                  |
+| validatedMovementDisposition | string   | supportive_clean / supportive_bouncy / adverse_full / insufficient                                                                            |
+| validatedRiskFlags           | string[] | Risk flags from validation                                                                                                                    |
+| validatedActionableSummary   | string   | Human-readable summary from validate_play verdictSummary                                                                                      |
+| validatedEdge                | number   | Validated consensus edge (may differ from screen value)                                                                                       |
+| validatedClv                 | number   | Validated CLV                                                                                                                                 |
+| validatedGameContext         | object   | MLB weather/pitchers/park or Tennis surface/tournament                                                                                        |
 
 #### `finalVerdict` (authoritative bet/no-bet call)
 
 Computed server-side by merging the screen tier and the validation verdict into ONE field, so agents no longer reconcile a screen BET against a validation PASS by hand.
 
-| Field               | Type     | Meaning                                                                 |
-| ------------------- | -------- | ----------------------------------------------------------------------- |
-| finalVerdict        | string   | `BET` \| `CONSIDER` \| `PASS`. Validation wins; hard fails force PASS.  |
-| finalConfidenceTier | string   | `TIER 1`..`TIER 4`. `validatedTier` if present, else `confidenceTier`.  |
-| priceDrift          | number   | `\|validatedOdds - odds\|` when both finite; null otherwise.            |
-| finalWarnings       | string[] | `price-drift`, `unknown-game-context`, `validation-failed`.             |
+| Field               | Type     | Meaning                                                                |
+| ------------------- | -------- | ---------------------------------------------------------------------- |
+| finalVerdict        | string   | `BET` \| `CONSIDER` \| `PASS`. Validation wins; hard fails force PASS. |
+| finalConfidenceTier | string   | `TIER 1`..`TIER 4`. `validatedTier` if present, else `confidenceTier`. |
+| priceDrift          | number   | `\|validatedOdds - odds\|` when both finite; null otherwise.           |
+| finalWarnings       | string[] | `price-drift`, `unknown-game-context`, `validation-failed`.            |
 
 #### `sharp_alerts` response shape
 
 ```jsonc
 {
   "ok": true,
-  "newAlerts":   [ /* finalVerdict=BET plays seen for the first time in the dedup window */ ],
-  "repeatAlerts":[ /* same plays re-confirmed within the dedup window */ ],
-  "allBets":     [ /* every finalVerdict=BET play this scan, new+repeat */ ],
+  "newAlerts": [/* finalVerdict=BET plays seen for the first time in the dedup window */],
+  "repeatAlerts": [/* same plays re-confirmed within the dedup window */],
+  "allBets": [/* every finalVerdict=BET play this scan, new+repeat */],
   "message": null /* or "No new sharp plays right now." when newAlerts is empty */
 }
 ```
@@ -239,12 +237,8 @@ The `_meta.validation` block on the response root reports how many candidates we
   "verdict": "BET", // "BET" | "CONSIDER" | "PASS"
   "tier": "TIER 1", // confidenceTier of the matching row
   "reasons": ["consensus: 5 comp books agree", "execution quality is \"best\""],
-  "play": {
-    /* full ranked row */
-  },
-  "research": {
-    /* player_context result */
-  }
+  "play": {/* full ranked row */},
+  "research": {/* player_context result */}
 }
 ```
 
@@ -324,6 +318,6 @@ At `minimal` verbosity, the `ok` and `result` fields are replaced with `{ summar
 | `validate_play`             | `get_play_details` + `player_context` (parallelized)               |
 | `ev_candidates` (validated) | `ev_candidates` (raw) + `screen_ranked` (validation pass)          |
 | `all_slates`                | `screen_ranked` per league, parallelized                           |
-| `novig_screen`              | `screen_ranked` (legacy alias for `quick_screen`)                 |
+| `novig_screen`              | `screen_ranked` (legacy alias for `quick_screen`)                  |
 
 When in doubt: **prefer the leaf tool** (`screen_ranked`, `get_play_details`, `player_context`) for full control. The composite tools (`quick_screen`, `staking_plan`, `validate_play`) trade flexibility for convenience.

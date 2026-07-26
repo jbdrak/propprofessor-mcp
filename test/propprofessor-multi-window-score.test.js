@@ -261,7 +261,11 @@ describe('multi-window score integration with risk grade and score', () => {
     };
     const baseline = calculateRiskScore({ ...yellowBase, multiWindowInsufficientData: true, multiWindowScore: 0 });
     const sustained = calculateRiskScore({ ...yellowBase, multiWindowScore: 0.85, multiWindowInsufficientData: false });
-    assert.equal(baseline - sustained, 1, `expected 1, got ${baseline - sustained} (baseline=${baseline}, sustained=${sustained})`);
+    assert.equal(
+      baseline - sustained,
+      1,
+      `expected 1, got ${baseline - sustained} (baseline=${baseline}, sustained=${sustained})`
+    );
   });
 
   it('multiWindowScore <= 0.33 increases risk score (via grade demotion + penalty)', () => {
@@ -312,11 +316,7 @@ describe('flat line handling (BUG fix: flat is no-signal, not adverse)', () => {
         return { book, time: t, odds };
       });
     }
-    const history = [
-      ...pts('Pinnacle', -170),
-      ...pts('BetOnline', -170),
-      ...pts('BookMaker', -160)
-    ];
+    const history = [...pts('Pinnacle', -170), ...pts('BetOnline', -170), ...pts('BookMaker', -160)];
     const result = computeMultiWindowScore({ lineHistory: history }, { nowMs: now });
     assert.equal(result.score, 1.0, `flat book must not veto consensus, got ${result.score}`);
     assert.equal(result.requiredBookCount, 3, 'all 3 sharp books had history');

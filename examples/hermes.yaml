@@ -2,7 +2,7 @@ mcp_servers:
   propprofessor:
     command: npx
     args:
-      - "-y"
-      - "propprofessor-mcp"
+      - '-y'
+      - 'propprofessor-mcp'
     env:
       AUTH_FILE: ~/.propprofessor/auth.json

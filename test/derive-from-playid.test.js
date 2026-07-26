@@ -48,20 +48,19 @@ describe('deriveFromPlayId', () => {
   });
 
   it('respects explicit flag overrides over playId-derived values', () => {
-    const out = deriveFromPlayId(
-      'Tennis:PREMATCH:D:F:1::Game Handicap::faria +2.5',
-      { league: 'MLB', market: 'Moneyline' }
-    );
+    const out = deriveFromPlayId('Tennis:PREMATCH:D:F:1::Game Handicap::faria +2.5', {
+      league: 'MLB',
+      market: 'Moneyline'
+    });
     assert.equal(out.league, 'MLB');
     assert.equal(out.market, 'Moneyline');
     assert.equal(out.selection, 'faria +2.5');
   });
 
   it('does not override an explicit flag when playId also carries that field', () => {
-    const out = deriveFromPlayId(
-      'Tennis:PREMATCH:Darderi:Faria:1784914200::Game Handicap::faria +2.5',
-      { league: 'NBA' }
-    );
+    const out = deriveFromPlayId('Tennis:PREMATCH:Darderi:Faria:1784914200::Game Handicap::faria +2.5', {
+      league: 'NBA'
+    });
     assert.equal(out.league, 'NBA');
     assert.equal(out.market, 'Game Handicap');
     assert.equal(out.selection, 'faria +2.5');

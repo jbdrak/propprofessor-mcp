@@ -52,6 +52,7 @@ validate_play({
 ```
 
 Returns:
+
 - `verdict` — `BET` | `CONSIDER` | `PASS`
 - `verdictSummary.actionableSummary` — read THIS to the user; don't cross-reference 5 fields
 - `movementDisposition` — `sharp`, `neutral`, `fade`, `unknown`
@@ -79,6 +80,7 @@ place_bet({
 ```
 
 Returns:
+
 - `ok: true` + `pickId` — log succeeded, settle later with `resolve_pick`
 - `ok: false`, `error.code: "BET_REJECTED"` — validate said PASS, with reasons
 - `ok: false`, `error.code: "VALIDATION_FAILED"` — lookup/validation errored

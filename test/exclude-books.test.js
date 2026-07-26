@@ -19,11 +19,7 @@ describe('excludeBooks (Task 2: mirror website account Settings)', () => {
     });
     const lastCall = calls.queryScreenOddsBestComps.at(-1);
     assert.ok(lastCall, 'backend was queried');
-    assert.deepEqual(
-      lastCall.books.sort(),
-      ['DraftKings', 'Pinnacle'],
-      'Fliff should be removed from the query books'
-    );
+    assert.deepEqual(lastCall.books.sort(), ['DraftKings', 'Pinnacle'], 'Fliff should be removed from the query books');
   });
 
   it('get_play_details strips excluded books from the backend query', async () => {

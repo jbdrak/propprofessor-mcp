@@ -65,9 +65,21 @@ describe('tennis pregame retention (odds presence = bettable)', () => {
 
   it('retains multiple live pregame rows even when some start times vary widely', () => {
     const rows = [
-      tennisCandidate({ start: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), odds: -104, selection: 'A +1.5' }),
-      tennisCandidate({ start: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString(), odds: -110, selection: 'B -2.5' }),
-      tennisCandidate({ start: new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString(), odds: -102, selection: 'C +3.5' })
+      tennisCandidate({
+        start: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+        odds: -104,
+        selection: 'A +1.5'
+      }),
+      tennisCandidate({
+        start: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString(),
+        odds: -110,
+        selection: 'B -2.5'
+      }),
+      tennisCandidate({
+        start: new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString(),
+        odds: -102,
+        selection: 'C +3.5'
+      })
     ];
     const ranked = rankTennisScreenRows(rows, { includeAll: true });
     assert.equal(ranked.length, 3, 'all three live-odds rows must survive regardless of start time');

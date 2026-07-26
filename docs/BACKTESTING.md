@@ -112,8 +112,8 @@ you tracked — they are NOT statements about the tool's profitability:
 
 ## Scoring real outcomes (P&L / ROI / Sharpe / drawdown)
 
-The synthetic script validates the *engine*. To score *real resolved
-outcomes*, resolve a snapshot with per-play outcomes and run the metrics engine:
+The synthetic script validates the _engine_. To score _real resolved
+outcomes_, resolve a snapshot with per-play outcomes and run the metrics engine:
 
 ```bash
 # 1. Capture a pre-game snapshot
@@ -128,13 +128,13 @@ node scripts/backtest.js --metrics 2026-06-10-mlb-moneyline.resolved.json
 
 `computeBacktestMetrics(plays)` returns:
 
-| Field        | Meaning                                                       |
-| ------------ | ------------------------------------------------------------- |
-| `profit`     | Net P&L in dollars (sum of per-play profit)                  |
-| `roi`        | `profit / totalStaked * 100`                                 |
-| `winRate`    | Decided bets won / (won + lost)                              |
-| `sharpe`     | Mean per-play return ÷ sample stdev (null if < 2 plays)      |
-| `maxDrawdown`| Largest peak-to-trough drop in the cumulative P&L curve      |
+| Field         | Meaning                                                 |
+| ------------- | ------------------------------------------------------- |
+| `profit`      | Net P&L in dollars (sum of per-play profit)             |
+| `roi`         | `profit / totalStaked * 100`                            |
+| `winRate`     | Decided bets won / (won + lost)                         |
+| `sharpe`      | Mean per-play return ÷ sample stdev (null if < 2 plays) |
+| `maxDrawdown` | Largest peak-to-trough drop in the cumulative P&L curve |
 
 > The PropProfessor API does **not** provide historical settled results, so
 > there is no bundled "profitable" history. Any published numbers must come
@@ -142,7 +142,7 @@ node scripts/backtest.js --metrics 2026-06-10-mlb-moneyline.resolved.json
 
 ## Daily snapshot + outcome-resolution pipeline (real P&L over time)
 
-The hand-authored fixture validates the *engine*. To accrue *real* metrics,
+The hand-authored fixture validates the _engine_. To accrue _real_ metrics,
 run the daily snapshot pipeline and resolve outcomes as games settle. This
 writes a JSONL ledger (`data/snapshots.jsonl`) of every recommended play, then
 attaches settled results so `computeBacktestMetrics` can score an ever-growing
@@ -178,7 +178,7 @@ node scripts/resolve-outcomes.js --csv results.csv
 
 The CSV's `playId` column must match the `playId` emitted by the snapshot.
 Unresolved plays get `result` + `resolvedAt` written back into the ledger
-*in place*. Plays whose `playId` is absent from the CSV stay unresolved.
+_in place_. Plays whose `playId` is absent from the CSV stay unresolved.
 
 > Optional live path: `--live` calls an injected `liveGetPlayResult(play)`
 > resolver. There is no built-in client method for settlement today, so live
@@ -207,4 +207,3 @@ P&L / ROI / Sharpe / max drawdown accrue as your real settled results accumulate
 - `scripts/resolve-outcomes.js` — CSV (and optional live) outcome resolution, in place
 - `data/snapshots.jsonl` — the append-only play ledger (created on first run)
 - `test/pipeline.test.js` — end-to-end test (mocked plays → CSV resolve → metrics)
-

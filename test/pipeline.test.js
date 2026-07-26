@@ -6,16 +6,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const {
-  takeDailySnapshot,
-  buildPlayId,
-  normalizePlay
-} = require('../scripts/daily-snapshot');
-const {
-  resolveOutcomes,
-  ledgerToPlays,
-  toEngineResult
-} = require('../scripts/resolve-outcomes');
+const { takeDailySnapshot, buildPlayId, normalizePlay } = require('../scripts/daily-snapshot');
+const { resolveOutcomes, ledgerToPlays, toEngineResult } = require('../scripts/resolve-outcomes');
 const { computeBacktestMetrics } = require('../lib/propprofessor-backtest-metrics');
 
 // Two fake plays from the (mocked) recommended_bets / quick_screen source.
@@ -48,11 +40,7 @@ const FAKE_PLAYS = [
 
 function makeCsv() {
   // columns: playId,result (with a third irrelevant column to test robustness)
-  return [
-    'playId,result,note',
-    'fake001,win,settled',
-    'fake002,loss,settled'
-  ].join('\n');
+  return ['playId,result,note', 'fake001,win,settled', 'fake002,loss,settled'].join('\n');
 }
 
 describe('daily snapshot + outcome-resolution pipeline', () => {

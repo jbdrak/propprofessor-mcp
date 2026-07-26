@@ -5,12 +5,7 @@
  * Extracted from handlers.js createMcpHandlers closure.
  */
 
-const {
-  resolveAuthFile,
-  readAuthState,
-  isAuthValid,
-  getCookieExpiryInfo
-} = require('../../../lib/propprofessor-api');
+const { resolveAuthFile, readAuthState, isAuthValid, getCookieExpiryInfo } = require('../../../lib/propprofessor-api');
 
 const { ok, fail } = require('../../../lib/response-envelope');
 
@@ -51,9 +46,8 @@ function createHealthHandlers(client, ctx) {
       }
 
       const result = await client.healthStatus();
-      const responseCacheStats = responseCache && typeof responseCache.stats === 'function'
-        ? responseCache.stats()
-        : {};
+      const responseCacheStats =
+        responseCache && typeof responseCache.stats === 'function' ? responseCache.stats() : {};
       const totalLooks = responseCacheStats.hits + responseCacheStats.misses;
       const responseCacheHitRate = totalLooks > 0 ? responseCacheStats.hits / totalLooks : 0;
       const oddsHistoryCacheStats = getOddsHistoryCache().stats();

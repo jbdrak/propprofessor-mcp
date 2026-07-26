@@ -86,7 +86,16 @@ describe('propprofessor-tool-definitions', () => {
     });
 
     it('only uses the 7 known categories', () => {
-      const validCategories = new Set(['discovery', 'screen', 'alerts', 'drill_down', 'research', 'tracking', 'admin', 'meta']);
+      const validCategories = new Set([
+        'discovery',
+        'screen',
+        'alerts',
+        'drill_down',
+        'research',
+        'tracking',
+        'admin',
+        'meta'
+      ]);
       for (const [name, cat] of Object.entries(TOOL_CATEGORIES)) {
         assert.ok(validCategories.has(cat), `${name} has unknown category: ${cat}`);
       }

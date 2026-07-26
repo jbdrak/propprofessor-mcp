@@ -45,8 +45,7 @@ describe('NBASL movement quality fixes', () => {
       fullWindowSharpMoveDirection: '',
       sharpBookMovementConfirmed: false
     });
-    assert.equal(result, 'adverse_full',
-      'CLV-negative side with thin direction data should be adverse_full');
+    assert.equal(result, 'adverse_full', 'CLV-negative side with thin direction data should be adverse_full');
   });
 
   it('computeMovementDisposition keeps supportive_bouncy for positive CLV + supportive label + missing directions', () => {
@@ -59,8 +58,7 @@ describe('NBASL movement quality fixes', () => {
       fullWindowSharpMoveDirection: '',
       sharpBookMovementConfirmed: false
     });
-    assert.equal(result, 'supportive_bouncy',
-      'CLV-positive side with supportive label should stay supportive_bouncy');
+    assert.equal(result, 'supportive_bouncy', 'CLV-positive side with supportive label should stay supportive_bouncy');
   });
 
   it('computeMovementDisposition does not override when direction fields exist', () => {
@@ -73,8 +71,7 @@ describe('NBASL movement quality fixes', () => {
       fullWindowSharpMoveDirection: 'supportive',
       sharpBookMovementConfirmed: false
     });
-    assert.notEqual(result, 'adverse_full',
-      'Should not override when direction fields are present');
+    assert.notEqual(result, 'adverse_full', 'Should not override when direction fields are present');
   });
 
   it('computeMovementDisposition uses clv fallback when openToCurrentClvPct is missing', () => {
@@ -86,8 +83,7 @@ describe('NBASL movement quality fixes', () => {
       fullWindowSharpMoveDirection: '',
       sharpBookMovementConfirmed: false
     });
-    assert.equal(result, 'adverse_full',
-      'Should fall back to row.clv when openToCurrentClvPct is absent');
+    assert.equal(result, 'adverse_full', 'Should fall back to row.clv when openToCurrentClvPct is absent');
   });
 
   // ── Reconcile guard (already fixed in a7cd39e) ──────────────────
@@ -101,10 +97,12 @@ describe('NBASL movement quality fixes', () => {
       validateDisposition: 'insufficient',
       consensusDrift: true
     });
-    assert.equal(result.movementDisposition, 'supportive_clean',
-      'Should keep screen signal even when consensusDrift is exec-quality noise');
-    assert.equal(result.overridden, true,
-      'Should report that the screen signal was kept');
+    assert.equal(
+      result.movementDisposition,
+      'supportive_clean',
+      'Should keep screen signal even when consensusDrift is exec-quality noise'
+    );
+    assert.equal(result.overridden, true, 'Should report that the screen signal was kept');
   });
 
   it('reconcileValidateOverride passes through insufficient when screen is also insufficient', () => {
@@ -116,8 +114,7 @@ describe('NBASL movement quality fixes', () => {
       validateDisposition: 'insufficient',
       consensusDrift: false
     });
-    assert.equal(result.movementDisposition, 'insufficient',
-      'Should pass through when both sides are insufficient');
+    assert.equal(result.movementDisposition, 'insufficient', 'Should pass through when both sides are insufficient');
     assert.equal(result.overridden, false);
   });
 });

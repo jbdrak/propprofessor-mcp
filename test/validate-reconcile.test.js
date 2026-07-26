@@ -10,16 +10,15 @@ const { applyValidatedFields, applyFinalVerdict } = require('../scripts/server/h
 test('classifyExecutionQuality is exported and callable', () => {
   assert.strictEqual(typeof classifyExecutionQuality, 'function');
   // -190 within 10c of best -190 => playable
-  assert.strictEqual(
-    classifyExecutionQuality({ targetOdds: -190, comparisonOdds: [-190, -185, -195] }),
-    'playable'
-  );
+  assert.strictEqual(classifyExecutionQuality({ targetOdds: -190, comparisonOdds: [-190, -185, -195] }), 'playable');
 });
 
 test('keeps screen playable when validate says bad but no consensus drift', () => {
   const r = reconcileValidateOverride({
-    screenExec: 'playable', screenDisposition: 'supportive_clean',
-    validateExec: 'bad', validateDisposition: 'supportive_clean',
+    screenExec: 'playable',
+    screenDisposition: 'supportive_clean',
+    validateExec: 'bad',
+    validateDisposition: 'supportive_clean',
     consensusDrift: false
   });
   assert.strictEqual(r.executionQuality, 'playable');
@@ -29,8 +28,10 @@ test('keeps screen playable when validate says bad but no consensus drift', () =
 
 test('accepts validate bad when consensus drifted', () => {
   const r = reconcileValidateOverride({
-    screenExec: 'playable', screenDisposition: 'supportive_clean',
-    validateExec: 'bad', validateDisposition: 'supportive_clean',
+    screenExec: 'playable',
+    screenDisposition: 'supportive_clean',
+    validateExec: 'bad',
+    validateDisposition: 'supportive_clean',
     consensusDrift: true
   });
   assert.strictEqual(r.executionQuality, 'bad');
@@ -39,8 +40,10 @@ test('accepts validate bad when consensus drifted', () => {
 
 test('keeps screen supportive_clean when validate flips adverse but no drift', () => {
   const r = reconcileValidateOverride({
-    screenExec: 'playable', screenDisposition: 'supportive_clean',
-    validateExec: 'playable', validateDisposition: 'adverse_recent',
+    screenExec: 'playable',
+    screenDisposition: 'supportive_clean',
+    validateExec: 'playable',
+    validateDisposition: 'adverse_recent',
     consensusDrift: false
   });
   assert.strictEqual(r.movementDisposition, 'supportive_clean');
@@ -49,8 +52,10 @@ test('keeps screen supportive_clean when validate flips adverse but no drift', (
 
 test('accepts adverse disposition when consensus drifted', () => {
   const r = reconcileValidateOverride({
-    screenExec: 'playable', screenDisposition: 'supportive_clean',
-    validateExec: 'playable', validateDisposition: 'adverse_recent',
+    screenExec: 'playable',
+    screenDisposition: 'supportive_clean',
+    validateExec: 'playable',
+    validateDisposition: 'adverse_recent',
     consensusDrift: true
   });
   assert.strictEqual(r.movementDisposition, 'adverse_recent');
@@ -59,8 +64,10 @@ test('accepts adverse disposition when consensus drifted', () => {
 
 test('passes through when screen and validate agree', () => {
   const r = reconcileValidateOverride({
-    screenExec: 'best', screenDisposition: 'supportive_clean',
-    validateExec: 'best', validateDisposition: 'supportive_clean',
+    screenExec: 'best',
+    screenDisposition: 'supportive_clean',
+    validateExec: 'best',
+    validateDisposition: 'supportive_clean',
     consensusDrift: false
   });
   assert.strictEqual(r.executionQuality, 'best');

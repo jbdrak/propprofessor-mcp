@@ -27,8 +27,22 @@ const ARGS = {
   ufc_card: { event: 'UFC 300' },
   smart_bet: { league: 'NBA', market: 'Moneyline', selection: 'Lakers', book: 'NoVigApp' },
   smart_money: { league: 'NBA', sportsbooks: ['Pinnacle', 'Circa'] },
-  validate_play: { league: 'WNBA', gameId: 'WNBA:PREMATCH:NYL:LV:123', selection: 'Liberty', market: 'Moneyline', book: 'NoVigApp' },
-  place_bet: { league: 'WNBA', gameId: 'WNBA:PREMATCH:NYL:LV:123', selection: 'Liberty', market: 'Moneyline', book: 'NoVigApp', odds: -110, stake: 10 },
+  validate_play: {
+    league: 'WNBA',
+    gameId: 'WNBA:PREMATCH:NYL:LV:123',
+    selection: 'Liberty',
+    market: 'Moneyline',
+    book: 'NoVigApp'
+  },
+  place_bet: {
+    league: 'WNBA',
+    gameId: 'WNBA:PREMATCH:NYL:LV:123',
+    selection: 'Liberty',
+    market: 'Moneyline',
+    book: 'NoVigApp',
+    odds: -110,
+    stake: 10
+  },
   log_pick: { game: 'Test Game', league: 'WNBA', market: 'Moneyline', selection: 'Liberty', odds: -110 },
   resolve_pick: { id: '00000000-0000-0000-0000-000000000000', result: 'won' },
   get_pick_history: { status: 'pending' },
@@ -50,12 +64,9 @@ const ARGS = {
   const failures = [];
 
   const withTimeout = (p, ms) =>
-    Promise.race([
-      p,
-      new Promise((_, rej) => setTimeout(() => rej(new Error(`timeout after ${ms}ms`)), ms))
-    ]);
+    Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`timeout after ${ms}ms`)), ms))]);
 
-const SLOW_TOOLS = new Set(['ask', 'get_started', 'quick_screen', 'sharp_alerts', 'staking_plan', 'today']);
+  const SLOW_TOOLS = new Set(['ask', 'get_started', 'quick_screen', 'sharp_alerts', 'staking_plan', 'today']);
 
   for (const name of names) {
     const args = ARGS[name] || {};

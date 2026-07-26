@@ -698,10 +698,16 @@ describe('getKaiCall (Bug #2, 2026-06-17)', () => {
 
 describe('isEdgePlausible', () => {
   it('rejects phantom edge from single off-market book', () => {
-    assert.equal(isEdgePlausible({ consensusEdge: 33, consensusBookCount: 1, targetOdds: -185, bestAvailableOdds: -4900 }), false);
+    assert.equal(
+      isEdgePlausible({ consensusEdge: 33, consensusBookCount: 1, targetOdds: -185, bestAvailableOdds: -4900 }),
+      false
+    );
   });
   it('allows small edge from deep consensus', () => {
-    assert.equal(isEdgePlausible({ consensusEdge: 2.0, consensusBookCount: 11, targetOdds: -110, bestAvailableOdds: -112 }), true);
+    assert.equal(
+      isEdgePlausible({ consensusEdge: 2.0, consensusBookCount: 11, targetOdds: -110, bestAvailableOdds: -112 }),
+      true
+    );
   });
   it('allows null edge (nothing to judge)', () => {
     assert.equal(isEdgePlausible({ consensusEdge: null }), true);

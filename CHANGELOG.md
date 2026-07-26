@@ -17,6 +17,7 @@
 - Version bump only; changelog entry added.
 
 ---
+
 # Changelog
 
 ## Unreleased
@@ -27,11 +28,13 @@
 **cardWindow timezone fix + agent-access hardening.**
 
 ### What changed
-- **`cardWindow:'today'`/`'next'` now use local timezone (America/Chicago), not UTC.** Previously the date key was built from `toISOString()` (UTC), so any game tipping after the UTC midnight flip (≈7pm CT) got a *next-day* UTC key and was silently filtered out of `today`. A live Tier 1 could vanish from the scan. Fixed in both the `screen` tool path and the `quick_screen` aggregate path (incl. the next-day merge) via a new `localDateKey(ms, tz)` helper in `lib/mcp-runtime-config.js`.
+
+- **`cardWindow:'today'`/`'next'` now use local timezone (America/Chicago), not UTC.** Previously the date key was built from `toISOString()` (UTC), so any game tipping after the UTC midnight flip (≈7pm CT) got a _next-day_ UTC key and was silently filtered out of `today`. A live Tier 1 could vanish from the scan. Fixed in both the `screen` tool path and the `quick_screen` aggregate path (incl. the next-day merge) via a new `localDateKey(ms, tz)` helper in `lib/mcp-runtime-config.js`.
 - **`get_play_details` accepts a singular `book` alias.** Agents (and the skill docs) pass `book` (singular); the schema only allowed `books` (array) and rejected it with `VALIDATION_ERROR`. The handler now coerces `book` → `books:[book]`. Both forms work.
 - **`today()` slate rows now include `gameId`.** The one-call briefing omitted `gameId`, so an agent couldn't chain straight into `validate_play` (which requires it). Rows now carry `gameId` for direct chaining.
 
 ### Tests
+
 - `test/local-date-key.test.js` — `localDateKey` timezone math (late-night local game stays on same local day).
 - `test/card-window-timezone.test.js` — replicates the fixed filter predicate contract.
 - `test/get-play-details-book-alias.test.js` — `book` schema gate + coercion.
@@ -40,6 +43,7 @@
 **Tool consolidation (33→30) + response cache + agent self-documentation.**
 
 ### What changed
+
 - **Tool consolidation.** `recommended_bets`, `sharp_plays`, `tonight_bets` folded into `quick_screen` mode presets (`mode: 'recommended'|'sharp'|'tonight'`). 33→30 registered tools. All stale references removed from README, docs, tests, and handlers.
 - **Response cache.** `quick_screen` now caches aggregate responses — repeat calls with identical args return instantly (<5ms) instead of re-fanning out across leagues. Validation bypasses cache.
 - **Self-documenting tools.** Top 5 tools now include `PITFALL` hints in their descriptions so agents learn footguns from `tools/list` without a pre-loaded skill.
@@ -49,7 +53,9 @@
 - **Dead code removal.** `tonight_bets` handler deleted (zero callers). `ask()` fallback and `daily-snapshot.js` now route through `quick_screen(mode='recommended')`.
 
 ### Migration notes
+
 `recommended_bets`, `sharp_plays`, and `tonight_bets` are no longer registered tools. Use `quick_screen` with the `mode` parameter instead:
+
 - `recommended_bets({ leagues, book })` → `quick_screen({ mode: 'recommended', leagues, book })`
 - `sharp_plays({ league, market })` → `quick_screen({ mode: 'sharp', leagues: [league], markets: [market] })`
 - `tonight_bets({ book })` → `quick_screen({ mode: 'tonight', book })`
@@ -57,11 +63,13 @@
 **Sharp-play alerts (on-demand) + authoritative `finalVerdict`.**
 
 ### What changed
+
 - **`finalVerdict` field.** Every returned candidate now carries a single authoritative bet/no-bet call that merges the raw screen tier and the validation verdict. Resolution rule: prefer `validatedVerdict` (it reflects re-fetched consensus + movement); hard safety override forces a `movement adverse` / `exec bad` flag to PASS (never BET). Also sets `finalConfidenceTier`, `priceDrift` (screen vs validated odds), and `finalWarnings` (`price-drift`, `unknown-game-context`, `validation-failed`).
 - **`onlyBets` / `minFinalTier` filter on `quick_screen`.** Return only `finalVerdict=BET` rows at/above the tier floor in one call.
 - **New `sharp_alerts` tool.** On-demand alert surface (no cron/polling). Returns ONLY `finalVerdict=BET` plays with clean research, deduped against a local store (`~/.propprofessor/sharp-alerts-store.json`) so the same play isn't re-alerted within the dedup window (default 6h). Response shape: `newAlerts` / `repeatAlerts` / `allBets` + a `message` when nothing is new.
 
 ### Migration notes
+
 No breaking changes. `finalVerdict` is additive. `sharp_alerts` is a new tool (available in full and lite modes). Prefer `sharp_alerts` over polling crons — frequent screen-endpoint polling triggered a rate-limit ban for the project owner.
 
 ## 2.8.3 (unreleased)
@@ -69,9 +77,11 @@ No breaking changes. `finalVerdict` is additive. `sharp_alerts` is a new tool (a
 **Tennis `unknown-game-context` false-positive fix.**
 
 ### What changed
+
 - `pickTourneyForMatchup` (lib/tennis-schedule-data/weekly-schedule-2026.js) now has a **week-level inference fallback** after the player-circuit lookup fails: during a **Grand Slam week** every relevant matchup resolves to that Slam (authoritative surface/level from the schedule), and a **single-event week** resolves to its one tourney. Previously these returned `null` → ESPN fallback (no venue for WTA/challenger early rounds) → `surface: unknown` → `riskFlag: 'unknown'`, which wrongly soft-failed Slam-week WTA/challenger plays (e.g. `Tubello vs Jeanjean` flagged `unknown-game-context` at Wimbledon). Genuinely ambiguous multi-event weeks (no circuit hint, several events per tour) still return `null` — the resolver never guesses a wrong surface.
 
 ### Why this matters
+
 The `unknown-game-context` flag used to flow into `validatedGameContext.riskFlag` and the `finalWarnings`/`sharp_alerts` research gate, soft-failing legitimate WTA/challenger sharp plays. It now only fires for genuinely unresolvable matchups.
 
 ## 2.8.2

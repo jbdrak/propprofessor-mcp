@@ -120,14 +120,14 @@ test('nested total container must not return wrong-line odds (166.5 vs 173.5)', 
       consensusBookCount: 9,
       executionQuality: 'best',
       selections: {
-        '166.5': {
+        166.5: {
           selection1: 'Over 166.5',
           selection2: 'Under 166.5',
           odds: {
             NoVigApp: { book: 'NoVigApp', odds1: -163, odds2: 125, liquidity1: 841, liquidity2: 442 }
           }
         },
-        '173.5': {
+        173.5: {
           selection1: 'Over 173.5',
           selection2: 'Under 173.5',
           odds: {
@@ -144,7 +144,11 @@ test('nested total container must not return wrong-line odds (166.5 vs 173.5)', 
   // Cross-line matches intentionally zero container aggregates so a wrong-line
   // consensus cannot poison validation. The nested line's own odds map here has
   // only one book, so consensusBookCount must reflect that.
-  assert.strictEqual(result.consensusBookCount, 1, 'nested line book count replaces container aggregate to avoid consensus poisoning');
+  assert.strictEqual(
+    result.consensusBookCount,
+    1,
+    'nested line book count replaces container aggregate to avoid consensus poisoning'
+  );
 });
 
 test('nested total where request IS the container line returns the row as-is', () => {
@@ -154,7 +158,7 @@ test('nested total where request IS the container line returns the row as-is', (
       participant: 'Under 173.5',
       odds: -143,
       selections: {
-        '173.5': {
+        173.5: {
           selection1: 'Over 173.5',
           selection2: 'Under 173.5',
           odds: { NoVigApp: { book: 'NoVigApp', odds1: 138, odds2: -143 } }

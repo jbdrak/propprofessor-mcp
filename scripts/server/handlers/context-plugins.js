@@ -59,13 +59,15 @@ function createContextPluginsHandlers(client, _ctx) {
       if (!player) {
         return { ok: false, error: 'player argument is required' };
       }
-      return ok(await getPlayerContext({
-        player,
-        sport: typeof args.sport === 'string' && args.sport.length > 0 ? args.sport : null,
-        gameTime: typeof args.gameTime === 'string' && args.gameTime.length > 0 ? args.gameTime : null,
-        maxAgeMinutes: Number.isFinite(Number(args.maxAgeMinutes)) ? Number(args.maxAgeMinutes) : 60,
-        useXurl: args.useXurl === true
-      }));
+      return ok(
+        await getPlayerContext({
+          player,
+          sport: typeof args.sport === 'string' && args.sport.length > 0 ? args.sport : null,
+          gameTime: typeof args.gameTime === 'string' && args.gameTime.length > 0 ? args.gameTime : null,
+          maxAgeMinutes: Number.isFinite(Number(args.maxAgeMinutes)) ? Number(args.maxAgeMinutes) : 60,
+          useXurl: args.useXurl === true
+        })
+      );
     },
 
     async mlb_game_context(args = {}) {
@@ -86,12 +88,11 @@ function createContextPluginsHandlers(client, _ctx) {
 
     async fantasy_optimizer(args = {}) {
       const filters = {
-        fantasyApps: Array.isArray(args.fantasyApps) && args.fantasyApps.length
-          ? args.fantasyApps
-          : ['PrizePicks'],
-        leagues: Array.isArray(args.leagues) && args.leagues.length
-          ? args.leagues
-          : ['NBA', 'MLB', 'WNBA', 'Tennis', 'NHL', 'NFL', 'UFC', 'Soccer']
+        fantasyApps: Array.isArray(args.fantasyApps) && args.fantasyApps.length ? args.fantasyApps : ['PrizePicks'],
+        leagues:
+          Array.isArray(args.leagues) && args.leagues.length
+            ? args.leagues
+            : ['NBA', 'MLB', 'WNBA', 'Tennis', 'NHL', 'NFL', 'UFC', 'Soccer']
       };
       if (args.market) filters.market = args.market;
       if (args.isLive === true) filters.isLive = true;

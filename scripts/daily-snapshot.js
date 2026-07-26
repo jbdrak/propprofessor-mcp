@@ -41,9 +41,7 @@ const SNAPSHOT_FILE = path.join(DATA_DIR, 'snapshots.jsonl');
  * @returns {string} 16-char hex id
  */
 function buildPlayId({ gameId, selection, market, book } = {}) {
-  const raw = [gameId, selection, market, book]
-    .map((v) => String(v == null ? '' : v).trim())
-    .join('|');
+  const raw = [gameId, selection, market, book].map((v) => String(v == null ? '' : v).trim()).join('|');
   return crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16);
 }
 
@@ -159,9 +157,7 @@ async function takeDailySnapshot(opts = {}) {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const todaysIds = new Set(
-    existing.filter((p) => utcDay(p.timestamp) === today).map((p) => p.playId)
-  );
+  const todaysIds = new Set(existing.filter((p) => utcDay(p.timestamp) === today).map((p) => p.playId));
 
   const getPlays = opts.getPlays || defaultGetPlays;
   const rawPlays = await getPlays({ leagues: opts.leagues, market: opts.market });

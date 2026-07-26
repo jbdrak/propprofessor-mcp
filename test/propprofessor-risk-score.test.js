@@ -233,7 +233,9 @@ describe('TIER 1 guardrails', () => {
     // deteriorating is not adverse, so grade stays yellow (not green).
     // The lookup gives TIER 3 for yellow + low risk, so this never hits TIER 1 anyway.
     // But the guardrail is defense-in-depth. Verify it's not TIER 1.
-    const tier = getConfidenceTier(greenTier1Item({ movementLabel: 'deteriorating', consensusEdge: 1.0, clvProxyPct: 0 }));
+    const tier = getConfidenceTier(
+      greenTier1Item({ movementLabel: 'deteriorating', consensusEdge: 1.0, clvProxyPct: 0 })
+    );
     assert.notStrictEqual(tier, 'TIER 1');
   });
 
@@ -351,7 +353,7 @@ describe('recency weighting — recent movement scores lower risk', () => {
   // Use yellow-grade items so the base score is higher (5-6), giving room for bonuses to differentiate.
   function baseItem(overrides = {}) {
     return {
-      movementLabel: 'neutral',      // yellow grade, not green
+      movementLabel: 'neutral', // yellow grade, not green
       movementQuality: 'medium',
       movementQualityScore: 0.5,
       executionQuality: 'playable',
@@ -398,7 +400,7 @@ describe('CLV weight — strong positive CLV scores significantly lower risk', (
   // Use yellow-grade items so the base score is higher (5-6), giving room for CLV to differentiate.
   function baseItem(overrides = {}) {
     return {
-      movementLabel: 'neutral',      // yellow grade, not green
+      movementLabel: 'neutral', // yellow grade, not green
       movementQuality: 'medium',
       movementQualityScore: 0.5,
       executionQuality: 'playable',
@@ -480,7 +482,16 @@ describe('tier hysteresis cache — per-call reset contract', () => {
 
   it('does not let a stale cached TIER 4 mask a fresh TIER 1 after cache clear', () => {
     // Seed cache with a deteriorating TIER 4 observation (adverse movement → red → TIER 4).
-    getConfidenceTierStable(baseItem({ movementLabel: 'adverse', movementQuality: 'low', executionQuality: 'bad', consensusBookCount: 1, clvProxyPct: -3, consensusEdge: -1 }));
+    getConfidenceTierStable(
+      baseItem({
+        movementLabel: 'adverse',
+        movementQuality: 'low',
+        executionQuality: 'bad',
+        consensusBookCount: 1,
+        clvProxyPct: -3,
+        consensusEdge: -1
+      })
+    );
     // A new call with clean cache must recompute from raw, not carry the TIER 4.
     clearTierCache();
     const fresh = getConfidenceTierStable(baseItem());
@@ -490,16 +501,24 @@ describe('tier hysteresis cache — per-call reset contract', () => {
 
 describe('tierCacheKey — distinct keys for distinct plays (audit finding #1)', () => {
   it('two different totals lines on the same game produce different keys', () => {
-    const under166 = { row: { gameId: 'NBA:PREMATCH:LAL:BOS:1234', selection: 'Under', market: 'Total', league: 'NBA', line: 166.5 } };
-    const under168 = { row: { gameId: 'NBA:PREMATCH:LAL:BOS:1234', selection: 'Under', market: 'Total', league: 'NBA', line: 168.5 } };
+    const under166 = {
+      row: { gameId: 'NBA:PREMATCH:LAL:BOS:1234', selection: 'Under', market: 'Total', league: 'NBA', line: 166.5 }
+    };
+    const under168 = {
+      row: { gameId: 'NBA:PREMATCH:LAL:BOS:1234', selection: 'Under', market: 'Total', league: 'NBA', line: 168.5 }
+    };
     const k1 = tierCacheKey(under166);
     const k2 = tierCacheKey(under168);
     assert.notEqual(k1, k2, 'different lines must produce different cache keys');
   });
 
   it('two different spreads on the same game produce different keys', () => {
-    const a = { row: { gameId: 'NBA:PREMATCH:LAL:BOS:1234', selection: 'Lakers', market: 'Spread', league: 'NBA', line: -3.5 } };
-    const b = { row: { gameId: 'NBA:PREMATCH:LAL:BOS:1234', selection: 'Lakers', market: 'Spread', league: 'NBA', line: -4.5 } };
+    const a = {
+      row: { gameId: 'NBA:PREMATCH:LAL:BOS:1234', selection: 'Lakers', market: 'Spread', league: 'NBA', line: -3.5 }
+    };
+    const b = {
+      row: { gameId: 'NBA:PREMATCH:LAL:BOS:1234', selection: 'Lakers', market: 'Spread', league: 'NBA', line: -4.5 }
+    };
     assert.notEqual(tierCacheKey(a), tierCacheKey(b));
   });
 
@@ -580,7 +599,7 @@ describe('CLV-based tier promotion and exemption', () => {
       consensusEdge: 0,
       multiWindowScore: 1.0,
       multiWindowInsufficientData: false,
-      peakAdverseClvPct: 0,
+      peakAdverseClvPct: 0
     });
     assert.strictEqual(tier, 'TIER 1');
   });
@@ -599,7 +618,7 @@ describe('CLV-based tier promotion and exemption', () => {
       consensusEdge: 0,
       multiWindowScore: 1.0,
       multiWindowInsufficientData: false,
-      peakAdverseClvPct: 0,
+      peakAdverseClvPct: 0
     });
     assert.strictEqual(tier, 'TIER 2');
   });
@@ -618,7 +637,7 @@ describe('CLV-based tier promotion and exemption', () => {
       consensusEdge: 1.0,
       multiWindowScore: 0.66,
       multiWindowInsufficientData: false,
-      peakAdverseClvPct: 0,
+      peakAdverseClvPct: 0
     };
     const tier = getConfidenceTier(item);
     assert.strictEqual(tier, 'TIER 1');
@@ -633,7 +652,7 @@ describe('CLV-based tier promotion and exemption', () => {
       consensusBookCount: 8,
       steamMove: false,
       clvProxyPct: 6,
-      consensusEdge: 1.0,
+      consensusEdge: 1.0
     };
     const tier = getConfidenceTier(item);
     assert.notStrictEqual(tier, 'TIER 1');
@@ -649,11 +668,10 @@ describe('CLV-based tier promotion and exemption', () => {
       consensusEdge: 1.0,
       multiWindowScore: 0.5,
       multiWindowInsufficientData: false,
-      peakAdverseClvPct: 0,
+      peakAdverseClvPct: 0
     };
     const withoutSharp = calculateRiskScore({ ...baseItem, sharpBookMovementConfirmed: false });
     const withSharp = calculateRiskScore({ ...baseItem, sharpBookMovementConfirmed: true });
     assert.ok(withSharp <= withoutSharp, 'sharp confirmed should reduce risk score');
   });
 });
-

@@ -15,19 +15,22 @@
  *   // ctx.client, ctx.responseCache, ctx.handlers, etc.
  */
 
-const {
-  getCacheTtlMs,
-  getCacheMaxEntries,
-  getCacheMaxEntrySizeBytes
-} = require('../../lib/mcp-runtime-config');
+const { getCacheTtlMs, getCacheMaxEntries, getCacheMaxEntrySizeBytes } = require('../../lib/mcp-runtime-config');
 const { LruCache } = require('../../lib/propprofessor-lru-cache');
 const { clearTierCache } = require('../../lib/propprofessor-risk-score');
 const { createCanonicalScreenCache } = require('../../lib/propprofessor-shared-utils');
 
 function createHandlerContext({ client } = {}) {
-  const _maybeGc = typeof global.gc === 'function'
-    ? () => { try { global.gc(); } catch { /* best-effort */ } }
-    : () => {};
+  const _maybeGc =
+    typeof global.gc === 'function'
+      ? () => {
+          try {
+            global.gc();
+          } catch {
+            /* best-effort */
+          }
+        }
+      : () => {};
 
   const responseCache = new LruCache(getCacheMaxEntries(), getCacheMaxEntrySizeBytes());
   const responseCacheTtlMs = getCacheTtlMs();

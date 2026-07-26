@@ -94,7 +94,7 @@ const VERDICT_FIELDS = [
   'validatedReconcileOverridden',
   'validatedReconcileReason',
   'validatedRiskFlags',
-  'rationale',
+  'rationale'
 ];
 
 /**

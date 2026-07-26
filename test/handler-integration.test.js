@@ -406,10 +406,7 @@ describe('handler integration: sharp_alerts', () => {
     });
     assert.equal(second.ok, true);
     // Second call within the dedup window must not surface MORE new alerts.
-    assert.ok(
-      second.newAlerts.length <= first.newAlerts.length,
-      'repeat call yields no more new alerts than first'
-    );
+    assert.ok(second.newAlerts.length <= first.newAlerts.length, 'repeat call yields no more new alerts than first');
     // Every alert carries the canonical fields.
     for (const a of first.allBets) {
       assert.ok(a.game && a.selection && a.market, 'alert has game/selection/market');
@@ -456,10 +453,7 @@ describe('handler integration: quick_screen research scoping', () => {
     }
 
     // research count must not exceed returned-play count (no raw-scan blowup)
-    const totalPlays = (result.results || []).reduce(
-      (n, e) => n + (e.candidates?.length || 0),
-      0
-    );
+    const totalPlays = (result.results || []).reduce((n, e) => n + (e.candidates?.length || 0), 0);
     assert.ok(
       result.research.length <= totalPlays + 1,
       `research (${result.research.length}) should not exceed returned plays (${totalPlays})`

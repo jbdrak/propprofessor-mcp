@@ -227,11 +227,23 @@ function claimPidFile() {
   try {
     const oldPid = require('fs').readFileSync(PID_FILE, 'utf8').trim();
     if (oldPid) {
-      try { process.kill(parseInt(oldPid, 10), 'SIGTERM'); } catch { /* process already dead */ }
+      try {
+        process.kill(parseInt(oldPid, 10), 'SIGTERM');
+      } catch {
+        /* process already dead */
+      }
     }
-  } catch { /* no PID file — fresh start */ }
+  } catch {
+    /* no PID file — fresh start */
+  }
   require('fs').writeFileSync(PID_FILE, String(process.pid));
-  process.on('exit', () => { try { require('fs').unlinkSync(PID_FILE); } catch { /* best-effort */ } });
+  process.on('exit', () => {
+    try {
+      require('fs').unlinkSync(PID_FILE);
+    } catch {
+      /* best-effort */
+    }
+  });
   process.on('SIGTERM', () => process.exit(0));
   process.on('SIGINT', () => process.exit(0));
 }

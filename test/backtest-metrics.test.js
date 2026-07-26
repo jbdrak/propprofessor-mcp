@@ -4,10 +4,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const {
-  playProfit,
-  computeBacktestMetrics
-} = require('../lib/propprofessor-backtest-metrics');
+const { playProfit, computeBacktestMetrics } = require('../lib/propprofessor-backtest-metrics');
 
 describe('backtest metrics (real P&L / ROI / Sharpe / drawdown)', () => {
   describe('playProfit', () => {
@@ -27,10 +24,7 @@ describe('backtest metrics (real P&L / ROI / Sharpe / drawdown)', () => {
 
   describe('computeBacktestMetrics — fixture', () => {
     const fixture = JSON.parse(
-      fs.readFileSync(
-        path.join(__dirname, 'fixtures', 'mlb-moneyline-resolved.json'),
-        'utf8'
-      )
+      fs.readFileSync(path.join(__dirname, 'fixtures', 'mlb-moneyline-resolved.json'), 'utf8')
     );
     const plays = fixture.resolved.plays;
 

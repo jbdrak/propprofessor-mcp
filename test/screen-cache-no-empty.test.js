@@ -30,7 +30,7 @@ function makeClient() {
     callCount++;
     const key = `${league}:${market}:${callCount}`;
     if (callCount <= 3) return Promise.resolve({ ...emptyPayload, _key: key });
-    return Promise.resolve({ ...realPayload.payload?.[0] ?? realPayload, _key: key });
+    return Promise.resolve({ ...(realPayload.payload?.[0] ?? realPayload), _key: key });
   };
   client.queryScreenOdds = client.queryScreenOddsBestComps;
   return { client, getCalls: () => callCount };

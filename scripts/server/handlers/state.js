@@ -5,9 +5,7 @@
  * Stateless helpers that clear or query internal caches.
  */
 
-const {
-  clearScoreTimeline
-} = require('../../../lib/propprofessor-risk-score');
+const { clearScoreTimeline } = require('../../../lib/propprofessor-risk-score');
 
 /**
  * @param {import('../../../lib/propprofessor-api').PropProfessorClient} client
@@ -21,7 +19,9 @@ function createStateHandlers(client, _ctx) {
     },
 
     async manage_hidden_bets(args = {}) {
-      const action = String(args.action || '').toLowerCase().trim();
+      const action = String(args.action || '')
+        .toLowerCase()
+        .trim();
       if (!['list', 'hide', 'unhide', 'clear'].includes(action)) {
         return { ok: false, error: { code: 'INVALID_PARAMS', message: 'action must be list, hide, unhide, or clear' } };
       }
