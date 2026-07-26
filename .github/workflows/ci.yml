@@ -7,12 +7,9 @@ on:
   pull_request:
 
 jobs:
-  test:
+  checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      matrix:
-        node-version: [20, 22]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout
@@ -21,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -62,9 +59,6 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      - name: Run tests with coverage
-        run: npm run test:coverage
-
       - name: Audit dependencies
         # `npm audit` surfaces known CVEs in the dependency tree. We use the
         # `audit-level=moderate` threshold so we don't fail on dev-time
@@ -73,3 +67,31 @@ jobs:
         # primary concern; dev deps (eslint, prettier, c8) rarely need
         # security gating.
         run: npm audit --audit-level=moderate --omit=dev
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+        shard: [1, 2, 3]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Run tests (shard ${{ matrix.shard }}/3)
+        # Sharding the 1666 tests across 3 runners cuts wall-clock time
+        # from ~190s to ~65s per shard. fail-fast: false on the matrix
+        # means one flaky shard won't cancel the others.
+        run: node --test --test-shard=${{ matrix.shard }}/3 test/*.test.js
