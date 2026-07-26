@@ -16,7 +16,6 @@
  */
 
 const { getPickStats, readPicks } = require('../lib/propprofessor-picks');
-const { computeBacktestMetrics } = require('../lib/propprofessor-backtest-metrics');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CLI argument parsing

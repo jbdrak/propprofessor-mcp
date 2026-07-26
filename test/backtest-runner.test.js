@@ -18,7 +18,11 @@ const { parseArgs, filterByDateRange, computeStatsFromPicks } = require('../scri
 
 describe('backtest-runner', () => {
   after(() => {
-    try { fs.unlinkSync(MOCK_PICKS_FILE); } catch {}
+    try {
+      fs.unlinkSync(MOCK_PICKS_FILE);
+    } catch (_err) {
+      void _err; /* file may not exist */
+    }
     delete process.env.PP_PICKS_FILE;
   });
 
@@ -83,10 +87,42 @@ describe('backtest-runner', () => {
   describe('computeStatsFromPicks', () => {
     it('returns correct win/loss/push counts', () => {
       const picks = [
-        { league: 'NBA', market: 'Moneyline', selection: 'Lakers', odds: 150, stake: 100, status: 'won', confidenceTier: 'TIER 1' },
-        { league: 'NBA', market: 'Moneyline', selection: 'Celtics', odds: -110, stake: 50, status: 'lost', confidenceTier: 'TIER 1' },
-        { league: 'MLB', market: 'Moneyline', selection: 'Yankees', odds: -140, stake: 100, status: 'won', confidenceTier: 'TIER 2' },
-        { league: 'NFL', market: 'Spread', selection: 'Chiefs -3', odds: -110, stake: 0, status: 'push', confidenceTier: 'TIER 3' }
+        {
+          league: 'NBA',
+          market: 'Moneyline',
+          selection: 'Lakers',
+          odds: 150,
+          stake: 100,
+          status: 'won',
+          confidenceTier: 'TIER 1'
+        },
+        {
+          league: 'NBA',
+          market: 'Moneyline',
+          selection: 'Celtics',
+          odds: -110,
+          stake: 50,
+          status: 'lost',
+          confidenceTier: 'TIER 1'
+        },
+        {
+          league: 'MLB',
+          market: 'Moneyline',
+          selection: 'Yankees',
+          odds: -140,
+          stake: 100,
+          status: 'won',
+          confidenceTier: 'TIER 2'
+        },
+        {
+          league: 'NFL',
+          market: 'Spread',
+          selection: 'Chiefs -3',
+          odds: -110,
+          stake: 0,
+          status: 'push',
+          confidenceTier: 'TIER 3'
+        }
       ];
 
       const stats = computeStatsFromPicks(picks);
@@ -174,9 +210,7 @@ describe('backtest-runner', () => {
     });
 
     it('assigns Unranked tier when confidenceTier is missing', () => {
-      const picks = [
-        { league: 'NBA', odds: 100, stake: 100, status: 'won' }
-      ];
+      const picks = [{ league: 'NBA', odds: 100, stake: 100, status: 'won' }];
       const stats = computeStatsFromPicks(picks);
       assert.ok(stats.byTier['Unranked']);
       assert.equal(stats.byTier['Unranked'].picks, 1);
