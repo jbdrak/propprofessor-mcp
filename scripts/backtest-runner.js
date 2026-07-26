@@ -117,9 +117,7 @@ function fmtCurrency(n) {
 }
 
 function printTable(headers, rows) {
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map((r) => String(r[i] || '').length))
-  );
+  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => String(r[i] || '').length)));
 
   // Header
   const headerLine = headers.map((h, i) => padR(h, widths[i])).join('  ');
@@ -128,11 +126,13 @@ function printTable(headers, rows) {
 
   // Rows
   for (const row of rows) {
-    const line = row.map((cell, i) => {
-      // Right-align numeric columns (2+)
-      if (i >= 2) return padL(String(cell || ''), widths[i]);
-      return padR(String(cell || ''), widths[i]);
-    }).join('  ');
+    const line = row
+      .map((cell, i) => {
+        // Right-align numeric columns (2+)
+        if (i >= 2) return padL(String(cell || ''), widths[i]);
+        return padR(String(cell || ''), widths[i]);
+      })
+      .join('  ');
     console.log(line);
   }
 }
@@ -155,9 +155,7 @@ function run() {
   // getPickStats calls readPicks() internally, but we need it scoped.
   // Use getPickStats days filter if --days given; otherwise compute manually.
   const days = opts.days || null;
-  const stats = days
-    ? getPickStats({ days }).stats
-    : computeStatsFromPicks(filtered);
+  const stats = days ? getPickStats({ days }).stats : computeStatsFromPicks(filtered);
 
   if (!stats) {
     console.log('No settled data in range.');
@@ -208,10 +206,7 @@ function run() {
         fmtCurrency(d.profit)
       ];
     });
-    printTable(
-      ['Tier', 'Picks', 'W', 'L', 'P', 'Win %', 'ROI', 'P&L'],
-      tierRows
-    );
+    printTable(['Tier', 'Picks', 'W', 'L', 'P', 'Win %', 'ROI', 'P&L'], tierRows);
     console.log();
   }
 
@@ -224,10 +219,7 @@ function run() {
       const d = stats.byLeague[l];
       return [l, String(d.picks), String(d.wins), String(d.losses), String(d.pushes), d.winRate || '-'];
     });
-    printTable(
-      ['League', 'Picks', 'W', 'L', 'P', 'Win %'],
-      leagueRows
-    );
+    printTable(['League', 'Picks', 'W', 'L', 'P', 'Win %'], leagueRows);
     console.log();
   }
 
@@ -279,7 +271,7 @@ function computeStatsFromPicks(picks) {
   }
   for (const s of Object.values(byLeague)) {
     const dec = s.wins + s.losses;
-    s.winRate = dec > 0 ? (s.wins / dec * 100).toFixed(1) + '%' : null;
+    s.winRate = dec > 0 ? ((s.wins / dec) * 100).toFixed(1) + '%' : null;
   }
 
   // By tier
@@ -304,9 +296,9 @@ function computeStatsFromPicks(picks) {
   }
   for (const s of Object.values(byTier)) {
     const dec = s.wins + s.losses;
-    s.winRate = dec > 0 ? (s.wins / dec * 100).toFixed(1) + '%' : null;
+    s.winRate = dec > 0 ? ((s.wins / dec) * 100).toFixed(1) + '%' : null;
     s.profit = Math.round(s.profit * 100) / 100;
-    s.roi = s.totalStake > 0 ? (s.profit / s.totalStake * 100).toFixed(1) + '%' : null;
+    s.roi = s.totalStake > 0 ? ((s.profit / s.totalStake) * 100).toFixed(1) + '%' : null;
   }
 
   return {

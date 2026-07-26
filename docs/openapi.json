@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "PropProfessor MCP API",
-    "version": "2.7.0",
+    "version": "2.9.1",
     "description": "Lean, fast odds analysis engine for AI agents. Screens 36+ sportsbooks across NBA, MLB, NHL, NFL, WNBA, UFC, Tennis, Soccer — ranks plays by sharp movement, consensus edge, and steam detection.\n\nSee the README for setup instructions and tool guides by user type.",
     "contact": {
       "name": "James Drake",
@@ -28,11 +28,9 @@
   "paths": {
     "/tools/all_slates": {
       "post": {
-        "summary": "Query multiple active leagues at once and return a consolidated ranked list. Best for daily discovery: one call instead of 5-6 separate league screens. tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "Query multiple active leagues at once and return a consolidated ranked list. One call instead of 5-6 separate league screens. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "all_slates",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -49,7 +47,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "Specific leagues to query. Default: [NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC] — every league the PropProfessor backend supports."
+                    "description": "Specific leagues to query. Default: [NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL] — every league the PropProfessor backend supports."
                   },
                   "limit": {
                     "type": "number",
@@ -94,11 +92,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -150,9 +144,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -165,13 +157,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -195,9 +181,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -210,13 +194,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -240,9 +218,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -255,13 +231,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -281,11 +251,9 @@
     },
     "/tools/ask": {
       "post": {
-        "summary": "Parse a natural language betting query and route to the best tool to call. Pure parser — no data is fetched by this tool.",
+        "summary": "ROUTER — parse a natural language betting query and return parsed components plus a suggested tool and args. Pure parser — no data fetched. Call this when you dont know which tool to use.",
         "operationId": "ask",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -299,17 +267,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "query"
-                ],
+                "required": ["query"],
                 "additionalProperties": false
               }
             }
@@ -343,9 +305,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -358,13 +318,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -388,9 +342,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -403,13 +355,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -433,9 +379,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -448,13 +392,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -476,9 +414,7 @@
       "post": {
         "summary": "Clear the score timeline cache used for tier trajectory tracking. Resets all historical tier data. Use when starting a new session or after config changes.",
         "operationId": "clear_score_timeline",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -488,11 +424,7 @@
                 "properties": {
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -517,10 +449,7 @@
                       "description": "Confirmation message"
                     }
                   },
-                  "required": [
-                    "ok",
-                    "message"
-                  ]
+                  "required": ["ok", "message"]
                 }
               }
             }
@@ -534,9 +463,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -549,13 +476,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -579,9 +500,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -594,13 +513,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -624,9 +537,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -639,13 +550,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -665,11 +570,9 @@
     },
     "/tools/ev_candidates": {
       "post": {
-        "summary": "Query the +EV endpoint and return candidate plays for enabled books. Secondary discovery — use /screen for primary selection. Returns 0 rows on quiet days. tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "Query the +EV endpoint and return candidate plays for enabled books. Secondary discovery tool. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "ev_candidates",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -801,17 +704,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "leagues"
-                ],
+                "required": ["leagues"],
                 "additionalProperties": false
               }
             }
@@ -865,9 +762,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -880,13 +775,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -910,9 +799,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -925,13 +812,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -955,9 +836,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -970,13 +849,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -996,11 +869,9 @@
     },
     "/tools/fantasy_optimizer": {
       "post": {
-        "summary": "Query the Fantasy Optimizer for DFS-style player picks across fantasy apps (PrizePicks, Underdog, etc.). Returns fantasy plays with projected values, odds, and risk metrics. Requires a paid PropProfessor subscription with Fantasy Optimizer access.",
+        "summary": "Query the Fantasy Optimizer for DFS-style player picks across fantasy apps (PrizePicks, Underdog, etc.). Returns projected values, odds, and risk metrics. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "fantasy_optimizer",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1020,7 +891,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "League filter, e.g., [\"NBA\", \"MLB\"]. Defaults to NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC — every league the PropProfessor backend supports."
+                    "description": "League filter, e.g., [\"NBA\", \"MLB\"]. Defaults to NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL — every league the PropProfessor backend supports."
                   },
                   "market": {
                     "type": "string",
@@ -1074,11 +945,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -1115,9 +982,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1130,13 +995,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1160,9 +1019,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1175,13 +1032,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1205,9 +1056,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1220,13 +1069,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1246,11 +1089,9 @@
     },
     "/tools/find_best_price": {
       "post": {
-        "summary": "Line shopping: show every book's odds sorted best to worst with spread from best price. Auto-resolves league-specific market names.",
+        "summary": "LINE SHOP — check which book has the best price. Shows every book sorted best-to-worst. PITFALL: use get_market_registry first to discover market names.",
         "operationId": "find_best_price",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1291,20 +1132,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "league",
-                  "market",
-                  "game",
-                  "selection"
-                ],
+                "required": ["league", "market", "game", "selection"],
                 "additionalProperties": false
               }
             }
@@ -1344,9 +1176,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1359,13 +1189,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1389,9 +1213,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1404,13 +1226,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1434,9 +1250,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1449,13 +1263,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1477,9 +1285,7 @@
       "post": {
         "summary": "Check for new sharp line movements, steam moves, and significant odds changes since you last checked.",
         "operationId": "get_alerts",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1492,7 +1298,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "Leagues to check for alerts. Default: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC — every league the PropProfessor backend supports."
+                    "description": "Leagues to check for alerts. Default: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL — every league the PropProfessor backend supports."
                   },
                   "lookbackHours": {
                     "type": "number",
@@ -1504,11 +1310,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -1545,9 +1347,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1560,13 +1360,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1590,9 +1384,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1605,13 +1397,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1635,9 +1421,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1650,13 +1434,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1676,11 +1454,9 @@
     },
     "/tools/get_market_registry": {
       "post": {
-        "summary": "Returns markets available for a sport on a specific book. Use before quick_screen to know which markets to query.",
+        "summary": "REGISTRY — discover available markets for a sport on a specific book. Call before quick_screen to know which markets are available for your league+book combo.",
         "operationId": "get_market_registry",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1698,17 +1474,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "sport"
-                ],
+                "required": ["sport"],
                 "additionalProperties": false
               }
             }
@@ -1742,9 +1512,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1757,13 +1525,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1787,9 +1549,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1802,13 +1562,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1832,9 +1586,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1847,13 +1599,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1873,11 +1619,9 @@
     },
     "/tools/get_pick_history": {
       "post": {
-        "summary": "View your logged betting history. Filter by status (pending/won/lost/push/all), league, recency, and limit. Returns most recent first.",
+        "summary": "HISTORY — view your logged betting history. Filter by status, league, recency, and limit. Most recent first.",
         "operationId": "get_pick_history",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1887,13 +1631,7 @@
                 "properties": {
                   "status": {
                     "type": "string",
-                    "enum": [
-                      "pending",
-                      "won",
-                      "lost",
-                      "push",
-                      "all"
-                    ],
+                    "enum": ["pending", "won", "lost", "push", "all"],
                     "description": "Filter by result status. Default: all."
                   },
                   "league": {
@@ -1910,11 +1648,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -1951,9 +1685,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -1966,13 +1698,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -1996,9 +1722,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2011,13 +1735,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2041,9 +1759,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2056,13 +1772,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2084,9 +1794,7 @@
       "post": {
         "summary": "Get your personal betting performance stats: win rate, profit/loss, breakdowns by league and confidence tier.",
         "operationId": "get_pick_stats",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2100,11 +1808,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -2141,9 +1845,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2156,13 +1858,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2186,9 +1882,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2201,13 +1895,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2231,9 +1919,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2246,13 +1932,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2272,11 +1952,9 @@
     },
     "/tools/get_play_details": {
       "post": {
-        "summary": "Get full details (line history, consensus, movement debug) for specific plays by game ID. Use after a screen call when compact=true hid the data you need.",
+        "summary": "DRILL DOWN — get full details (line history, consensus, movement debug) for specific plays. Use after a screen call when you need the raw data behind a ranked play. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "get_play_details",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2313,6 +1991,10 @@
                     },
                     "description": "Optional book filter"
                   },
+                  "book": {
+                    "type": "string",
+                    "description": "Convenience single-book alias — coerced into books:[book] by the handler. Accepts \"NoVigApp\" etc. Equivalent to passing books:[\"NoVigApp\"]."
+                  },
                   "participants": {
                     "type": "array",
                     "items": {
@@ -2330,18 +2012,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "league",
-                  "gameIds"
-                ],
+                "required": ["league", "gameIds"],
                 "additionalProperties": false
               }
             }
@@ -2384,9 +2059,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2399,13 +2072,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2429,9 +2096,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2444,13 +2109,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2474,9 +2133,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2489,13 +2146,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2517,9 +2168,7 @@
       "post": {
         "summary": "Get the recommended workflow based on use case (casual/intermediate/sharp). Call first to understand which tools to use.",
         "operationId": "get_started",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2529,26 +2178,16 @@
                 "properties": {
                   "user_type": {
                     "type": "string",
-                    "enum": [
-                      "casual",
-                      "intermediate",
-                      "sharp"
-                    ],
+                    "enum": ["casual", "intermediate", "sharp"],
                     "description": "casual: just wants top picks with plain English. intermediate: understands edge/tier, wants guidance. sharp: wants full movement data and control."
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "user_type"
-                ],
+                "required": ["user_type"],
                 "additionalProperties": false
               }
             }
@@ -2597,9 +2236,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2612,13 +2249,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2642,9 +2273,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2657,13 +2286,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2687,9 +2310,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2702,13 +2323,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2728,11 +2343,9 @@
     },
     "/tools/health_status": {
       "post": {
-        "summary": "Check auth freshness and endpoint connectivity. Reports token persistence state: persistedToDisk, refreshCount, and lastRefreshed.",
+        "summary": "HEALTH CHECK — zero-risk, no backend calls. Check auth freshness and endpoint connectivity. Call first to verify server is responsive before making data calls.",
         "operationId": "health_status",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2742,11 +2355,7 @@
                 "properties": {
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -2797,9 +2406,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2812,13 +2419,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2842,9 +2443,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2857,13 +2456,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2887,9 +2480,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -2902,13 +2493,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -2930,9 +2515,7 @@
       "post": {
         "summary": "Show current sport-specific ranking presets: sharp books per league, default market bundles, and preferred execution book.",
         "operationId": "league_presets",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2942,11 +2525,7 @@
                 "properties": {
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -2986,9 +2565,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3001,13 +2578,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3031,9 +2602,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3046,13 +2615,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3076,9 +2639,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3091,13 +2652,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3117,11 +2672,9 @@
     },
     "/tools/log_pick": {
       "post": {
-        "summary": "Log a bet you placed before tip-off. Records game, league, market, selection, odds, stake, and optional metadata.",
+        "summary": "RECORD — log a bet you placed. Must be called before tip-off. Stores game, league, market, selection, odds, stake, and metadata for your betting history.",
         "operationId": "log_pick",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3171,21 +2724,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "game",
-                  "league",
-                  "market",
-                  "selection",
-                  "odds"
-                ],
+                "required": ["game", "league", "market", "selection", "odds"],
                 "additionalProperties": false
               }
             }
@@ -3219,9 +2762,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3234,13 +2775,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3264,9 +2799,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3279,13 +2812,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3309,9 +2836,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3324,13 +2849,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3352,9 +2871,7 @@
       "post": {
         "summary": "Manage bet visibility for the /fantasy table. action='list' returns all hidden bets, 'hide' requires bet, 'unhide' requires id, 'clear' removes all.",
         "operationId": "manage_hidden_bets",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3364,12 +2881,7 @@
                 "properties": {
                   "action": {
                     "type": "string",
-                    "enum": [
-                      "list",
-                      "hide",
-                      "unhide",
-                      "clear"
-                    ],
+                    "enum": ["list", "hide", "unhide", "clear"],
                     "description": "Operation to perform on the hidden bets list"
                   },
                   "bet": {
@@ -3382,17 +2894,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "action"
-                ],
+                "required": ["action"],
                 "additionalProperties": false
               }
             }
@@ -3426,9 +2932,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3441,13 +2945,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3471,9 +2969,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3486,13 +2982,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3516,9 +3006,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3531,13 +3019,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3559,9 +3041,7 @@
       "post": {
         "summary": "Get MLB game-level context: starting pitchers, venue/park factor, weather at first pitch, and lineup lock status. Returns riskFlag for weather/park effects.",
         "operationId": "mlb_game_context",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3575,17 +3055,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "gamePk"
-                ],
+                "required": ["gamePk"],
                 "additionalProperties": false
               }
             }
@@ -3619,9 +3093,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3634,13 +3106,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3664,9 +3130,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3679,13 +3143,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3709,9 +3167,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3724,13 +3180,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3750,11 +3200,9 @@
     },
     "/tools/place_bet": {
       "post": {
-        "summary": "Validate a play and log it in ONE call. Runs validate_play, and if the verdict is BET/CONSIDER, logs the pick and returns a pickId for later settlement. If validate_play returns PASS, the bet is rejected up front with the reasons — nothing is logged.",
+        "summary": "EXECUTE — validates then logs the bet in ONE call. Rejects PASS plays up front. Only call after quick_screen identifies a candidate.",
         "operationId": "place_bet",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3796,19 +3244,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "league",
-                  "selection",
-                  "market"
-                ],
+                "required": ["league", "selection", "market"],
                 "additionalProperties": false
               }
             }
@@ -3842,9 +3282,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3857,13 +3295,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3887,9 +3319,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3902,13 +3332,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3932,9 +3356,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -3947,13 +3369,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -3973,11 +3389,9 @@
     },
     "/tools/player_context": {
       "post": {
-        "summary": "Get recent news, tweets, and a computed risk flag for a player. Use before placing a bet — if riskFlag is high, downgrade or skip the play.",
+        "summary": "RESEARCH — get recent news, tweets, and risk flag for a player. Use before betting — high riskFlag means downgrade or skip. Use exact spelling from screen rows.",
         "operationId": "player_context",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4007,17 +3421,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "player"
-                ],
+                "required": ["player"],
                 "additionalProperties": false
               }
             }
@@ -4036,12 +3444,7 @@
                     },
                     "riskFlag": {
                       "type": "string",
-                      "enum": [
-                        "low",
-                        "medium",
-                        "high",
-                        "unknown"
-                      ]
+                      "enum": ["low", "medium", "high", "unknown"]
                     },
                     "summary": {
                       "type": "string"
@@ -4072,9 +3475,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4087,13 +3488,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -4117,9 +3512,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4132,13 +3525,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -4162,9 +3549,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4177,13 +3562,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -4203,11 +3582,9 @@
     },
     "/tools/quick_screen": {
       "post": {
-        "summary": "One-call sharp-play scanner: target a book, scan all leagues × markets, get ranked results with player-context research and risk flags. Defaults to NoVigApp. tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "SCAN — one-call sharp-play scanner across leagues × markets. Returns ranked results with tiers, edge, movement, and validation. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "quick_screen",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4231,7 +3608,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "Leagues to scan, e.g. [\"MLB\", \"NBA\"]. Defaults to every league the PropProfessor backend supports: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC."
+                    "description": "Leagues to scan, e.g. [\"MLB\", \"NBA\"]. Defaults to every league the PropProfessor backend supports: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL."
                   },
                   "league": {
                     "type": "string",
@@ -4250,11 +3627,15 @@
                   },
                   "limit": {
                     "type": "number",
-                    "description": "Max bet candidates to return per league, default 10"
+                    "description": "Total max candidates across all leagues/markets, default 100. Use maxPerMarket for per-market caps."
+                  },
+                  "maxPerMarket": {
+                    "type": "integer",
+                    "description": "Optional per-league×market cap applied before the total limit. E.g. maxPerMarket=2 returns at most 2 plays per league/market pair."
                   },
                   "scanLimit": {
                     "type": "number",
-                    "description": "Rows to scan per league/market before filtering, default 50"
+                    "description": "Rows to scan per league/market before filtering, default 100"
                   },
                   "lookbackHours": {
                     "type": "number",
@@ -4277,11 +3658,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   },
                   "validateTop": {
@@ -4306,15 +3683,11 @@
                   "onlyBets": {
                     "type": "boolean",
                     "default": false,
-                    "description": "When true, return only candidates with finalVerdict === \"BET\" and finalConfidenceTier at or above minFinalTier. One-call \"show me the bets\". Requires validate (default on)."
+                    "description": "When true, return only candidates with finalVerdict === \"BET\" and finalConfidenceTier at or above minFinalTier. One-call \"show me the bets\". Use with targetTiers to narrow further (e.g. onlyBets:true + targetTiers:[\"TIER 1\"] for locks-only). Requires validate (default on)."
                   },
                   "minFinalTier": {
                     "type": "string",
-                    "enum": [
-                      "TIER 1",
-                      "TIER 2",
-                      "TIER 3"
-                    ],
+                    "enum": ["TIER 1", "TIER 2", "TIER 3"],
                     "default": "TIER 1",
                     "description": "Floor tier for the onlyBets gate. Default TIER 1."
                   },
@@ -4322,13 +3695,17 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "BET",
-                        "CONSIDER",
-                        "PASS"
-                      ]
+                      "enum": ["BET", "CONSIDER", "PASS"]
                     },
                     "description": "Optional filter by display tier (BET | CONSIDER | PASS). Default: no filter. Example: [\"BET\"] for \"bets only\" or [\"BET\", \"CONSIDER\"] to drop PASS rows. Missing/garbage kaiCall is treated as PASS."
+                  },
+                  "movement": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["supportive_clean", "supportive_bouncy", "insufficient", "adverse_full"]
+                    },
+                    "description": "Optional filter by movement disposition. Example: [\"supportive_clean\", \"supportive_bouncy\"] to see only plays where the line is moving the right direction. Default: no filter (all movement types)."
                   },
                   "minEV": {
                     "type": "number",
@@ -4336,21 +3713,12 @@
                   },
                   "sortBy": {
                     "type": "string",
-                    "enum": [
-                      "start",
-                      "edge",
-                      "tier",
-                      "consensusBookCount",
-                      "riskScore"
-                    ],
+                    "enum": ["start", "edge", "tier", "consensusBookCount", "riskScore"],
                     "description": "Optional sort key. start = game time ascending (soonest first). edge = consensus edge descending (largest first). tier = TIER 1 first. consensusBookCount = most books first. riskScore = lowest risk first. Default: server-defined order (tier then edge). Missing-field rows always go to the end."
                   },
                   "sortDir": {
                     "type": "string",
-                    "enum": [
-                      "asc",
-                      "desc"
-                    ],
+                    "enum": ["asc", "desc"],
                     "description": "Optional sort direction. Overrides the per-field default. asc = ascending, desc = descending."
                   },
                   "topPick": {
@@ -4363,11 +3731,7 @@
                   },
                   "cardWindow": {
                     "type": "string",
-                    "enum": [
-                      "today",
-                      "next",
-                      "all"
-                    ],
+                    "enum": ["today", "next", "all"],
                     "default": "today",
                     "description": "Card window filter. 'today' returns today's slate plus any next-day matches merged in (flagged via nextDayMerged in the response). 'next' returns only tomorrow. 'all' returns every upcoming match with no date filtering. Default 'today'."
                   },
@@ -4380,16 +3744,12 @@
                   },
                   "parseable": {
                     "type": "boolean",
-                    "default": false,
-                    "description": "When true on minimal verbosity, the response includes a structured `plays` array (one object per candidate) alongside the summary string — so agents can parse without a second standard call. Default false (summary string only)."
+                    "default": true,
+                    "description": "When true (default), minimal verbosity includes a structured `plays` array alongside the summary string. Set to false for summary-only output."
                   },
                   "mode": {
                     "type": "string",
-                    "enum": [
-                      "recommended",
-                      "sharp",
-                      "tonight"
-                    ],
+                    "enum": ["recommended", "sharp", "tonight"],
                     "description": "Preset bundle that mirrors a retired standalone tool. Omit for the default broad screen. 'recommended' = curated top-tier discovery across TIER 1 & TIER 2 (targetTiers default ['TIER 1','TIER 2'], validate:true) — the old recommended_bets behavior. 'sharp' = route to the multi-sharp-book-confirmed screening path (the old sharp_plays handler). 'tonight' = quick_screen with kaiCall:['BET','CONSIDER'], sortBy:'start', sortDir:'asc', includeResearch:true, limit default 5 — the old tonight_bets one-call bundle. Any explicit arg always overrides the preset default."
                   }
                 },
@@ -4426,9 +3786,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4441,13 +3799,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -4471,9 +3823,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4486,13 +3836,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -4516,9 +3860,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4531,13 +3873,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -4557,11 +3893,9 @@
     },
     "/tools/resolve_pick": {
       "post": {
-        "summary": "Mark a logged pick as won, lost, or push after the game ends. Updates your personal betting record for accurate stats.",
+        "summary": "SETTLE — mark a logged pick as won, lost, or push after the game ends. Updates your personal betting record for accurate stats.",
         "operationId": "resolve_pick",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4575,27 +3909,16 @@
                   },
                   "result": {
                     "type": "string",
-                    "enum": [
-                      "won",
-                      "lost",
-                      "push"
-                    ],
+                    "enum": ["won", "lost", "push"],
                     "description": "Actual outcome of the bet"
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "id",
-                  "result"
-                ],
+                "required": ["id", "result"],
                 "additionalProperties": false
               }
             }
@@ -4629,9 +3952,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4644,13 +3965,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -4674,9 +3989,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4689,13 +4002,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -4719,9 +4026,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4734,13 +4039,215 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
+                        },
+                        "status": {
+                          "type": "integer"
+                        },
+                        "recovery": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/scan": {
+      "post": {
+        "summary": "SCAN — simplified one-call sharp-play scanner. Preferred entry point for AI agents. Wraps quick_screen with smart defaults (NoVigApp, all markets, supportive movement only, sorted by edge). Pass `sport` instead of `league` for ergonomics (e.g. sport=\"tennis\").",
+        "operationId": "scan",
+        "tags": ["PropProfessor MCP Tools"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sport": {
+                    "type": "string",
+                    "description": "Sport to scan: tennis, nba, mlb, nfl, ufc, soccer, etc. Maps to league automatically."
+                  },
+                  "league": {
+                    "type": "string",
+                    "description": "League name directly (e.g. \"Tennis\"). Overrides sport if both provided."
+                  },
+                  "book": {
+                    "type": "string",
+                    "description": "Execution book. Default: NoVigApp."
+                  },
+                  "market": {
+                    "type": "string",
+                    "description": "Market to scan. Default: all markets for the sport."
+                  },
+                  "markets": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Multiple markets (overrides market)."
+                  },
+                  "minEdge": {
+                    "type": "number",
+                    "description": "Minimum edge % to include. Default: 0 (all)."
+                  },
+                  "cardWindow": {
+                    "type": "string",
+                    "enum": ["today", "next", "all"],
+                    "description": "Date filter. Default: today."
+                  },
+                  "verbosity": {
+                    "type": "string",
+                    "enum": ["minimal", "standard", "full"],
+                    "description": "Output detail level. Default: standard."
+                  },
+                  "limit": {
+                    "type": "number",
+                    "description": "Max total results. Default: 25."
+                  },
+                  "kaiCall": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["BET", "CONSIDER", "PASS"]
+                    },
+                    "description": "Optional filter by display tier (BET | CONSIDER | PASS). Default: no filter. Example: [\"BET\"] for \"bets only\" or [\"BET\", \"CONSIDER\"] to drop PASS rows. Missing/garbage kaiCall is treated as PASS."
+                  },
+                  "movement": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["supportive_clean", "supportive_bouncy", "insufficient", "adverse_full"]
+                    },
+                    "description": "Optional filter by movement disposition. Example: [\"supportive_clean\", \"supportive_bouncy\"] to see only plays where the line is moving the right direction. Default: no filter (all movement types)."
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful tool execution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "result": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string",
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
+                        },
+                        "status": {
+                          "type": "integer"
+                        },
+                        "recovery": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Auth error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string",
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
+                        },
+                        "status": {
+                          "type": "integer"
+                        },
+                        "recovery": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Backend error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [false]
+                    },
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string",
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -4760,11 +4267,9 @@
     },
     "/tools/screen_ranked": {
       "post": {
-        "summary": "Query /screen and return hydrated ranked rows with consensus, movement, and freshness metadata. Auto-resolves league-specific market names. tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "Query /screen and return hydrated ranked rows with consensus, movement, and freshness metadata. Auto-resolves league-specific market names. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "screen_ranked",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4864,24 +4369,24 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   },
                   "kaiCall": {
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "BET",
-                        "CONSIDER",
-                        "PASS"
-                      ]
+                      "enum": ["BET", "CONSIDER", "PASS"]
                     },
                     "description": "Optional filter by display tier (BET | CONSIDER | PASS). Default: no filter. Example: [\"BET\"] for \"bets only\" or [\"BET\", \"CONSIDER\"] to drop PASS rows. Missing/garbage kaiCall is treated as PASS."
+                  },
+                  "movement": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["supportive_clean", "supportive_bouncy", "insufficient", "adverse_full"]
+                    },
+                    "description": "Optional filter by movement disposition. Example: [\"supportive_clean\", \"supportive_bouncy\"] to see only plays where the line is moving the right direction. Default: no filter (all movement types)."
                   },
                   "minEV": {
                     "type": "number",
@@ -4889,27 +4394,16 @@
                   },
                   "sortBy": {
                     "type": "string",
-                    "enum": [
-                      "start",
-                      "edge",
-                      "tier",
-                      "consensusBookCount",
-                      "riskScore"
-                    ],
+                    "enum": ["start", "edge", "tier", "consensusBookCount", "riskScore"],
                     "description": "Optional sort key. start = game time ascending (soonest first). edge = consensus edge descending (largest first). tier = TIER 1 first. consensusBookCount = most books first. riskScore = lowest risk first. Default: server-defined order (tier then edge). Missing-field rows always go to the end."
                   },
                   "sortDir": {
                     "type": "string",
-                    "enum": [
-                      "asc",
-                      "desc"
-                    ],
+                    "enum": ["asc", "desc"],
                     "description": "Optional sort direction. Overrides the per-field default. asc = ascending, desc = descending."
                   }
                 },
-                "required": [
-                  "league"
-                ],
+                "required": ["league"],
                 "additionalProperties": false
               }
             }
@@ -4955,9 +4449,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -4970,13 +4462,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5000,9 +4486,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5015,13 +4499,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5045,9 +4523,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5060,13 +4536,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5086,11 +4556,9 @@
     },
     "/tools/sharp_alerts": {
       "post": {
-        "summary": "On-demand sharp-play alert surface. Returns ONLY verified BET-tier plays (finalVerdict=BET, clean research) with new-vs-repeat dedup against a local store. No cron/polling. Call when you want \"any new sharp plays?\" — it will not re-alert the same play within the dedup window. tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "ALERTS — only verified BET-tier plays, deduped so same plays arent re-alerted. Call when you want fresh sharp plays. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "sharp_alerts",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -5133,10 +4601,7 @@
                   },
                   "minFinalTier": {
                     "type": "string",
-                    "enum": [
-                      "TIER 1",
-                      "TIER 2"
-                    ],
+                    "enum": ["TIER 1", "TIER 2"],
                     "default": "TIER 1",
                     "description": "Floor tier for returned plays. Default TIER 1."
                   },
@@ -5156,11 +4621,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -5197,9 +4658,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5212,13 +4671,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5242,9 +4695,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5257,13 +4708,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5287,9 +4732,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5302,13 +4745,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5328,11 +4765,9 @@
     },
     "/tools/sharp_consensus": {
       "post": {
-        "summary": "Analyze line history across multiple time windows (1h–48h) to detect sustained sharp-book consensus movement. Shows WHY a play ranks, not just WHAT ranks. tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "Analyze line history across time windows (1h–48h) to detect sustained sharp-book consensus movement. Shows WHY a play ranks. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "sharp_consensus",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -5376,17 +4811,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "league"
-                ],
+                "required": ["league"],
                 "additionalProperties": false
               }
             }
@@ -5432,9 +4861,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5447,13 +4874,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5477,9 +4898,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5492,13 +4911,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5522,9 +4935,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5537,13 +4948,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5563,11 +4968,9 @@
     },
     "/tools/smart_bet": {
       "post": {
-        "summary": "One-call bet evaluation: given a player/team and book, returns play details, validation verdict, best price across books, and staking recommendation. tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "ONE-CALL — evaluate a selection on a book. Returns play details, validation verdict, best price, and staking. For bulk scanning, use quick_screen. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "smart_bet",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -5597,18 +5000,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "selection",
-                  "book"
-                ],
+                "required": ["selection", "book"],
                 "additionalProperties": false
               }
             }
@@ -5642,9 +5038,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5657,13 +5051,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5687,9 +5075,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5702,13 +5088,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5732,9 +5112,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5747,13 +5125,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5773,11 +5145,9 @@
     },
     "/tools/smart_money": {
       "post": {
-        "summary": "Mirror the website's \"Smart Money\" page: surface the $ volume (sharp action) and per-side odds range for each market — the sharp-money signal the +EV feed hides. Returns volumeUsd + oddsRange per game/market, sorted by biggest sharp action first.",
+        "summary": "Mirror the Smart Money page: surface $ volume (sharp action) and per-side odds range per game/market, sorted by biggest sharp action first. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "smart_money",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -5790,7 +5160,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "Leagues to scan. Default: NBA, MLB, NHL, WNBA, NFL."
+                    "description": "Leagues to scan. Default: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL."
                   },
                   "league": {
                     "type": "string",
@@ -5839,11 +5209,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -5880,9 +5246,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5895,13 +5259,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5925,9 +5283,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5940,13 +5296,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -5970,9 +5320,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -5985,13 +5333,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6011,11 +5353,9 @@
     },
     "/tools/staking_plan": {
       "post": {
-        "summary": "Given a bankroll, return stake allocations across recommended bets using fractional Kelly staking (TIER 1 = 2%, TIER 2 = 1% of bankroll). tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "Given a bankroll, return stake allocations across recommended bets using fractional Kelly staking. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "staking_plan",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -6080,17 +5420,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "bankroll"
-                ],
+                "required": ["bankroll"],
                 "additionalProperties": false
               }
             }
@@ -6142,9 +5476,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6157,13 +5489,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6187,9 +5513,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6202,13 +5526,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6232,9 +5550,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6247,13 +5563,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6273,11 +5583,9 @@
     },
     "/tools/today": {
       "post": {
-        "summary": "One-call daily briefing: the current sharp slate (top plays by consensus edge), your pending logged picks, and your recent betting stats (win rate / P&L). Replaces three separate calls (quick_screen + get_pick_history + get_pick_stats).",
+        "summary": "FIRST CALL — daily briefing: top sharp plays, pending picks, and betting stats. Then drill down with quick_screen. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "today",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -6290,7 +5598,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "Leagues to include (default NBA, WNBA, MLB, NFL)"
+                    "description": "Leagues to include (default all supported leagues: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL)"
                   },
                   "league": {
                     "type": "string",
@@ -6302,7 +5610,14 @@
                   },
                   "limit": {
                     "type": "number",
-                    "description": "Max plays to return from the slate (default 10)"
+                    "description": "Max plays to return from the slate (default 100)"
+                  },
+                  "targetTiers": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Tier filter for the slate (default [\"TIER 1\", \"TIER 2\"]). Pass [\"TIER 1\"] for locks only."
                   },
                   "statsDays": {
                     "type": "number",
@@ -6310,11 +5625,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -6351,9 +5662,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6366,13 +5675,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6396,9 +5699,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6411,13 +5712,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6441,9 +5736,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6456,13 +5749,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6482,11 +5769,9 @@
     },
     "/tools/ufc_card": {
       "post": {
-        "summary": "Query a UFC card and return a shortlist with official plays, best looks, passes, and summary metadata. tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "Query a UFC card and return a shortlist with official plays, best looks, passes, and summary metadata. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "ufc_card",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -6551,11 +5836,7 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
@@ -6610,9 +5891,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6625,13 +5904,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6655,9 +5928,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6670,13 +5941,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6700,9 +5965,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6715,13 +5978,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6741,11 +5998,9 @@
     },
     "/tools/validate_play": {
       "post": {
-        "summary": "Run all validation checks on a play in one call: re-fetch screen data, run player_context, check execution quality, return BET/CONSIDER/PASS verdict. tier/kaiCall/edge/screenScore are signal-quality ratings, not win-probability predictions.",
+        "summary": "PRE-BET CHECK — run validation on a play. Returns BET/CONSIDER/PASS. Always pass playId from a prior screen row. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "validate_play",
-        "tags": [
-          "PropProfessor MCP Tools"
-        ],
+        "tags": ["PropProfessor MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -6794,18 +6049,11 @@
                   },
                   "verbosity": {
                     "type": "string",
-                    "enum": [
-                      "minimal",
-                      "standard",
-                      "full"
-                    ],
+                    "enum": ["minimal", "standard", "full"],
                     "description": "Output detail level. Default: standard."
                   }
                 },
-                "required": [
-                  "league",
-                  "gameId"
-                ],
+                "required": ["league", "gameId"],
                 "additionalProperties": false
               }
             }
@@ -6839,9 +6087,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6854,13 +6100,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6884,9 +6124,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6899,13 +6137,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"
@@ -6929,9 +6161,7 @@
                   "properties": {
                     "ok": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     },
                     "error": {
                       "type": "object",
@@ -6944,13 +6174,7 @@
                         },
                         "category": {
                           "type": "string",
-                          "enum": [
-                            "auth",
-                            "transport",
-                            "backend",
-                            "validation",
-                            "internal"
-                          ]
+                          "enum": ["auth", "transport", "backend", "validation", "internal"]
                         },
                         "status": {
                           "type": "integer"

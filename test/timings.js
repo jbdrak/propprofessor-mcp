@@ -5,7 +5,10 @@ const path = require('path');
 const fs = require('fs');
 
 const TEST_DIR = path.join(__dirname);
-const files = fs.readdirSync(TEST_DIR).filter(f => f.endsWith('.test.js')).sort();
+const files = fs
+  .readdirSync(TEST_DIR)
+  .filter((f) => f.endsWith('.test.js'))
+  .sort();
 
 console.log('File                                        Duration (ms)  Tests');
 console.log('─'.repeat(75));

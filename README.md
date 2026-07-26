@@ -23,7 +23,7 @@ Connect it to Claude Desktop, Cursor, Cline, Hermes, or any MCP client. Requires
 
 ## 🚀 Overview
 
-Your AI agent gets 30 tools that surface the same signal feed professional bettors use:
+Your AI agent gets 31 tools that surface the same signal feed professional bettors use:
 
 - **Screen & rank** — query live odds across 36 sportsbooks, ranked by consensus edge and movement
 - **Detect sharp coordination** — Pinnacle, Circa, BookMaker, and BetOnline moving together? That's a signal
@@ -38,6 +38,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
 2. **Wire your MCP client** — pick your client below:
 
    **Claude Desktop** (`claude_desktop_config.json`):
+
    ```json
    {
      "mcpServers": {
@@ -50,6 +51,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
    ```
 
    **Cline** (`cline_mcp_settings.json`):
+
    ```json
    {
      "mcpServers": {
@@ -63,6 +65,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
    ```
 
    **Cursor** — Settings → Features → MCP Servers → Add:
+
    ```
    Name: propprofessor
    Type: command
@@ -70,6 +73,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
    ```
 
    **Continue.dev** (`~/.continue/config.json`):
+
    ```json
    {
      "experimental": {
@@ -84,6 +88,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
    ```
 
    **Hermes** (`~/.hermes/config.yaml`):
+
    ```yaml
    mcp_servers:
      propprofessor:
@@ -94,7 +99,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
 3. **Auth (one-time):** `node scripts/pp-login.js` — opens a browser for PropProfessor login and persists cookies for the server to use.
 4. **Ask your agent:** _"What are tonight's sharpest plays on Fliff?"_
 
-That's it — your agent now sees 30 tools.
+That's it — your agent now sees 31 tools.
 
 > **Verify your install:** `npm run install:verify` runs the non-API test suite (53 tests, no credentials needed).
 
@@ -109,22 +114,22 @@ pp scan mlb tennis -M supportive -n3
 
 11 commands for scanning, validation, logging, and fantasy:
 
-| Command | Description |
-|---------|-------------|
-| `pp scan [leagues...]` | Find plays across leagues |
+| Command                 | Description                                 |
+| ----------------------- | ------------------------------------------- |
+| `pp scan [leagues...]`  | Find plays across leagues                   |
 | `pp scan -M supportive` | Filter by movement (clean, bouncy, adverse) |
-| `pp scan --fast` | Quick scan (5 fastest leagues) |
-| `pp scan -B` | Only BET verdict plays |
-| `pp validate <playId>` | Validate a specific play |
-| `pp game <gameId>` | Get full game details |
-| `pp player <name>` | Player context + injury/risk flags |
-| `pp prices <gameId>` | Compare prices across books |
-| `pp log <gameId>` | Log a pick |
-| `pp picks` | Recent pick history |
-| `pp rank <league>` | Ranked plays for a league |
-| `pp fantasy` | Fantasy optimizer props |
-| `pp today` | Today's slate + pending picks |
-| `pp health` | Auth + backend health check |
+| `pp scan --fast`        | Quick scan (5 fastest leagues)              |
+| `pp scan -B`            | Only BET verdict plays                      |
+| `pp validate <playId>`  | Validate a specific play                    |
+| `pp game <gameId>`      | Get full game details                       |
+| `pp player <name>`      | Player context + injury/risk flags          |
+| `pp prices <gameId>`    | Compare prices across books                 |
+| `pp log <gameId>`       | Log a pick                                  |
+| `pp picks`              | Recent pick history                         |
+| `pp rank <league>`      | Ranked plays for a league                   |
+| `pp fantasy`            | Fantasy optimizer props                     |
+| `pp today`              | Today's slate + pending picks               |
+| `pp health`             | Auth + backend health check                 |
 
 **MCP mode:** `pp --mcp` runs as an MCP stdio server. Connect it to Claude Desktop,
 Cursor, Cline, or any MCP client. Pass `--mode full` for the full 31-tool surface.
@@ -183,7 +188,7 @@ PropProfessor MCP follows a layered data pipeline:
 ### MCP Server (stdio)
 
 - **JSON-RPC over stdio** — standard MCP transport with Content-Length framing (NDJSON optional)
-- **30 tools** — organized into situational, analytical, and research tiers
+- **31 tools** — organized into situational, analytical, and research tiers
 - **Server-side validation** — enforces input schemas at the server, not trusting the client
 - **Categorized errors** — auth, backend, transport, validation, internal — each with structured recovery hints
 
@@ -341,14 +346,14 @@ Agent: quick_screen({ books: ["Fliff"] })
        → [ranked plays with odds, edge, tier, risk, rationale — all on Fliff]
 ```
 
-| You say                              | `ask` calls                                            | Returns                           |
-| ------------------------------------ | ------------------------------------------------------ | --------------------------------- |
-| "best plays on Novig"                | `quick_screen(books=["NovigApp"])`                     | Playable bets with player context |
+| You say                              | `ask` calls                                            | Returns                              |
+| ------------------------------------ | ------------------------------------------------------ | ------------------------------------ |
+| "best plays on Novig"                | `quick_screen(books=["NovigApp"])`                     | Playable bets with player context    |
 | "what should I bet today"            | `quick_screen(mode="recommended")`                     | TIER 1 & TIER 2 across major leagues |
-| "Tatum over 29.5 points"             | `player_context(player="Tatum", sport="NBA")`          | Injury/news risk check            |
-| "show me MLB sharp plays"            | `quick_screen(leagues=["MLB"], mode="sharp")`           | Multi-sharp consensus plays       |
-| "line shop Celtics ML"               | `find_best_price(league="NBA", market="Moneyline", …)` | Best price across 36 books        |
-| "validate that Warriors spread play" | `validate_play(league="NBA", gameId="…", …)`           | BET/CONSIDER/PASS verdict         |
+| "Tatum over 29.5 points"             | `player_context(player="Tatum", sport="NBA")`          | Injury/news risk check               |
+| "show me MLB sharp plays"            | `quick_screen(leagues=["MLB"], mode="sharp")`          | Multi-sharp consensus plays          |
+| "line shop Celtics ML"               | `find_best_price(league="NBA", market="Moneyline", …)` | Best price across 36 books           |
+| "validate that Warriors spread play" | `validate_play(league="NBA", gameId="…", …)`           | BET/CONSIDER/PASS verdict            |
 
 ## 📊 Available Tools
 
@@ -356,8 +361,8 @@ Agent: quick_screen({ books: ["Fliff"] })
 
 | Tool                  | What it does                                                                                                |
 | --------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `ask`                 | Parse natural language into the right tool + args, then execute it (one-call answer)                       |
-| `today`               | One-call daily briefing: sharp slate + your pending picks + recent stats                                  |
+| `ask`                 | Parse natural language into the right tool + args, then execute it (one-call answer)                        |
+| `today`               | One-call daily briefing: sharp slate + your pending picks + recent stats                                    |
 | `get_started`         | Returns recommended workflow for casual/intermediate/sharp users                                            |
 | `get_market_registry` | List available markets for a sport, with per-book market names (e.g. Soccer → Draw No Bet)                  |
 | `quick_screen`        | Best plays on any book with sharp consensus + player context                                                |
@@ -370,16 +375,16 @@ Agent: quick_screen({ books: ["Fliff"] })
 
 ### Deeper Signal Analysis
 
-| Tool              | What it does                                                                            |
-| ----------------- | --------------------------------------------------------------------------------------- |
-| `sharp_consensus` | Multi-window (1h–48h) sharp movement — is the move sustained?                           |
-| `screen_ranked`   | Full ranked data for a (league, market) pair with consensus and movement metadata       |
-| `all_slates`      | Consolidated ranked list across multiple leagues in one call                            |
-| `league_presets`  | Sport-specific ranking weights and sharp-book reference sets                            |
-| `get_alerts`      | Line movement and steam move alerts since last check                                    |
-| `ev_candidates`   | Fast +EV discovery — validate on `/screen` afterward                                    |
-| `ufc_card`        | UFC card shortlist with official plays, best looks, and pass notes                      |
-| `smart_money`     | Sharp action $ volume + per-side odds range per game (the signal the +EV feed hides)    |
+| Tool              | What it does                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| `sharp_consensus` | Multi-window (1h–48h) sharp movement — is the move sustained?                        |
+| `screen_ranked`   | Full ranked data for a (league, market) pair with consensus and movement metadata    |
+| `all_slates`      | Consolidated ranked list across multiple leagues in one call                         |
+| `league_presets`  | Sport-specific ranking weights and sharp-book reference sets                         |
+| `get_alerts`      | Line movement and steam move alerts since last check                                 |
+| `ev_candidates`   | Fast +EV discovery — validate on `/screen` afterward                                 |
+| `ufc_card`        | UFC card shortlist with official plays, best looks, and pass notes                   |
+| `smart_money`     | Sharp action $ volume + per-side odds range per game (the signal the +EV feed hides) |
 
 ### Research & Bet Management
 
@@ -389,7 +394,7 @@ Agent: quick_screen({ books: ["Fliff"] })
 | `staking_plan`                        | Fractional Kelly sizing (TIER 1: 2%, TIER 2: 1% of bankroll)                    |
 | `fantasy_optimizer`                   | DFS-style fantasy picks (PrizePicks, Underdog — requires Fantasy Optimizer sub) |
 | `log_pick` / `resolve_pick`           | Track your own bet outcomes                                                     |
-| `place_bet`                         | Validate + log a play in ONE call; returns a pickId for settlement              |
+| `place_bet`                           | Validate + log a play in ONE call; returns a pickId for settlement              |
 | `get_pick_history` / `get_pick_stats` | View logged bets and win rate / P&L                                             |
 | `manage_hidden_bets`                  | Hide/unhide bets on the fantasy table                                           |
 | `clear_score_timeline`                | Reset tier trajectory tracking for a fresh session                              |
@@ -398,21 +403,21 @@ Agent: quick_screen({ books: ["Fliff"] })
 
 Every tool accepts:
 
-| Parameter         | Values                      | What it does                                                           |
-| ----------------- | --------------------------- | ---------------------------------------------------------------------- |
-| `verbosity`       | `minimal` `standard` `full` | Controls explanation depth and field output                            |
-| `compact`         | `true` / `false`            | Strips line history and debug payloads — reduces response size by ~90% |
-| `fields`          | `["game", "edge", "tier"]`  | Return only specified fields per row                                   |
+| Parameter   | Values                      | What it does                                                           |
+| ----------- | --------------------------- | ---------------------------------------------------------------------- |
+| `verbosity` | `minimal` `standard` `full` | Controls explanation depth and field output                            |
+| `compact`   | `true` / `false`            | Strips line history and debug payloads — reduces response size by ~90% |
+| `fields`    | `["game", "edge", "tier"]`  | Return only specified fields per row                                   |
 
 `quick_screen` additionally accepts:
 
-| Parameter        | Values                  | What it does                                                                                                                              |
-| ---------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `cardWindow`     | `today` `next` `all`    | Date filter. `today` = today's slate plus any next-day matches merged in (flagged via `nextDayMerged` in the response). `next` = tomorrow only. `all` = every upcoming match, no date filtering. Default `today`. |
-| `maxPlaysPerGame`| `1`–`50` (default `2`)  | Max plays shown per game in `minimal` verbosity (highest `screenScore` first). Raise it (e.g. `10`) for full coverage of a game without a second call. `standard`/`full` verbosity always return every candidate regardless of this value. |
-| `parseable`      | `true`/`false` (default `true`) | When `true`, `minimal` verbosity includes a structured `plays` array alongside the summary — agents get both. Set `false` for summary-only. |
-| `includeResearch`| `true`/`false` (default `true`) | Run player_context research on each returned play and attach `riskFlag` / `riskSummary` / `topTweet` in the `research` array. Research is scoped to the FINAL returned plays (post tier/kaiCall filter) and de-duplicated per game, so the `research` array always matches the plays you see — no full-slate payload blowup. Pass `false` to disable. |
-| `researchLimit` | `1`–`50` (default `50`) | Max final plays to run research on. Bounds payload size on large scans. |
+| Parameter         | Values                          | What it does                                                                                                                                                                                                                                                                                                                                          |
+| ----------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cardWindow`      | `today` `next` `all`            | Date filter. `today` = today's slate plus any next-day matches merged in (flagged via `nextDayMerged` in the response). `next` = tomorrow only. `all` = every upcoming match, no date filtering. Default `today`.                                                                                                                                     |
+| `maxPlaysPerGame` | `1`–`50` (default `2`)          | Max plays shown per game in `minimal` verbosity (highest `screenScore` first). Raise it (e.g. `10`) for full coverage of a game without a second call. `standard`/`full` verbosity always return every candidate regardless of this value.                                                                                                            |
+| `parseable`       | `true`/`false` (default `true`) | When `true`, `minimal` verbosity includes a structured `plays` array alongside the summary — agents get both. Set `false` for summary-only.                                                                                                                                                                                                           |
+| `includeResearch` | `true`/`false` (default `true`) | Run player_context research on each returned play and attach `riskFlag` / `riskSummary` / `topTweet` in the `research` array. Research is scoped to the FINAL returned plays (post tier/kaiCall filter) and de-duplicated per game, so the `research` array always matches the plays you see — no full-slate payload blowup. Pass `false` to disable. |
+| `researchLimit`   | `1`–`50` (default `50`)         | Max final plays to run research on. Bounds payload size on large scans.                                                                                                                                                                                                                                                                               |
 
 > **Player research is ON by default** in `quick_screen` (pass `includeResearch: false` to disable). It's scoped to the final returned plays and de-duplicated per game, so `research` always maps 1:1 to what you got back. On a huge unfiltered scan, lower `researchLimit` or use `lite` if the response nears the transport cap.
 
@@ -426,10 +431,10 @@ Every tool accepts:
 
 Set `PROPPROFESSOR_MCP_MODE` at server boot to control how many tools the agent sees on `tools/list`:
 
-| Mode   | Default | Tools exposed | Best for                                                                                                                                 |
-| ------ | ------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Mode   | Default | Tools exposed | Best for                                                                                                                                   |
+| ------ | ------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `lite` | ✅ yes  | 14            | **Recommended for most users.** Covers the full workflow (discover → drill-down → validate → track) without overwhelming the tool catalog. |
-| `full` | no      | 30            | Power users — every discovery, screen, research, and admin tool. More tools but more noise for the agent to reason about.                 |
+| `full` | no      | 30            | Power users — every discovery, screen, research, and admin tool. More tools but more noise for the agent to reason about.                  |
 
 Lite mode exposes: `ask`, `smart_bet`, `quick_screen`, `today`, `find_best_price`, `validate_play`, `get_play_details`, `player_context`, `log_pick`, `get_pick_history`, `resolve_pick`, `get_market_registry`, `place_bet`, `sharp_alerts`.
 
@@ -446,15 +451,15 @@ The `tools/list` response always includes a `_meta` block so agents can tell whi
 
 Every tool carries a `category` field that groups it by purpose — agents can use this to mentally cluster the surface rather than reading 29 individual descriptions:
 
-| Category     | Count | Purpose                                          | Tools                                                                                                       |
-| ------------ | ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `discovery`  | 6     | Find plays (scout, multi-league, DFS, +EV)       | `all_slates`, `ask`, `ev_candidates`, `fantasy_optimizer`, `get_market_registry`, `sharp_consensus`  |
-| `screen`     | 5     | Score / rank plays for a target book             | `quick_screen`, `screen_ranked`, `smart_bet`, `staking_plan`, `ufc_card` |
-| `drill_down` | 3     | Deep dive on a specific play                     | `find_best_price`, `get_play_details`, `validate_play`                                                      |
-| `research`   | 3     | Context data (player news, game weather, alerts) | `get_alerts`, `mlb_game_context`, `player_context`                                                          |
-| `tracking`   | 4     | Personal bet log                                 | `get_pick_history`, `get_pick_stats`, `log_pick`, `resolve_pick`                                            |
-| `admin`      | 2     | Bookkeeping (cache, hidden bets)                 | `clear_score_timeline`, `manage_hidden_bets`                                                                |
-| `meta`       | 3     | Server info / workflow guides                    | `get_started`, `health_status`, `league_presets`                                                            |
+| Category     | Count | Purpose                                          | Tools                                                                                               |
+| ------------ | ----- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `discovery`  | 6     | Find plays (scout, multi-league, DFS, +EV)       | `all_slates`, `ask`, `ev_candidates`, `fantasy_optimizer`, `get_market_registry`, `sharp_consensus` |
+| `screen`     | 5     | Score / rank plays for a target book             | `quick_screen`, `screen_ranked`, `smart_bet`, `staking_plan`, `ufc_card`                            |
+| `drill_down` | 3     | Deep dive on a specific play                     | `find_best_price`, `get_play_details`, `validate_play`                                              |
+| `research`   | 3     | Context data (player news, game weather, alerts) | `get_alerts`, `mlb_game_context`, `player_context`                                                  |
+| `tracking`   | 4     | Personal bet log                                 | `get_pick_history`, `get_pick_stats`, `log_pick`, `resolve_pick`                                    |
+| `admin`      | 2     | Bookkeeping (cache, hidden bets)                 | `clear_score_timeline`, `manage_hidden_bets`                                                        |
+| `meta`       | 3     | Server info / workflow guides                    | `get_started`, `health_status`, `league_presets`                                                    |
 
 ### Canonical vs Deprecated Param Names
 
@@ -464,7 +469,7 @@ A handful of params accept both a clean canonical name and a legacy alias — ev
 | ------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `live`             | `is_live`                                       | 13 tools — `is_live` is snake_case only on the MCP surface; the upstream backend still uses `is_live` on the wire |
 | `gameIds`          | `game_ids`                                      | `get_play_details` only                                                                                           |
-| `targetBooks`      | `book`, `books`, `targetBook`, `targetBooksCsv` | `quick_screen` — service layer's `resolveTargetBooks()` accepts all 5 names                                   |
+| `targetBooks`      | `book`, `books`, `targetBook`, `targetBooksCsv` | `quick_screen` — service layer's `resolveTargetBooks()` accepts all 5 names                                       |
 
 Deprecated aliases are documented in each schema's `description` field and are normalized to the canonical key at dispatch time. No code change required for existing callers.
 
