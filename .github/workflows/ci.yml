@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       matrix:
         node-version: [20, 22]
@@ -24,7 +25,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # --include=dev ensures devDependencies are installed even when
+        # npm's global config has omit=dev set (can happen in some CI
+        # environments or when the user's npm config leaks in).
+        run: npm ci --include=dev
 
       - name: Check version consistency
         run: npm run check:version

@@ -504,7 +504,7 @@ async function cmdScan(handlers, positional, flags) {
       ? ['supportive_clean', 'supportive_bouncy']
       : undefined;
 
-  const ctx = leagues.join(', ');
+  const _ctx = leagues.join(', ');
   console.error(
     'Scanning ' +
       leagues.join(', ') +

@@ -64,7 +64,8 @@
   "author": "James Drake",
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
   },
   "scripts": {
     "mcp": "node scripts/propprofessor-mcp-server.js",
