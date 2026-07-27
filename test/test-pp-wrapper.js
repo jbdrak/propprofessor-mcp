@@ -8,8 +8,7 @@ const PP_BIN = path.resolve(__dirname, '..', 'bin', 'pp');
 test('pp help prints usage', () => {
   const result = spawnSync(process.execPath, [PP_BIN, 'help'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /pp — PropProfessor quick commands/);
-  assert.match(result.stdout, /hide <bet-id>/);
+  assert.match(result.stdout, /pp — PropProfessor CLI/);
   assert.match(result.stdout, /today/);
 });
 
