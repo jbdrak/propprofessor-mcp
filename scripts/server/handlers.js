@@ -811,14 +811,14 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
 
   async function runGetPlayDetailsImpl(client, args = {}) {
     const league = String(args.league || '').trim();
-    const rawGameIds = Array.isArray(args.game_ids) ? args.game_ids : [];
+    const rawGameIds = Array.isArray(args.gameIds) ? args.gameIds : [];
     // Sanitize: trim, drop empties, dedupe. Stale/closed/malformed game IDs
     // (e.g. non-numeric timestamps) used to crash the per-row enrichment
     // path with "Cannot read properties of undefined (reading 'filter')".
     // Clean them here so the downstream pipeline only sees well-formed IDs.
     const gameIds = Array.from(new Set(rawGameIds.map((id) => String(id == null ? '' : id).trim()).filter(Boolean)));
     if (!league || !gameIds.length) {
-      const error = new Error('league and game_ids are required.');
+      const error = new Error('league and gameIds are required.');
       error.code = 'MISSING_PARAMS';
       error.category = 'validation';
       error.status = 400;
@@ -1091,7 +1091,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
           value: await runGetPlayDetailsImpl(client, {
             league,
             market,
-            game_ids: [gameId],
+            gameIds: [gameId],
             books: books.length ? books : undefined,
             lookbackHours
           })

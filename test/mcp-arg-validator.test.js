@@ -275,38 +275,26 @@ describe('mcp-arg-validator', () => {
     });
   });
 
-  describe('normalizeArgs (canonical <-> alias sync at dispatch)', () => {
+  describe('normalizeArgs (spread copy at dispatch)', () => {
     it('returns a NEW object, does not mutate input', () => {
       const input = { league: 'NBA', gameIds: ['a'] };
-      const out = normalizeArgs('get_play_details', input);
+      const out = normalizeArgs(input);
       assert.notStrictEqual(out, input);
       assert.deepStrictEqual(input, { league: 'NBA', gameIds: ['a'] });
     });
 
     it('passes through null/undefined args unchanged', () => {
-      assert.equal(normalizeArgs('any_tool', null), null);
-      assert.equal(normalizeArgs('any_tool', undefined), undefined);
+      assert.equal(normalizeArgs(null), null);
+      assert.equal(normalizeArgs(undefined), undefined);
     });
 
-    it('get_play_details: gameIds <-> game_ids sync', () => {
-      const out1 = normalizeArgs('get_play_details', { league: 'NBA', gameIds: ['a', 'b'] });
-      assert.deepStrictEqual(out1, { league: 'NBA', gameIds: ['a', 'b'], game_ids: ['a', 'b'] });
-
-      const out2 = normalizeArgs('get_play_details', { league: 'NBA', game_ids: ['a', 'b'] });
-      assert.deepStrictEqual(out2, { league: 'NBA', gameIds: ['a', 'b'], game_ids: ['a', 'b'] });
-    });
-
-    it('get_play_details: does not sync gameId (validate_play param) — wrong tool name', () => {
-      // validate_play uses singular `gameId`, not `gameIds`. normalizeArgs
-      // for the WRONG tool name should not touch gameId at all.
-      const out = normalizeArgs('validate_play', { gameId: 'abc' });
-      assert.deepStrictEqual(out, { gameId: 'abc' });
+    it('deep-copies the input', () => {
+      const out = normalizeArgs({ league: 'NBA', gameIds: ['a', 'b'] });
+      assert.deepStrictEqual(out, { league: 'NBA', gameIds: ['a', 'b'] });
     });
 
     it('preserves unknown keys (does not strip them)', () => {
-      // Validator strips unknown keys via additionalProperties:false, but
-      // normalizeArgs runs separately and shouldn't lose data.
-      const out = normalizeArgs('any_tool', { weirdExtra: 'ok' });
+      const out = normalizeArgs({ weirdExtra: 'ok' });
       assert.equal(out.weirdExtra, 'ok');
     });
   });

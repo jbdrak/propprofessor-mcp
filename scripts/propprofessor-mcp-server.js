@@ -144,12 +144,8 @@ function createMcpServer({
           isError: true
         });
       }
-      // Sync canonical and deprecated-alias param names bidirectionally so
-      // callers can use the new clean names (e.g. "live", "gameIds") while
-      // existing handler code keeps reading the legacy names (e.g. "is_live",
-      // "game_ids"). Schema's known-property check has already passed, so
-      // both forms are guaranteed to be valid here.
-      const normalizedArgs = normalizeArgs(toolName, params?.arguments || {});
+      // Copy args so handlers can't mutate the caller's object.
+      const normalizedArgs = normalizeArgs(params?.arguments || {});
       try {
         const result = await handler.call(handlers, normalizedArgs);
         return createJsonRpcSuccess(id, {
