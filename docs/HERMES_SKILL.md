@@ -95,8 +95,8 @@ Available on every screen-family tool. Accepts `start` (game time), `edge` (cons
 **Risk Score (1–10)**
 Player/injury/news risk from `player_context`. 1-3 = clean, 4-6 = monitor, 7-10 = downgrade or skip. Always surface scores ≥ 7.
 
-**Movement Grade (A–D)**
-How many sharp books moved supportive across the lookback window. A = broad sharp support, D = no support or contradictory. Grade A/B with TIER 1-2 is the sweet spot.
+**Movement Grade (green / yellow / red)**
+Qualitative movement quality band. Green = all sharp books aligned (supportive, high quality, strong consensus, positive CLV). Yellow = some signals positive but not all. Red = adverse movement / bad execution / thin consensus. Green + TIER 1-2 is the sweet spot.
 
 **Multi-Market Defaults**
 

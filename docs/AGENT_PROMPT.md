@@ -257,8 +257,8 @@ Old callers keep working unchanged.
 
 Check the `_meta.mode` field on `tools/list` if you're not sure which tools are available:
 
-- `full` (default): all 28 tools
-- `lite`: 13 essentials for casual/intermediate workflows
+- `full` (default): all 31 tools
+- `lite`: 15 essentials for casual/intermediate workflows
 
 If a tool you expect to call isn't in the catalog, surface the `_meta` block so the user can decide whether to restart the server in `full` mode (`PROPPROFESSOR_MCP_MODE=full`).
 
@@ -372,7 +372,7 @@ Risk: 1-3=low, 4-6=moderate, 7-10=high (warn user)
 Edge: <1%=skip, 1-3%=playable, >3%=strong
 Movement: 🟢=all signals aligned, 🟡=some uncertainty, 🔴=do not bet
 |Staking: T1=2%, T2=1%, T3=0.25% max, T4=0%
-|Tool surface: 28 tools (full) / 13 essentials (lite)
+|Tool surface: 31 tools (full) / 15 essentials (lite)
 |Starting point: quick_screen (one-call: consensus + price + research)
 |Complete eval: smart_bet(selection, book) — play + verdict + price + staking
 ```

@@ -2,7 +2,7 @@
 
 This is the reference for **AI agents** (Claude, Cursor, Hermes, etc.) using
 PropProfessor MCP. It covers the 5 patterns you'll actually need. The tool
-surface is large (33 tools) on purpose — each does one sharp-money job — but
+surface is large (31 tools) on purpose — each does one sharp-money job — but
 you only need a handful for 95% of workflows.
 
 > **Golden rule:** `TIER 1-4`, `kaiCall` (BET/CONSIDER/PASS), `edge`, and
@@ -144,6 +144,6 @@ smart_money({ league: "NBA", sportsbooks: ["Pinnacle","Circa"] })
 
 ## Tool count
 
-30 tools total (full mode). Lite mode (14 tools) is the curated set for
+31 tools total (full mode). Lite mode (15 tools) is the curated set for
 resource-constrained agents — it includes `ask`, `today`, `quick_screen`,
 `validate_play`, `place_bet`, `quick_screen`, and the tracking tools.
