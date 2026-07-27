@@ -21,8 +21,8 @@ describe('get_play_details: all markets when market omitted (Task 3)', () => {
     const screenCalls = calls.queryScreenOddsBestComps;
     const distinctMarkets = [...new Set(screenCalls.map((c) => c.market))];
     assert.ok(distinctMarkets.includes('Moneyline'), 'queried Moneyline');
-    assert.ok(distinctMarkets.includes('Spread'), 'queried Spread');
-    assert.ok(distinctMarkets.includes('Total'), 'queried Total');
+    assert.ok(distinctMarkets.includes('Point Spread'), 'queried Point Spread');
+    assert.ok(distinctMarkets.includes('Total Points'), 'queried Total Points');
     assert.equal(result.resultMeta.marketsQueried.length, 3, 'reports 3 markets queried');
     assert.equal(result.resultMeta.matchedRows, result.result.length);
   });
