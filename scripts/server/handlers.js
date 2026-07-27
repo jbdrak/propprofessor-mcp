@@ -30,6 +30,7 @@ const {
   readAuthState
 } = require('../../lib/propprofessor-api');
 const {
+  correctTennisTimes,
   getTennisMarketFamily,
   normalizeTennisMarketQuery,
   rankTennisScreenRows,
@@ -1806,16 +1807,10 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
           })
       });
       if (screenResult?.result) {
-        // Tennis: NO time correction and NO date window filter.
-        // Rule: if odds are showing on the book, the match hasn't started
-        // regardless of scheduled start time. Tennis match times from feeds
-        // are notoriously unreliable — delayed/rain-postponed/ITF mismatches.
-        // The ESPN time correction pipeline was slow (~2s per match) and added
-        // no value once we accepted that 'live odds = match hasn't started'.
-        // cardWindow filtering (today/next) is skipped for tennis because
-        // stale match times would incorrectly drop valid lines.
-        // Note: cardWindow filtering (today/next) deliberatively skipped here.
-        // The lines below (market alias, cache) run normally.
+        // Wire correctTennisTimes into the quick_screen tennis path so
+        // start times are accurate (ESPN + web search fallback). The +EV
+        // enrichment path in screen-tennis.js already calls this.
+        await correctTennisTimes(screenResult.result);
       }
       // Add market alias info to resultMeta if any aliases were used
       if (marketResolution.aliasesUsed.length) {
@@ -1904,8 +1899,8 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       lookbackHours: getLookbackHours(args),
       requestedMarket
     });
-    // Tennis time correction removed — see comment in runTennisScreen handler.
-    // EV enrichment uses the same rule: live odds > scheduled start times.
+    // Tennis time correction now applied inside enrichTennisEvCandidates
+    // via correctTennisTimes (ESPN + web search fallback).
     return {
       ok: true,
       result: ranked,
