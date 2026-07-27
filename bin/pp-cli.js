@@ -1000,7 +1000,11 @@ async function main() {
     });
   }
 
-  const command = positional[0] || 'scan';
+  if (!positional[0]) {
+    printHelp('');
+    process.exit(0);
+  }
+  const command = positional[0];
 
   // Help
   if (flags.h || flags.help) {
