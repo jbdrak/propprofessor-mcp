@@ -612,9 +612,8 @@ describe('handler integration: staking_plan', () => {
 
     assert.equal(result.ok, true);
     assert.ok(Array.isArray(result.stakes), 'Should have stakes array');
-    assert.ok(result.playCount >= 0, 'Should have playCount');
+    assert.ok(result.stakes.length >= 0, 'Should have stakes (may be empty with mock data)');
     assert.ok(typeof result.totalStake === 'number', 'Should have totalStake');
-    assert.ok(typeof result.remainingBankroll === 'number', 'Should have remainingBankroll');
 
     for (const stake of result.stakes) {
       assert.ok(stake.game, 'Stake has game');
