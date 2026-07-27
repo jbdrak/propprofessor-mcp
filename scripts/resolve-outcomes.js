@@ -17,13 +17,21 @@
  *      settlement endpoint. This is the path the unit test exercises.
  *
  *   2. Live settlement (OPTIONAL hook):
- *      Pass `--live` to call an injected/optional `getPlayResult(gameId,
- *      selection, market, book)` resolver. The PropProfessor API does NOT
- *      currently expose a settled-results feed, so there is no built-in
- *      client method — `liveGetPlayResult` is `null` by default and must be
- *      supplied by the caller (e.g. a future sports-data adapter). The live
- *      path is only attempted when `--live` is passed AND a resolver is
- *      provided; otherwise it falls back to CSV if one is supplied, then no-ops.
+ *      Pass `--live` to call an injected/optional `getPlayResult(play)` resolver.
+ *      The PropProfessor API does NOT currently expose a settled-results feed,
+ *      so there is no built-in client method — `liveGetPlayResult` is `null`
+ *      by default and must be supplied by the caller (e.g. a future sports-data
+ *      adapter). The live path is only attempted when `--live` is passed AND a
+ *      resolver is provided; otherwise it falls back to CSV if one is supplied,
+ *      then no-ops.
+ *
+ *   3. ESPN auto-resolution (BUILT-IN, no manual input):
+ *      `node scripts/resolve-outcomes.js --espn`
+ *      Fetches settled scores from ESPN's public scoreboard API (NBA, MLB,
+ *      Tennis, UFC) and resolves Moneyline outcomes automatically. No API key
+ *      or manual CSV input needed.
+ *
+ * Resolution order: CSV wins if a playId match exists, then ESPN/live.
  *
  * Result vocabulary: the snapshot stores the canonical `win | loss | push`
  * form. Because the metrics engine (computeBacktestMetrics) expects
@@ -34,6 +42,7 @@
  *   node scripts/resolve-outcomes.js --csv results.csv
  *   node scripts/resolve-outcomes.js --csv results.csv --in data/snapshots.jsonl
  *   node scripts/resolve-outcomes.js --live            # requires liveGetPlayResult
+ *   node scripts/resolve-outcomes.js --espn             # automated ESPN resolution
  *
  * Library:
  *   const { resolveOutcomes } = require('./resolve-outcomes');
@@ -150,6 +159,13 @@ async function resolveOutcomes(opts = {}) {
 
   const csvMap = opts.resultsCsv ? csvToResultMap(fs.readFileSync(opts.resultsCsv, 'utf8')) : null;
   const useLive = Boolean(opts.live) && typeof opts.liveGetPlayResult === 'function';
+  const useEspn = Boolean(opts.espn);
+
+  // Lazy-load the ESPN resolver only when --espn is passed
+  let espnResolver = null;
+  if (useEspn) {
+    espnResolver = require('../lib/propprofessor-espn-resolver');
+  }
 
   const rows = [];
   let resolved = 0;
@@ -181,6 +197,13 @@ async function resolveOutcomes(opts = {}) {
       const live = await opts.liveGetPlayResult(rec);
       if (live && VALID.has(String(live).toLowerCase())) {
         outcome = { result: String(live).toLowerCase() };
+      }
+    }
+    // 3) ESPN auto-resolution
+    if (!outcome && useEspn && espnResolver) {
+      const espnResult = await espnResolver.getPlayResult(rec);
+      if (espnResult && VALID.has(String(espnResult).toLowerCase())) {
+        outcome = { result: String(espnResult).toLowerCase() };
       }
     }
 
@@ -238,14 +261,16 @@ function parseArgs(argv) {
 async function main() {
   const flags = parseArgs(process.argv);
   const csvPath = typeof flags.csv === 'string' ? flags.csv : null;
-  if (!csvPath && !flags.live) {
-    console.error('resolve-outcomes: provide --csv <path.csv> or --live.');
+  const useEspn = Boolean(flags.espn);
+  if (!csvPath && !flags.live && !useEspn) {
+    console.error('resolve-outcomes: provide --csv <path.csv>, --live, or --espn.');
     process.exit(2);
   }
   const result = await resolveOutcomes({
     inFile: typeof flags.in === 'string' ? flags.in : undefined,
     resultsCsv: csvPath,
-    live: Boolean(flags.live)
+    live: Boolean(flags.live),
+    espn: useEspn
   });
   console.log(
     `resolve-outcomes: resolved ${result.resolved}, already resolved ${result.alreadyResolved}, ` +
