@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "Node16",
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,
@@ -10,31 +10,9 @@
     "strictNullChecks": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "ignoreDeprecations": "5.0",
-    "noResolve": true
+    "types": ["node"]
   },
-  "include": [
-    "lib/propprofessor-lru-cache.js",
-    "lib/propprofessor-redact.js",
-    "lib/screen-ranker.js",
-    "lib/screen-parser.js",
-    "lib/propprofessor-risk-score.js",
-    "lib/propprofessor-sharp-consensus.js",
-    "lib/propprofessor-sharp-books.js",
-    "lib/propprofessor-movement-disposition.js",
-    "lib/propprofessor-api.js",
-    "lib/propprofessor-auth.js",
-    "lib/propprofessor-mcp-stdio.js",
-    "lib/propprofessor-mcp-ranked-screen.js",
-    "lib/response-envelope.js",
-    "lib/mcp-arg-validator.js",
-    "lib/league-presets.js",
-    "lib/propprofessor-best-price.js",
-    "lib/propprofessor-shared-utils.js",
-    "lib/selection-matcher.js",
-    "lib/selection-resolver.js",
-    "lib/screen-summary.js",
-    "lib/propprofessor-formatter.js"
-  ]
+  "include": ["lib/**/*.js"]
 }

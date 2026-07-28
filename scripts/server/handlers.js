@@ -54,7 +54,6 @@ function getDefaultMarketsForLeague(league, _targetBooks) {
 }
 const { getOddsHistoryCache, DEFAULT_ODDS_HISTORY_CACHE_TTL_MS } = require('../../lib/mcp-runtime-config');
 const { buildUfcShortlist } = require('../../lib/propprofessor-sharp-plays');
-const { findBestPrice } = require('../../lib/propprofessor-best-price');
 const { findBestMatch } = require('../../lib/selection-matcher');
 const { mapCandidateRow } = require('../../lib/propprofessor-mcp-candidate-mapper');
 const {
