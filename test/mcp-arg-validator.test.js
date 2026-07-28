@@ -227,7 +227,7 @@ describe('mcp-arg-validator', () => {
       properties: {
         league: { type: 'string' },
         gameIds: { type: 'array', items: { type: 'string' } },
-        gameIds: { type: 'array', items: { type: 'string' } }
+        game_ids: { type: 'array', items: { type: 'string' } }
       },
       required: ['league', 'gameIds'],
       __requiredAliases: { gameIds: ['game_ids'] },
@@ -252,7 +252,7 @@ describe('mcp-arg-validator', () => {
 
     it('prefers canonical value when both are present (no overwrite)', () => {
       // Canonical wins — alias is ignored if both are supplied.
-      const r = validateArgs(schema, { league: 'NBA', gameIds: ['canonical'], gameIds: ['alias'] });
+      const r = validateArgs(schema, { league: 'NBA', gameIds: ['canonical'], game_ids: ['alias'] });
       assert.equal(r.ok, true);
     });
 
