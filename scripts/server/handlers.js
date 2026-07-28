@@ -21,6 +21,7 @@ const { createDiscoveryHandlers } = require('./handlers/discovery');
 const { createConsensusHandlers } = require('./handlers/consensus');
 const { createCompositesHandlers } = require('./handlers/composites');
 const { createTennisScreenHandler } = require('./handlers/tennis-screen');
+const { createScreenHandlers } = require('./handlers/screen');
 const { defined, resolveMarkets, buildPositiveEvTarget, stripVerdictFields } = require('./handlers/handler-utils');
 const { ok } = require('../../lib/response-envelope');
 const {
@@ -4028,6 +4029,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
   Object.assign(handlers, createDiscoveryHandlers(client, ctx));
   Object.assign(handlers, createConsensusHandlers(client, ctx));
   Object.assign(handlers, createCompositesHandlers(client, ctx));
+  Object.assign(handlers, createScreenHandlers(client, ctx));
 
   // Set handlers reference on ctx so extracted modules can cross-call.
   ctx.handlers = handlers;
