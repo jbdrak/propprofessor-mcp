@@ -16,7 +16,7 @@ const ARGS = {
   all_slates: { book: 'NoVigApp' },
   ev_candidates: { leagues: ['NBA', 'MLB'] },
   sharp_consensus: { league: 'NBA', market: 'Moneyline' },
-  get_play_details: { league: 'WNBA', game_ids: ['WNBA:PREMATCH:NYL:LV:123'] },
+  get_play_details: { league: 'WNBA', gameIds: ['WNBA:PREMATCH:NYL:LV:123'] },
   player_context: { player: 'Ohtani', league: 'MLB' },
   find_best_price: { league: 'NBA', selection: 'Lakers', market: 'Moneyline' },
   get_alerts: { leagues: ['WNBA'] },

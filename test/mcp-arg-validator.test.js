@@ -227,7 +227,7 @@ describe('mcp-arg-validator', () => {
       properties: {
         league: { type: 'string' },
         gameIds: { type: 'array', items: { type: 'string' } },
-        game_ids: { type: 'array', items: { type: 'string' } }
+        gameIds: { type: 'array', items: { type: 'string' } }
       },
       required: ['league', 'gameIds'],
       __requiredAliases: { gameIds: ['game_ids'] },
@@ -240,7 +240,7 @@ describe('mcp-arg-validator', () => {
     });
 
     it('accepts deprecated alias in args (back-compat)', () => {
-      const r = validateArgs(schema, { league: 'NBA', game_ids: ['x'] });
+      const r = validateArgs(schema, { league: 'NBA', gameIds: ['x'] });
       assert.equal(r.ok, true);
     });
 
@@ -252,12 +252,12 @@ describe('mcp-arg-validator', () => {
 
     it('prefers canonical value when both are present (no overwrite)', () => {
       // Canonical wins — alias is ignored if both are supplied.
-      const r = validateArgs(schema, { league: 'NBA', gameIds: ['canonical'], game_ids: ['alias'] });
+      const r = validateArgs(schema, { league: 'NBA', gameIds: ['canonical'], gameIds: ['alias'] });
       assert.equal(r.ok, true);
     });
 
     it('does not mutate caller args (shallow copy on required-alias path)', () => {
-      const callerArgs = { league: 'NBA', game_ids: ['x'] };
+      const callerArgs = { league: 'NBA', gameIds: ['x'] };
       const snapshot = JSON.parse(JSON.stringify(callerArgs));
       validateArgs(schema, callerArgs);
       assert.deepStrictEqual(callerArgs, snapshot);

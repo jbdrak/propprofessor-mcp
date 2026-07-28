@@ -329,7 +329,7 @@ describe('validate_play handler', () => {
       const handlers = createMcpHandlers({ client });
       const result = await handlers.get_play_details({
         league: 'UFC',
-        game_ids: ['UFC:PREMATCH:Chandler:Ruffy:1781484000'],
+        gameIds: ['UFC:PREMATCH:Chandler:Ruffy:1781484000'],
         market: 'Moneyline'
       });
       // Should find the row — no longer dropped by Pinnacle-only focusBook.

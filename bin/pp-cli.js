@@ -642,7 +642,7 @@ async function cmdGame(handlers, positional, flags) {
 
   console.error('Fetching ' + gameId + '...');
 
-  const res = await handlers.get_play_details({ league, market, game_ids: [gameId], books: [book] });
+  const res = await handlers.get_play_details({ league, market, gameIds: [gameId], books: [book] });
 
   if (jsonOut) {
     console.log(JSON.stringify(res, null, 2));

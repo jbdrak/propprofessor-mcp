@@ -818,7 +818,7 @@ describe('handler integration: get_play_details sanitization', () => {
     await assert.rejects(
       handlers.get_play_details({
         league: 'NBA',
-        game_ids: ['', '  ', null, undefined]
+        gameIds: ['', '  ', null, undefined]
       }),
       (err) => err.code === 'MISSING_PARAMS' && err.status === 400
     );
@@ -830,7 +830,7 @@ describe('handler integration: get_play_details sanitization', () => {
     // one gameId. Verified via resultMeta.queryGameIds on the response.
     const result = await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['nba-20260610-lal-bos', '  nba-20260610-lal-bos  ', 'nba-20260610-lal-bos']
+      gameIds: ['nba-20260610-lal-bos', '  nba-20260610-lal-bos  ', 'nba-20260610-lal-bos']
     });
     assert.deepEqual(result.resultMeta.queryGameIds, ['nba-20260610-lal-bos']);
   });
@@ -843,7 +843,7 @@ describe('handler integration: get_play_details sanitization', () => {
     const handlers = createMcpHandlers({ client });
     const result = await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['nba-20260610-lal-bos']
+      gameIds: ['nba-20260610-lal-bos']
     });
     assert.equal(result.ok, true);
     assert.deepEqual(result.result, []);
@@ -860,7 +860,7 @@ describe('handler integration: get_play_details sanitization', () => {
     const handlers = createMcpHandlers({ client });
     const result = await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['nba-does-not-exist-12345']
+      gameIds: ['nba-does-not-exist-12345']
     });
     assert.equal(result.ok, true);
     assert.deepEqual(result.result, []);

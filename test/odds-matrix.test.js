@@ -11,7 +11,7 @@ describe('get_play_details: oddsMatrix enrichment (Task 4)', () => {
     const handlers = createMcpHandlers({ client });
     const result = await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['nba-20260610-lal-bos'],
+      gameIds: ['nba-20260610-lal-bos'],
       market: 'Moneyline'
     });
     assert.equal(result.ok, true);
@@ -29,7 +29,7 @@ describe('get_play_details: oddsMatrix enrichment (Task 4)', () => {
     const handlers = createMcpHandlers({ client });
     const result = await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['nba-20260610-lal-bos'],
+      gameIds: ['nba-20260610-lal-bos'],
       market: 'Moneyline'
     });
     assert.equal(result.ok, true);

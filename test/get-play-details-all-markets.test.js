@@ -11,7 +11,7 @@ describe('get_play_details: all markets when market omitted (Task 3)', () => {
     const handlers = createMcpHandlers({ client });
     const result = await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['NBA:PREMATCH:Lakers:Celtics:1783807200']
+      gameIds: ['NBA:PREMATCH:Lakers:Celtics:1783807200']
       // no market arg
     });
 
@@ -32,7 +32,7 @@ describe('get_play_details: all markets when market omitted (Task 3)', () => {
     const handlers = createMcpHandlers({ client });
     await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['NBA:PREMATCH:Lakers:Celtics:1783807200'],
+      gameIds: ['NBA:PREMATCH:Lakers:Celtics:1783807200'],
       market: 'Moneyline'
     });
     const screenCalls = calls.queryScreenOddsBestComps;

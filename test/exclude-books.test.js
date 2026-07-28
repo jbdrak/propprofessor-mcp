@@ -27,7 +27,7 @@ describe('excludeBooks (Task 2: mirror website account Settings)', () => {
     const handlers = createMcpHandlers({ client });
     await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['NBA:PREMATCH:Lakers:Celtics:1783807200'],
+      gameIds: ['NBA:PREMATCH:Lakers:Celtics:1783807200'],
       market: 'Moneyline',
       books: ['Pinnacle', 'Fliff', 'Bovada'],
       excludeBooks: ['Fliff', 'Bovada']
@@ -60,7 +60,7 @@ describe('get_play_details: /screen grid filters (Task 5)', () => {
     const handlers = createMcpHandlers({ client });
     await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['NBA:PREMATCH:Lakers:Celtics:1783807200'],
+      gameIds: ['NBA:PREMATCH:Lakers:Celtics:1783807200'],
       market: 'Moneyline',
       participants: ['Lakers', 'Celtics'],
       live: true
@@ -76,7 +76,7 @@ describe('get_play_details: /screen grid filters (Task 5)', () => {
     const handlers = createMcpHandlers({ client });
     await handlers.get_play_details({
       league: 'NBA',
-      game_ids: ['NBA:PREMATCH:Lakers:Celtics:1783807200'],
+      gameIds: ['NBA:PREMATCH:Lakers:Celtics:1783807200'],
       market: 'Moneyline'
     });
     const lastCall = calls.queryScreenOddsBestComps.at(-1);
