@@ -30,9 +30,7 @@ const {
   resolveAuthFile,
   readAuthState
 } = require('../../lib/propprofessor-api');
-const {
-  normalizeTennisMarketQuery
-} = require('../../lib/screen-tennis');
+const { normalizeTennisMarketQuery } = require('../../lib/screen-tennis');
 const { rankLeagueScreenRows } = require('../../lib/screen-ranker');
 const { extractScreenRows } = require('../../lib/screen-parser');
 const {

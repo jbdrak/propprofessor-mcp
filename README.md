@@ -114,26 +114,26 @@ pp scan mlb tennis -M supportive -n3
 
 18 commands for scanning, validation, setup, and logging:
 
-| Command                 | Description                                 |
-| ----------------------- | ------------------------------------------- |
-| `pp scan [leagues...]`  | Find plays across leagues                   |
-| `pp scan -M supportive` | Filter by movement (clean, bouncy, adverse) |
-| `pp scan --fast`        | Quick scan (5 fastest leagues)              |
-| `pp scan -B`            | Only BET verdict plays                      |
-| `pp validate <playId>`  | Validate a specific play                    |
-| `pp game <gameId>`      | Get full game details                       |
-| `pp player <name>`      | Player context + injury/risk flags          |
-| `pp prices <gameId>`    | Compare prices across books                 |
-| `pp log <gameId>`       | Log a pick                                  |
-| `pp picks`              | Recent pick history                         |
-| `pp rank <league>`      | Ranked plays for a league                   |
-| `pp fantasy`            | Fantasy optimizer props                     |
-| `pp today`              | Today's slate + pending picks               |
-| `pp health`             | Auth + backend health check                 |
-| `pp-mcp`                | MCP server (stdio) — connect your AI agent  |
+| Command                 | Description                                             |
+| ----------------------- | ------------------------------------------------------- |
+| `pp scan [leagues...]`  | Find plays across leagues                               |
+| `pp scan -M supportive` | Filter by movement (clean, bouncy, adverse)             |
+| `pp scan --fast`        | Quick scan (5 fastest leagues)                          |
+| `pp scan -B`            | Only BET verdict plays                                  |
+| `pp validate <playId>`  | Validate a specific play                                |
+| `pp game <gameId>`      | Get full game details                                   |
+| `pp player <name>`      | Player context + injury/risk flags                      |
+| `pp prices <gameId>`    | Compare prices across books                             |
+| `pp log <gameId>`       | Log a pick                                              |
+| `pp picks`              | Recent pick history                                     |
+| `pp rank <league>`      | Ranked plays for a league                               |
+| `pp fantasy`            | Fantasy optimizer props                                 |
+| `pp today`              | Today's slate + pending picks                           |
+| `pp health`             | Auth + backend health check                             |
+| `pp-mcp`                | MCP server (stdio) — connect your AI agent              |
 | `pp-query init`         | One-command setup (Node check + auth + doctor + config) |
-| `pp-query login`        | Browser login to PropProfessor              |
-| `pp-query doctor`       | Full diagnostic check                       |
+| `pp-query login`        | Browser login to PropProfessor                          |
+| `pp-query doctor`       | Full diagnostic check                                   |
 
 **MCP mode:** `pp --mcp` runs as an MCP stdio server. Connect it to Claude Desktop,
 Cursor, Cline, or any MCP client. Pass `--mode full` for the full 31-tool surface.
@@ -335,32 +335,32 @@ Agent: quick_screen({ books: ["Fliff"] })
        → [ranked plays with odds, edge, tier, risk, rationale — all on Fliff]
 ```
 
-| You say                              | Agent asks `ask` → then calls                         | Returns                              |
-| ------------------------------------ | ----------------------------------------------------- | ------------------------------------ |
-| "best plays on Novig"                | `ask` → `quick_screen(books=["NovigApp"])`            | Playable bets with player context    |
-| "what should I bet today"            | `ask` → `quick_screen(mode="recommended")`            | TIER 1 & TIER 2 across major leagues |
-| "Tatum over 29.5 points"             | `ask` → `player_context(player="Tatum", sport="NBA")` | Injury/news risk check               |
-| "show me MLB sharp plays"            | `ask` → `quick_screen(leagues=["MLB"], mode="sharp")` | Multi-sharp consensus plays          |
-| "line shop Celtics ML"               | `ask` → `find_best_price(league="NBA", market="ML", …)` | Best price across 36 books         |
-| "validate that Warriors spread play" | `ask` → `validate_play(league="NBA", gameId="…", …)`    | BET/CONSIDER/PASS verdict           |
+| You say                              | Agent asks `ask` → then calls                           | Returns                              |
+| ------------------------------------ | ------------------------------------------------------- | ------------------------------------ |
+| "best plays on Novig"                | `ask` → `quick_screen(books=["NovigApp"])`              | Playable bets with player context    |
+| "what should I bet today"            | `ask` → `quick_screen(mode="recommended")`              | TIER 1 & TIER 2 across major leagues |
+| "Tatum over 29.5 points"             | `ask` → `player_context(player="Tatum", sport="NBA")`   | Injury/news risk check               |
+| "show me MLB sharp plays"            | `ask` → `quick_screen(leagues=["MLB"], mode="sharp")`   | Multi-sharp consensus plays          |
+| "line shop Celtics ML"               | `ask` → `find_best_price(league="NBA", market="ML", …)` | Best price across 36 books           |
+| "validate that Warriors spread play" | `ask` → `validate_play(league="NBA", gameId="…", …)`    | BET/CONSIDER/PASS verdict            |
 
 ## 📊 Available Tools
 
 ### Quick Situational Checks
 
-| Tool                  | What it does                                                                                                |
-| --------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `ask`                 | Parse natural language query into the right tool + args (router, does NOT execute — agent calls the suggested tool separately)                        |
-| `today`               | One-call daily briefing: sharp slate + your pending picks + recent stats                                    |
-| `get_started`         | Returns recommended workflow for casual/intermediate/sharp users                                            |
-| `get_market_registry` | List available markets for a sport, with per-book market names (e.g. Soccer → Draw No Bet)                  |
-| `quick_screen`        | Best plays on any book with sharp consensus + player context                                                |
-| `smart_bet`           | One-call: play details + validate_play verdict + best price + staking                                       |
-| `player_context`      | Injury/availability check on a specific player                                                              |
-| `validate_play`       | One-call verdict: re-fetches odds, checks injury news, returns BET/CONSIDER/PASS + playId + drift detection |
-| `mlb_game_context`    | Starting pitchers, park factor, hourly weather, lineup lock for an MLB game                                 |
-| `find_best_price`     | Line-shop across all books for the best execution price                                                     |
-| `health_status`       | Auth freshness and endpoint connectivity                                                                    |
+| Tool                  | What it does                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `ask`                 | Parse natural language query into the right tool + args (router, does NOT execute — agent calls the suggested tool separately) |
+| `today`               | One-call daily briefing: sharp slate + your pending picks + recent stats                                                       |
+| `get_started`         | Returns recommended workflow for casual/intermediate/sharp users                                                               |
+| `get_market_registry` | List available markets for a sport, with per-book market names (e.g. Soccer → Draw No Bet)                                     |
+| `quick_screen`        | Best plays on any book with sharp consensus + player context                                                                   |
+| `smart_bet`           | One-call: play details + validate_play verdict + best price + staking                                                          |
+| `player_context`      | Injury/availability check on a specific player                                                                                 |
+| `validate_play`       | One-call verdict: re-fetches odds, checks injury news, returns BET/CONSIDER/PASS + playId + drift detection                    |
+| `mlb_game_context`    | Starting pitchers, park factor, hourly weather, lineup lock for an MLB game                                                    |
+| `find_best_price`     | Line-shop across all books for the best execution price                                                                        |
+| `health_status`       | Auth freshness and endpoint connectivity                                                                                       |
 
 ### Deeper Signal Analysis
 
@@ -422,8 +422,8 @@ Set `PROPPROFESSOR_MCP_MODE` at server boot to control how many tools the agent 
 
 | Mode   | Default | Tools exposed | Best for                                                                                                                                   |
 | ------ | ------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-|  `lite` | ✅ yes  | 15            | **Recommended for most users.** Covers the full workflow (discover → drill-down → validate → track) without overwhelming the tool catalog. |
-|  `full` | no      | 31            | Power users — every discovery, screen, research, and admin tool. More tools but more noise for the agent to reason about.                  |
+| `lite` | ✅ yes  | 15            | **Recommended for most users.** Covers the full workflow (discover → drill-down → validate → track) without overwhelming the tool catalog. |
+| `full` | no      | 31            | Power users — every discovery, screen, research, and admin tool. More tools but more noise for the agent to reason about.                  |
 
 Lite mode exposes: `ask`, `smart_bet`, `quick_screen`, `today`, `find_best_price`, `validate_play`, `get_play_details`, `player_context`, `log_pick`, `get_pick_history`, `resolve_pick`, `get_market_registry`, `place_bet`, `sharp_alerts`, `health_status`.
 
@@ -543,17 +543,17 @@ the ranking engine, they do NOT prove profitability.
 
 ## 🔧 Troubleshooting
 
-| Symptom | Likely cause | Fix |
-| ------- | ------------ | --- |
-| **`AUTH_ERROR`** on every call | Auth token expired or invalid | Run `pp-query login` to re-authenticate in the browser |
-| **`CIRCUIT_BREAKER_OPEN`** | Upstream API is down or rate-limited | Wait ~30s for the half-open retry; if persistent, run `pp-query doctor` to check backend health |
-| **`VALIDATION_ERROR`** | Wrong parameter name or type | Use the canonical param names (e.g. `targetBooks`, not `book`). See [Deprecated Param Names](#canonical-vs-deprecated-param-names) |
-| **Empty results from `quick_screen`** | No sharp consensus plays on that book+league combo right now | Remove `kaiCall: ["BET"]` to see CONSIDER/PASS rows too. Try a different book or league |
-| **`scan` returns nothing** | Market name mismatch per league | Call `get_market_registry({ sport: "NBA" })` to discover the correct market names |
-| **First `quick_screen` is slow (5–15s)** | Multi-league fan-out cache is cold | Normal. Subsequent calls with identical args return <5ms from the response cache |
-| **Some tools are missing from `tools/list`** | Server booted in lite mode | Set `PROPPROFESSOR_MCP_MODE=full` on startup, or use `pp --mcp --mode full` |
-| **`CIRCUIT_BREAKER_OPEN` persists** | Circuit breaker threshold exceeded | Increase `PROPPROFESSOR_CIRCUIT_BREAKER_THRESHOLD` (default 5) or timeout (default 30s). See [CONFIG.md](CONFIG.md) |
-| **Debug logging needed** | — | Set `PROPPROFESSOR_DEBUG=1` to see request/response traces on stderr |
+| Symptom                                      | Likely cause                                                 | Fix                                                                                                                                |
+| -------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **`AUTH_ERROR`** on every call               | Auth token expired or invalid                                | Run `pp-query login` to re-authenticate in the browser                                                                             |
+| **`CIRCUIT_BREAKER_OPEN`**                   | Upstream API is down or rate-limited                         | Wait ~30s for the half-open retry; if persistent, run `pp-query doctor` to check backend health                                    |
+| **`VALIDATION_ERROR`**                       | Wrong parameter name or type                                 | Use the canonical param names (e.g. `targetBooks`, not `book`). See [Deprecated Param Names](#canonical-vs-deprecated-param-names) |
+| **Empty results from `quick_screen`**        | No sharp consensus plays on that book+league combo right now | Remove `kaiCall: ["BET"]` to see CONSIDER/PASS rows too. Try a different book or league                                            |
+| **`scan` returns nothing**                   | Market name mismatch per league                              | Call `get_market_registry({ sport: "NBA" })` to discover the correct market names                                                  |
+| **First `quick_screen` is slow (5–15s)**     | Multi-league fan-out cache is cold                           | Normal. Subsequent calls with identical args return <5ms from the response cache                                                   |
+| **Some tools are missing from `tools/list`** | Server booted in lite mode                                   | Set `PROPPROFESSOR_MCP_MODE=full` on startup, or use `pp --mcp --mode full`                                                        |
+| **`CIRCUIT_BREAKER_OPEN` persists**          | Circuit breaker threshold exceeded                           | Increase `PROPPROFESSOR_CIRCUIT_BREAKER_THRESHOLD` (default 5) or timeout (default 30s). See [CONFIG.md](CONFIG.md)                |
+| **Debug logging needed**                     | —                                                            | Set `PROPPROFESSOR_DEBUG=1` to see request/response traces on stderr                                                               |
 
 Still stuck? Run `pp-query doctor` and [open an issue](https://github.com/j17drake/propprofessor-mcp/issues) with the output.
 
@@ -596,22 +596,22 @@ Release: push a `v*` tag → CI runs lint + tests on Node 20 + 22 → auto-creat
 
 ## 📚 Docs Index
 
-| Doc | What it covers |
-| --- | -------------- |
-| [README](README.md) | Quick start, auth, CLI reference, tool list, tuning, architecture |
-| [CONFIG.md](CONFIG.md) | Environment variables, book config, token compression |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | How to add a tool, testing, PRs |
-| [MAINTAINERS.md](MAINTAINERS.md) | Release process, smoke tests |
-| [docs/METHODOLOGY.md](docs/METHODOLOGY.md) | Full ranking math: movement grade → risk score → tier + hysteresis |
-| [docs/BACKTESTING.md](docs/BACKTESTING.md) | Synthetic & real-outcome backtest methodology |
-| [docs/AGENT_PROMPT.md](docs/AGENT_PROMPT.md) | Full system prompt for AI agents using PropProfessor |
-| [docs/agent-guide.md](docs/agent-guide.md) | 5 patterns every AI agent needs (cheat-sheet) |
-| [docs/RESPONSE_SHAPES.md](docs/RESPONSE_SHAPES.md) | JSON response shapes for all tools |
-| [docs/HERMES_SKILL.md](docs/HERMES_SKILL.md) | Hermes Agent integration skill |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | Response size, latency benchmarks, token usage |
-| [docs/MARKET-BOOK-AVAILABILITY.md](docs/MARKET-BOOK-AVAILABILITY.md) | Which markets each book supports, per league |
-| [docs/RELEASES.md](docs/RELEASES.md) | Full release history |
-| [llms.txt](llms.txt) | AI agent discovery file (compact overview for LLMs) |
+| Doc                                                                  | What it covers                                                     |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [README](README.md)                                                  | Quick start, auth, CLI reference, tool list, tuning, architecture  |
+| [CONFIG.md](CONFIG.md)                                               | Environment variables, book config, token compression              |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                   | How to add a tool, testing, PRs                                    |
+| [MAINTAINERS.md](MAINTAINERS.md)                                     | Release process, smoke tests                                       |
+| [docs/METHODOLOGY.md](docs/METHODOLOGY.md)                           | Full ranking math: movement grade → risk score → tier + hysteresis |
+| [docs/BACKTESTING.md](docs/BACKTESTING.md)                           | Synthetic & real-outcome backtest methodology                      |
+| [docs/AGENT_PROMPT.md](docs/AGENT_PROMPT.md)                         | Full system prompt for AI agents using PropProfessor               |
+| [docs/agent-guide.md](docs/agent-guide.md)                           | 5 patterns every AI agent needs (cheat-sheet)                      |
+| [docs/RESPONSE_SHAPES.md](docs/RESPONSE_SHAPES.md)                   | JSON response shapes for all tools                                 |
+| [docs/HERMES_SKILL.md](docs/HERMES_SKILL.md)                         | Hermes Agent integration skill                                     |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                           | Response size, latency benchmarks, token usage                     |
+| [docs/MARKET-BOOK-AVAILABILITY.md](docs/MARKET-BOOK-AVAILABILITY.md) | Which markets each book supports, per league                       |
+| [docs/RELEASES.md](docs/RELEASES.md)                                 | Full release history                                               |
+| [llms.txt](llms.txt)                                                 | AI agent discovery file (compact overview for LLMs)                |
 
 ## 📝 License
 
