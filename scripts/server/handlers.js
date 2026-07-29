@@ -1939,7 +1939,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       }
 
       // Step 3: Validate the play
-      let validation = null;
+      let validation;
       try {
         validation = await handlers.validate_play({
           league: matchLeague,
@@ -1953,7 +1953,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       }
 
       // Step 4: Line shop
-      let bestPrice = null;
+      let bestPrice;
       try {
         bestPrice = await handlers.find_best_price({
           game: match.game,

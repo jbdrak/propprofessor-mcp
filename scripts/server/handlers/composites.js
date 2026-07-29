@@ -565,7 +565,7 @@ function createCompositesHandlers(client, ctx) {
         };
       }
 
-      let validation = null;
+      let validation;
       try {
         validation = await ctx.handlers.validate_play({
           league: matchLeague,
@@ -578,7 +578,7 @@ function createCompositesHandlers(client, ctx) {
         validation = { _error: true, error: err.message };
       }
 
-      let bestPrice = null;
+      let bestPrice;
       try {
         bestPrice = await ctx.handlers.find_best_price({
           game: match.game,

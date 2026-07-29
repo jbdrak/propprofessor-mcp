@@ -152,7 +152,7 @@ function createValidatePlayHandlers(client, ctx) {
       research = { ...research, gameTime: matchingRow.start };
     }
 
-    let verdict = 'PASS';
+    let verdict;
     const reasons = [];
     const screenTier = args.screenTier || (matchingRow && matchingRow.screenTier);
     const screenKaiCall = args.screenKaiCall || (matchingRow && matchingRow.screenKaiCall);
