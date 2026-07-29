@@ -553,8 +553,8 @@ async function cmdScan(handlers, positional, flags, client) {
       const hasResults = res.data?.results || res.results || [];
       const totalPlays = hasResults.reduce((s, r) => s + (r.plays || []).length, 0);
       if (tennisOnly && totalPlays === 0) {
-        console.error('Tennis: showing delayed/recovered plays (odds detected on ' + book + ')');
-        console.error('(movement/edge analysis unavailable — sharp books may not carry tennis markets)');
+        console.error('Tennis: raw odds from ' + book + ' (no edge/movement analysis — sharp books don\'t carry tennis)');
+        console.error('These plays have live prices but NO tier/verdict/movement scoring.');
         const tennisPlays = await recoverTennisFromScreen({ book, client });
         if (tennisPlays.length) {
           res.data = res.data || {};
@@ -573,6 +573,11 @@ async function cmdScan(handlers, positional, flags, client) {
             }
           ];
           res.data.totalCount = tennisPlays.length;
+          // Tag as raw so consumers know there's no analysis
+          if (res.data.results && res.data.results[0]) {
+            res.data.results[0].raw = true;
+            res.data.results[0].note = 'Raw odds — no edge/movement analysis available for tennis';
+          }
         }
       }
     }
