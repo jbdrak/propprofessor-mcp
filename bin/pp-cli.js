@@ -12,6 +12,7 @@ const { createPropProfessorClient } = require(PROJECT + '/lib/propprofessor-api'
 const { createMcpHandlers } = require(PROJECT + '/scripts/server/handlers');
 const { getLocalTimezone } = require(PROJECT + '/lib/mcp-runtime-config');
 const { parseGameStartMs } = require(PROJECT + '/lib/propprofessor-shared-utils');
+const { recoverTennisFromScreen } = require(PROJECT + '/lib/tennis-fallback');
 
 // ── color support ───────────────────────────────────────────────
 
@@ -152,12 +153,14 @@ Flags:
   --fast                    Quick scan (5 fastest leagues)
   --validate-all            Full validation on all candidates (slow)
   --tz <IANA>                Timezone for display (default: America/Chicago). Overrides LOCALTIMEZONE env var.
+  --no-tennis-fallback       Disable fallback recovery when tennis scan returns 0 plays
 
 Examples:
   pp scan tennis wnba
   pp scan mlb -m "Total Runs" -t 1 -B
   pp scan -M supportive --asc
 `,
+
     validate: `pp validate <playId> [flags]
 
 Validate a specific play by playId.
@@ -439,7 +442,7 @@ function formatError(err, context) {
 
 // ── scan ────────────────────────────────────────────────────────
 
-async function cmdScan(handlers, positional, flags) {
+async function cmdScan(handlers, positional, flags, client) {
   const FAST_LEAGUES = ['MLB', 'Tennis', 'NBA', 'WNBA', 'Soccer'];
   let leagues =
     positional.length > 1
@@ -542,6 +545,37 @@ async function cmdScan(handlers, positional, flags) {
     });
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
+
+    // Tennis fallback: if tennis scan returned 0 plays, try direct screen query
+    const tennisFallbackEnabled = flags['tennis-fallback'] !== false;
+    if (tennisFallbackEnabled) {
+      const tennisOnly = leagues.length === 1 && leagues[0] === 'Tennis';
+      const hasResults = res.data?.results || res.results || [];
+      const totalPlays = hasResults.reduce((s, r) => s + (r.plays || []).length, 0);
+      if (tennisOnly && totalPlays === 0) {
+        console.error('Tennis: showing delayed/recovered plays (odds detected on ' + book + ')');
+        console.error('(movement/edge analysis unavailable — sharp books may not carry tennis markets)');
+        const tennisPlays = await recoverTennisFromScreen({ book, client });
+        if (tennisPlays.length) {
+          res.data = res.data || {};
+          res.data.results = [
+            {
+              league: 'Tennis',
+              market: 'All Markets',
+              plays: tennisPlays.sort((a, b) => {
+                const aMs = parseGameStartMs(a.start);
+                const bMs = parseGameStartMs(b.start);
+                if (!Number.isFinite(aMs) && !Number.isFinite(bMs)) return 0;
+                if (!Number.isFinite(aMs)) return 1;
+                if (!Number.isFinite(bMs)) return -1;
+                return aMs - bMs;
+              })
+            }
+          ];
+          res.data.totalCount = tennisPlays.length;
+        }
+      }
+    }
 
     const results = res.data?.results || res.results || [];
     // Build the date-range header line using actual candidate start times
@@ -1041,7 +1075,7 @@ async function main() {
 
   switch (resolvedCmd || command) {
     case 'scan':
-      await cmdScan(handlers, positional, flags);
+      await cmdScan(handlers, positional, flags, client);
       break;
     case 'validate':
       await cmdValidate(handlers, positional, flags);
