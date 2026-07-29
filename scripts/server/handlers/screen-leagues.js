@@ -17,7 +17,6 @@ const {
 const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/propprofessor-sharp-books');
 const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { buildUfcShortlist } = require('../../../lib/propprofessor-sharp-plays');
-const { ok } = require('../../../lib/response-envelope');
 
 function buildCacheKey(prefix, args, league) {
   return JSON.stringify({
@@ -121,26 +120,50 @@ function createScreenLeaguesHandlers(client, ctx) {
       const shortlist = buildUfcShortlist(rankedRows, {
         ...args,
         market,
-        league: 'UFC',
-        allBookCount: rankedRows.length
+        targetBook,
+        limit: getLimit(args)
       });
-      return ok({
-        result: shortlist,
+      if (!shortlist || typeof shortlist !== 'object') {
+        return {
+          ok: false,
+          league: 'UFC',
+          error: { code: 'UFC_CARD_FAILED', message: 'buildUfcShortlist returned null/undefined' }
+        };
+      }
+      const count = shortlist.shortlistMeta?.filteredCount ?? shortlist.officialCount;
+      const cardWindow = shortlist.shortlistMeta?.cardWindow || shortlist.shortlistCardWindow || null;
+      const eventDate = shortlist.shortlistMeta?.eventDate || shortlist.shortlistEventDate || null;
+      return {
+        ok: true,
         league: 'UFC',
-        market,
-        totalRowCount: rankedResponse.totalRowCount || rankedRows.length,
-        shortlistCount: shortlist.length,
-        focusBookMissingCount: rankedResponse.focusBookMissingRows?.length || 0
-      });
-    } catch (err) {
-      return ok({
-        result: [],
+        officialPlays: shortlist.bestBets,
+        bestLooks: shortlist.bestLooks,
+        passes: shortlist.bestPasses,
+        summaryText: shortlist.summaryText,
+        count,
+        resultMeta: {
+          ...rankedResponse.resultMeta,
+          source: 'ufc_card',
+          cardWindow,
+          eventDate,
+          count,
+          markets_alias_used: [
+            ...(rankedResponse.resultMeta?.markets_alias_used || []),
+            ...marketResolution.aliasesUsed
+          ],
+          shortlist: {
+            ...shortlist,
+            count
+          }
+        }
+      };
+    } catch (error) {
+      process.stderr.write(`[propprofessor-mcp] ufc_card handler error: ${error.stack || error.message || error}\n`);
+      return {
+        ok: false,
         league: 'UFC',
-        market: 'Moneyline',
-        totalRowCount: 0,
-        shortlistCount: 0,
-        error: err?.message || String(err)
-      });
+        error: { code: 'UFC_CARD_FAILED', message: error.message || String(error) }
+      };
     }
   }
 
