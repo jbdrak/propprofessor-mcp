@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { computeClvFromHistory, deriveMovementFromClv, assignTierFromClv } = require('../lib/tennis-fallback');
+const { computeClvFromHistory, deriveMovementFromClv, assignTierFromClv, isStandardLine } = require('../lib/tennis-fallback');
 
 describe('computeClvFromHistory', () => {
   it('returns null for empty array', () => {
@@ -83,4 +83,15 @@ describe('assignTierFromClv', () => {
   it('returns TIER 2 for null CLV', () => {
     assert.equal(assignTierFromClv(null, 1), 'TIER 2');
   });
+});
+
+describe('isStandardLine', () => {
+  it('accepts -110', () => assert.equal(isStandardLine(-110), true));
+  it('accepts +100', () => assert.equal(isStandardLine(100), true));
+  it('accepts -150', () => assert.equal(isStandardLine(-150), true));
+  it('accepts +150', () => assert.equal(isStandardLine(150), true));
+  it('rejects -200 (big favorite)', () => assert.equal(isStandardLine(-200), false));
+  it('rejects +300 (big underdog)', () => assert.equal(isStandardLine(300), false));
+  it('rejects -488', () => assert.equal(isStandardLine(-488), false));
+  it('rejects null', () => assert.equal(isStandardLine(null), false));
 });
