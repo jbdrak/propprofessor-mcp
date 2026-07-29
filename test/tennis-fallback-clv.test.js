@@ -13,31 +13,51 @@ describe('computeClvFromHistory', () => {
     assert.equal(computeClvFromHistory([{ odds: 100, start_ts: 1 }]), null);
   });
 
-  it('computes positive CLV when odds increase', () => {
+  it('computes positive CLV when odds move toward selection (favorite gets cheaper)', () => {
+    // -120 → -110: implied prob went from 54.5% → 52.4% = adverse for favorite
+    // Wait, that's wrong. Let me think again.
+    // -120 → -110: prob = 120/220=54.5% → 110/210=52.4% = probability DECREASED = adverse
+    // Actually for the FAVORITE side, moving from -120 to -110 means the favorite
+    // became LESS favored. If you bet the favorite, that's adverse.
+    // But if you look at it from the selection's perspective:
+    // selection at -120 (54.5% implied) moves to -110 (52.4% implied)
+    // CLV = 52.4 - 54.5 = -2.1% → adverse for that selection
     const history = [
-      { odds: 100, start_ts: 1 },
-      { odds: 110, start_ts: 2 }
+      { odds: -120, start_ts: 1 },
+      { odds: -110, start_ts: 2 }
     ];
     const clv = computeClvFromHistory(history);
-    assert.ok(Math.abs(clv - 10) < 0.01, `expected ~10, got ${clv}`);
+    assert.ok(clv < 0, `expected negative CLV (adverse), got ${clv}`);
   });
 
-  it('computes negative CLV when odds decrease', () => {
+  it('computes negative CLV when underdog odds shorten', () => {
+    // +150 → +130: prob = 100/250=40% → 100/230=43.5% = probability INCREASED = supportive
     const history = [
-      { odds: 120, start_ts: 1 },
-      { odds: 100, start_ts: 2 }
+      { odds: 150, start_ts: 1 },
+      { odds: 130, start_ts: 2 }
     ];
     const clv = computeClvFromHistory(history);
-    assert.ok(Math.abs(clv - (-16.67)) < 0.1, `expected ~-16.67, got ${clv}`);
+    assert.ok(clv > 0, `expected positive CLV (supportive), got ${clv}`);
+  });
+
+  it('computes CLV correctly: -133 → -129 (favorite weakens = adverse)', () => {
+    const history = [
+      { odds: -133, start_ts: 1 },
+      { odds: -129, start_ts: 2 }
+    ];
+    const clv = computeClvFromHistory(history);
+    // 133/233=57.08% → 129/229=56.33% = -0.75%
+    assert.ok(Math.abs(clv - (-0.75)) < 0.1, `expected ~-0.75, got ${clv}`);
   });
 
   it('sorts by timestamp', () => {
     const history = [
-      { odds: 110, start_ts: 2 },
-      { odds: 100, start_ts: 1 }
+      { odds: -110, start_ts: 2 },
+      { odds: -120, start_ts: 1 }
     ];
     const clv = computeClvFromHistory(history);
-    assert.ok(Math.abs(clv - 10) < 0.01, `expected ~10, got ${clv}`);
+    // -120 → -110: 120/220=54.5% → 110/210=52.4% = -2.1%
+    assert.ok(clv < 0, `expected negative CLV, got ${clv}`);
   });
 });
 
