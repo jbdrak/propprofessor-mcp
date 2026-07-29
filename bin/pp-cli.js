@@ -549,7 +549,7 @@ async function cmdScan(handlers, positional, flags, client) {
     // Tennis fallback: if tennis scan returned 0 plays, try direct screen query
     const tennisFallbackEnabled = flags['tennis-fallback'] !== false;
     if (tennisFallbackEnabled) {
-      const tennisOnly = leagues.length === 1 && leagues[0] === 'Tennis';
+      const tennisOnly = leagues.length === 1 && leagues[0].toLowerCase() === 'tennis';
       const hasResults = res.data?.results || res.results || [];
       const totalPlays = hasResults.reduce((s, r) => s + (r.plays || []).length, 0);
       if (tennisOnly && totalPlays === 0) {
