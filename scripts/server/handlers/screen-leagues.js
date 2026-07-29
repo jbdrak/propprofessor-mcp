@@ -10,10 +10,10 @@ const {
   normalizeBookList,
   buildRankedScreenResponse: buildRankedScreenResponseShared,
   getIncludeAll,
+  getLeagueRankingPreset,
   getLimit,
   getMaxAgeMs
 } = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { getLeagueRankingPreset } = require('../../../lib/league-presets');
 const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/propprofessor-sharp-books');
 const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { buildUfcShortlist } = require('../../../lib/propprofessor-sharp-plays');

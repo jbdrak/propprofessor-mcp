@@ -16,7 +16,7 @@ const { normalizeTennisMarketQuery } = require('../../../lib/screen-tennis');
 const { formatGetPlayDetailsMinimal, formatGetPlayDetailsStandard } = require('../../../lib/propprofessor-formatter');
 
 function createPlayDetailsHandlers(_client, _ctx) {
-  async function getDefaultMarketsForLeague(league, _targetBooks) {
+  function getDefaultMarketsForLeague(league, _targetBooks) {
     return require('../../../lib/propprofessor-market-registry').getMarketsForSport(league, _targetBooks);
   }
 

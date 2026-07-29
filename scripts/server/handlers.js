@@ -20,7 +20,6 @@ const { createContextPluginsHandlers } = require('./handlers/context-plugins');
 const { createDiscoveryHandlers } = require('./handlers/discovery');
 const { createConsensusHandlers } = require('./handlers/consensus');
 const { createCompositesHandlers } = require('./handlers/composites');
-const { createTennisScreenHandler } = require('./handlers/tennis-screen');
 const { createScreenHandlers } = require('./handlers/screen');
 const { createPlayDetailsHandlers } = require('./handlers/play-details');
 const { createValidatePlayHandlers } = require('./handlers/validate-play');
@@ -34,7 +33,6 @@ const {
   resolveAuthFile,
   readAuthState
 } = require('../../lib/propprofessor-api');
-const { normalizeTennisMarketQuery } = require('../../lib/screen-tennis');
 const { rankLeagueScreenRows } = require('../../lib/screen-ranker');
 const { extractScreenRows } = require('../../lib/screen-parser');
 const {
@@ -57,25 +55,18 @@ function getDefaultMarketsForLeague(league, _targetBooks) {
   return require('../../lib/propprofessor-market-registry').getMarketsForSport(league, _targetBooks);
 }
 const { getOddsHistoryCache, DEFAULT_ODDS_HISTORY_CACHE_TTL_MS } = require('../../lib/mcp-runtime-config');
-const { buildUfcShortlist } = require('../../lib/propprofessor-sharp-plays');
-const { findBestMatch } = require('../../lib/selection-matcher');
 const { mapCandidateRow } = require('../../lib/propprofessor-mcp-candidate-mapper');
 const {
-  buildRankedScreenResponse: buildRankedScreenResponseShared,
   getIncludeAll,
-  getLeagueRankingPreset,
   getLimit,
   getLookbackHours,
   getMaxAgeMs,
   normalizeBookList,
-  normalizeSelectionKey,
-  buildCanonicalPlayId,
   getDebugFlag
 } = require('../../lib/propprofessor-mcp-ranked-screen');
-const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../lib/propprofessor-sharp-books');
+const { getSharpBookComparisonSet } = require('../../lib/propprofessor-sharp-books');
 const { resolveHistoryForEntity } = require('../../lib/propprofessor-history');
 const { categorizeError } = require('../../lib/propprofessor-mcp-stdio');
-const { computeMovementDisposition } = require('../../lib/propprofessor-movement-disposition');
 const { reconcileValidateOverride } = require('../../lib/validate-reconcile');
 const { runSharpPlays } = require('../../lib/propprofessor-sharp-plays-service');
 const {
@@ -85,7 +76,6 @@ const {
   DEFAULT_SHARP_BOOKS
 } = require('../../lib/propprofessor-sharp-consensus');
 const { getConfidenceTierStable, clearTierCache, suggestStakes } = require('../../lib/propprofessor-risk-score');
-const { getMlbGameContext, findMlbGamePk } = require('../../lib/propprofessor-mlb-game-context');
 const { getGameContext } = require('../../lib/propprofessor-game-context');
 const { runResearchOnTopRows } = require('../../lib/propprofessor-research-runner');
 const {
@@ -93,10 +83,6 @@ const {
   formatRecommendedBetsStandard,
   formatSharpPlaysMinimal,
   formatSharpPlaysStandard,
-  formatScreenRankedMinimal,
-  formatScreenRankedStandard,
-  formatGetPlayDetailsMinimal,
-  formatGetPlayDetailsStandard,
   formatQuickScreenMinimal,
   formatQuickScreenStandard,
   formatQuickScreenBets
@@ -671,1114 +657,16 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
   // Keyed on canonical tuple rather than full request signature.
   const canonicalScreenCache = ctx.canonicalScreenCache;
 
-  // ─── Screen implementations (used by both the cache-wrapped handlers and
-  // direct callers like recommended_bets → handlers.screen_ranked). ───
-
-  async function runScreenRankedImpl(client, args = {}) {
-    const requestedBooks = normalizeBookList(args.books);
-    const league = args.league || 'NBA';
-    const marketResolution = resolveMarkets(args, league);
-    const market = marketResolution.single;
-    // focusBook: only set if the user explicitly asked for one. Defaulting to
-    // preset.preferredBooks[0] (Pinnacle for most leagues) breaks UFC/Soccer
-    // because Pinnacle doesn't post those moneylines — the focusPlays filter
-    // in extractScreenRows would then drop every row.
-    // Fix shipped 2026-06-14: the screen_ranked handler used to default the
-    // focus book to the preset's preferred book, which worked for NBA/NFL/MLB
-    // but eliminated every UFC row. Now we only set focusBook when the user
-    // explicitly passed books, leaving focusPlays empty (= expand to all
-    // books in the payload) otherwise.
-    const focusBook = requestedBooks.length ? requestedBooks[0] : '';
-    // Auto-augment the backend query with the league's sharp-book set so
-    // consensus data populates. The user-requested book (e.g. Fliff) typically
-    // is NOT a sharp book, so without augmentation the backend returns just
-    // that one book and consensusBookCount=0 on every row. The ranker needs
-    // at least 2-3 comp books in allBookOdds to compute consensusEdge.
-    // Audit 2026-06-15: this augmentation was present in runLeagueScreen
-    // (used by sharp_plays) but missing from screen_ranked. Symptom: every
-    // screen_ranked call on a single non-sharp book returned consBk=0.
-    const sharpBookSet = getSharpBookComparisonSet({ league, market });
-    // Non-major leagues (Tennis, Soccer, UFC, WNBA, etc.) need
-    // ALL_SCREEN_BOOKS for the backend to return multi-book data.
-    // The default sharp-book set (5 books) is too narrow — the backend
-    // only populates full odds maps when the complete list is sent.
-    // Matches the same non-major logic in queryScreenOddsBestComps
-    // (lib/propprofessor-api.js:511-515).
-    const leagueUpper = (league || '').toUpperCase();
-    const augmentedBooks = !['NBA', 'NFL', 'MLB'].includes(leagueUpper)
-      ? ALL_SCREEN_BOOKS
-      : uniqueBooks([...requestedBooks, ...sharpBookSet]);
-    const payload = await client.queryScreenOddsBestComps({
-      market,
-      league,
-      games: Array.isArray(args.games) ? args.games : [],
-      participants: Array.isArray(args.participants) ? args.participants : [],
-      books: augmentedBooks,
-      is_live: false
-    });
-    const response = await buildRankedScreenResponseShared({
-      client,
-      payloads: [payload],
-      args: { ...args, historySportsbooks: augmentedBooks },
-      league,
-      focusBook,
-      rankRows: (hydratedRows, { debug } = {}) =>
-        rankLeagueScreenRows(hydratedRows, {
-          league,
-          market,
-          limit: getLimit(args),
-          books: requestedBooks.length ? requestedBooks : undefined,
-          includeAll: getIncludeAll(args),
-          maxAgeMs: getMaxAgeMs(args),
-          debug,
-          requirePreferredBook: requestedBooks.length > 0,
-          playableOnly: args.playableOnly === true
-        })
-    });
-    if (marketResolution.aliasesUsed.length) {
-      response.resultMeta = {
-        ...response.resultMeta,
-        markets_alias_used: marketResolution.aliasesUsed
-      };
-    }
-    // Pre-flight player research (v2.1.8): when includeResearch=true, run
-    // player_context on the top N ranked rows so the response includes
-    // injury/risk flags alongside the ranked plays.
-    if (args.includeResearch === true && Array.isArray(response.result) && response.result.length) {
-      const researchLimit = Number.isFinite(Number(args.researchLimit))
-        ? Math.max(1, Math.min(50, Number(args.researchLimit)))
-        : 10;
-      const research = await runResearchOnTopRows({
-        rows: response.result,
-        limit: researchLimit,
-        playerContextFn: handlers.player_context,
-        gameContextFn: (opts) =>
-          getGameContext({
-            sport: opts.sport || opts.league,
-            selection: opts.selection,
-            game: opts.game,
-            start: opts.start,
-            market: opts.market
-          })
-      });
-      response.research = research.results;
-      response.resultMeta = {
-        ...response.resultMeta,
-        researchRunCount: research.results.length,
-        researchPlayerContextCount: research.results.filter((r) => r.contextType === 'player').length,
-        researchGameContextCount: research.results.filter((r) => r.contextType === 'game').length,
-        researchRiskHighCount: research.results.filter((r) => r.riskFlag === 'high').length,
-        researchCachedCount: research.results.filter((r) => r.cached).length
-      };
-      if (args.riskDowngrade === true) {
-        const beforeCount = response.result.length;
-        const highRiskPlayers = new Set(
-          research.results.filter((r) => r.riskFlag === 'high').map((r) => String(r.player || '').toLowerCase())
-        );
-        response.result = response.result.filter((row) => {
-          const player = String(row.selection || row.participant || '').toLowerCase();
-          return !highRiskPlayers.has(player);
-        });
-        response.resultMeta = {
-          ...response.resultMeta,
-          riskDowngradedCount: beforeCount - response.result.length
-        };
-      }
-    }
-
-    // === kaiCall filter + sortBy (agent ergonomics) ===
-    // Apply before verbosity formatting so the formatter sees the final shape.
-    // Both are no-ops when the params are missing.
-    if (Array.isArray(response.result)) {
-      response.result = sortRows(
-        filterRowsByMinEV(
-          filterRowsByMovement(filterRowsByKaiCall(response.result, args.kaiCall), args.movement),
-          args.minEV
-        ),
-        {
-          sortBy: args.sortBy,
-          sortDir: args.sortDir
-        }
-      );
-    }
-
-    const verbosity = String(args.verbosity || 'full').toLowerCase();
-    if (verbosity === 'minimal') return formatScreenRankedMinimal(response);
-    if (verbosity === 'standard') return formatScreenRankedStandard(response);
-    return response;
-  }
+  // ─── Screen implementations (extracted to handlers/screen.js,
+  // handlers/play-details.js, handlers/validate-play.js, handlers/screen-leagues.js) ───
 
   // ─── Play Detail & Validation Implementations ───────────────────────────
 
-  async function runGetPlayDetailsImpl(client, args = {}) {
-    const league = String(args.league || '').trim();
-    const rawGameIds = Array.isArray(args.gameIds) ? args.gameIds : [];
-    // Sanitize: trim, drop empties, dedupe. Stale/closed/malformed game IDs
-    // (e.g. non-numeric timestamps) used to crash the per-row enrichment
-    // path with "Cannot read properties of undefined (reading 'filter')".
-    // Clean them here so the downstream pipeline only sees well-formed IDs.
-    const gameIds = Array.from(new Set(rawGameIds.map((id) => String(id == null ? '' : id).trim()).filter(Boolean)));
-    if (!league || !gameIds.length) {
-      const error = new Error('league and gameIds are required.');
-      error.code = 'MISSING_PARAMS';
-      error.category = 'validation';
-      error.status = 400;
-      throw error;
-    }
-    // When no market is requested, fan out across the league's default
-    // markets (Moneyline/Spread/Total, or soccer variants) and merge — so
-    // the agent gets every market line for a game (incl. the sharp Total
-    // the website's +EV feed hides) in one call instead of N.
-    if (!args.market) {
-      const markets = getDefaultMarketsForLeague(league);
-      const perMarket = await Promise.all(markets.map((m) => runGetPlayDetailsImpl(client, { ...args, market: m })));
-      const combined = [];
-      const metaList = [];
-      let firstError = null;
-      for (const r of perMarket) {
-        if (r && Array.isArray(r.result)) combined.push(...r.result);
-        if (r && r.resultMeta) {
-          metaList.push(r.resultMeta);
-          // Propagate a per-market query failure so callers (and tests)
-          // see SCREEN_QUERY_FAILED instead of a silent empty merge.
-          if (r.resultMeta.errorCode && !firstError) {
-            firstError = { errorCode: r.resultMeta.errorCode, error: r.resultMeta.error };
-          }
-        }
-      }
-      const merged = {
-        ok: true,
-        result: combined,
-        resultMeta: {
-          queryGameIds: gameIds,
-          matchedRows: combined.length,
-          marketsQueried: markets,
-          perMarket: metaList,
-          ...(firstError || {})
-        }
-      };
-      const verbosity = String(args.verbosity || 'full').toLowerCase();
-      if (verbosity === 'minimal') return formatGetPlayDetailsMinimal(merged);
-      if (verbosity === 'standard') return formatGetPlayDetailsStandard(merged);
-      return merged;
-    }
-    const marketResolution = resolveMarkets(args, league);
-    let market = marketResolution.single;
-    const requestedBooks = normalizeBookList(args.books);
-    // BUGFIX (2026-06-22): Tennis market normalization in get_play_details.
-    // The Tennis screen handler normalizes generic markets ("Spread", "Total")
-    // into specific backend market names (Game Handicap, Set Handicap, Total
-    // Games, etc.) via normalizeTennisMarketQuery. But get_play_details
-    // bypassed this and passed the raw "Spread"/"Total" string directly to
-    // queryScreenOddsBestComps — which has no rows for those names, causing
-    // validate_play to always FAIL with "no row matched selection" on Tennis
-    // spread/total plays. Apply the same normalization here.
-    if (league === 'Tennis') {
-      const tennisMarkets = normalizeTennisMarketQuery(market);
-      market = tennisMarkets[0] || market;
-    }
-    // BUGFIX: don't default focusBook to the preset's preferred book
-    // (Pinnacle for most leagues). Pinnacle doesn't post UFC/Tennis/Soccer
-    // moneylines, so focusPlays in extractScreenRows would drop every row
-    // whose odds don't include Pinnacle — which is most non-NA-sports rows.
-    // Only set focusBook when the user explicitly passed books. Same fix
-    // as runScreenRankedImpl (shipped 2026-06-14).
-    const focusBook = requestedBooks.length ? requestedBooks[0] : '';
+  // `runGetPlayDetailsImpl` extracted to handlers/play-details.js
 
-    // Auto-augment the backend query with the league's sharp-book set so
-    // consensus data populates. Same logic as runScreenRankedImpl.
-    const sharpBookSetDetail = getSharpBookComparisonSet({ league, market });
-    const leagueUpperDetail = (league || '').toUpperCase();
-    const augmentedBooks = !['NBA', 'NFL', 'MLB'].includes(leagueUpperDetail)
-      ? ALL_SCREEN_BOOKS
-      : uniqueBooks([...requestedBooks, ...sharpBookSetDetail]);
-
-    // excludeBooks lets the agent mirror the website's account Settings
-    // (Hide Offshore Books / Hide Sweepstakes / per-book hides) so MCP odds
-    // match what the user sees. Off by default — pass the account's hidden
-    // book set to filter them out before the backend query + ranking.
-    const excludeSet = new Set(normalizeBookList(args.excludeBooks).map((b) => b.toLowerCase()));
-    const applyExcludes = (list) =>
-      excludeSet.size ? list.filter((b) => !excludeSet.has(String(b).toLowerCase())) : list;
-    const augmentedBooksExcluded = applyExcludes(augmentedBooks);
-
-    // Fetch full screen data (with history hydration — this is the detailed view)
-    let payload;
-    try {
-      payload = await client.queryScreenOddsBestComps({
-        market,
-        league,
-        games: gameIds,
-        participants: Array.isArray(args.participants) ? args.participants : [],
-        books: augmentedBooksExcluded,
-        is_live: Boolean(args.live || args.is_live)
-      });
-    } catch (err) {
-      return {
-        ok: true,
-        result: [],
-        resultMeta: {
-          queryGameIds: gameIds,
-          matchedRows: 0,
-          error: err?.message || String(err),
-          errorCode: 'SCREEN_QUERY_FAILED'
-        }
-      };
-    }
-    let response;
-    try {
-      // BUGFIX (regression pitfall #48): the previous code omitted the
-      // `await` here, so `response` was a Promise and the subsequent
-      // `response.result.filter(...)` crashed with
-      // "Cannot read properties of undefined (reading 'filter')".
-      response = await buildRankedScreenResponseShared({
-        client,
-        payloads: [payload],
-        args: { ...args, compact: false, skipHistory: false, historySportsbooks: augmentedBooksExcluded },
-        league,
-        focusBook,
-        rankRows: (hydratedRows, { debug } = {}) =>
-          rankLeagueScreenRows(hydratedRows, {
-            league,
-            market,
-            limit: gameIds.length * 4,
-            books: augmentedBooks,
-            includeAll: true,
-            debug
-          })
-      });
-    } catch (err) {
-      return {
-        ok: true,
-        result: [],
-        resultMeta: {
-          queryGameIds: gameIds,
-          matchedRows: 0,
-          error: err?.message || String(err),
-          errorCode: 'RANK_PIPELINE_FAILED'
-        }
-      };
-    }
-
-    // Add market alias info to resultMeta if any aliases were used
-    if (marketResolution.aliasesUsed.length) {
-      response.resultMeta = {
-        ...response.resultMeta,
-        markets_alias_used: marketResolution.aliasesUsed
-      };
-    }
-
-    // Normalize gameIds by stripping trailing unix timestamp suffix.
-    // The upstream screen endpoint sometimes returns gameIds with a
-    // timestamp segment (e.g. "Tennis:PREMATCH:Jovic:Pegula:1783252800")
-    // and sometimes without. If the two API calls disagree on format,
-    // strict Set.has() comparison would return zero matching rows.
-    const normalizeGameId = (id) =>
-      String(id || '')
-        .replace(/:\d{10,}$/, '')
-        .trim();
-    const normalizedRequested = gameIds.map(normalizeGameId);
-    const gameIdSet = new Set(normalizedRequested);
-    const safeResult = Array.isArray(response.result) ? response.result : [];
-    const filtered = safeResult.filter((row) => gameIdSet.has(normalizeGameId(row && row.gameId)));
-    // BUGFIX (2026-06-21): when the ranker's preferred book (Pinnacle for most
-    // leagues) has no odds for a match — e.g. Pinnacle doesn't post UFC/Tennis
-    // moneylines — all rows land in `focusBookMissingRows` instead of `result`.
-    // Merge those back in so that get_play_details and validate_play actually
-    // return a row for the requested gameId.
-    const fallbackRows = Array.isArray(response.focusBookMissingRows) ? response.focusBookMissingRows : [];
-    const merged = [...filtered];
-    for (const fbRow of fallbackRows) {
-      if (gameIdSet.has(normalizeGameId(fbRow && fbRow.gameId))) {
-        // Set the focusBookMissing flag so callers know this is a fallback row
-        merged.push({ ...fbRow, __focusBookMissing: true });
-      }
-    }
-    response.result = merged;
-    // Enrich each row with a flat per-book odds matrix (book → odds) so the
-    // agent can report "best is NoVig +125, but DK is +118" like the +EV
-    // card's per-book view. Derived from sportsbookData (hydrated) or the
-    // raw selections[].odds map (pre-hydration), whichever is present.
-    for (const row of response.result) {
-      const matrix = {};
-      const sb = Array.isArray(row?.sportsbookData) ? row.sportsbookData : [];
-      for (const entry of sb) {
-        const book = String(entry?.book || '').trim();
-        const odds = Number(entry?.odds ?? entry?.noVigOdds);
-        if (book && Number.isFinite(odds)) matrix[book] = odds;
-      }
-      // Fallback: selections[line].odds is a { book: {odds1,odds2} } map.
-      const selections = row?.selections && typeof row.selections === 'object' ? row.selections : {};
-      for (const sel of Object.values(selections)) {
-        const oddsMap = sel?.odds && typeof sel.odds === 'object' ? sel.odds : {};
-        for (const [book, v] of Object.entries(oddsMap)) {
-          if (!matrix[book] && Number.isFinite(Number(v?.odds1 ?? v))) {
-            matrix[book] = Number(v.odds1 ?? v);
-          }
-        }
-      }
-      if (Object.keys(matrix).length) row.oddsMatrix = matrix;
-    }
-    // Stamp sharpBookMovementConfirmed on detail rows so validate_play
-    // re-derivations don't lose the sharp-book signal and downgrade
-    // movementDisposition to 'insufficient'. The detail query already
-    // includes the league's sharp books (line ~884); if the consensus
-    // movement label is supportive, the sharp books are onside.
-    for (const row of response.result) {
-      if (row.sharpBookMovementConfirmed) continue;
-      const label = String(row.movementLabel || '').toLowerCase();
-      if (label === 'supportive') {
-        // Check that a sharp book actually has odds for this row.
-        // SportsbookData carries hydrated per-book entries.
-        const sb = Array.isArray(row?.sportsbookData) ? row.sportsbookData : [];
-        const sharpBookNames = new Set(sharpBookSetDetail.map((b) => b.toLowerCase()));
-        const hasSharpBookOdds = sb.some((entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase()));
-        if (hasSharpBookOdds) {
-          row.sharpBookMovementConfirmed = true;
-          // Find the first sharp book with odds as the source.
-          const sourceEntry = sb.find((entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase()));
-          row.sharpBookMovementSource = sourceEntry?.book || sharpBookSetDetail[0] || null;
-        }
-      }
-    }
-    // Drop the non-enumerable focusBookMissingRows from the response —
-    // they've been merged into result.
-    response.focusBookMissingRows = undefined;
-    response.resultMeta = {
-      ...response.resultMeta,
-      queryGameIds: gameIds,
-      matchedRows: merged.length
-    };
-    // Apply verbosity formatting (adds summary mode for agents that just
-    // need a quick overview of game details without 700KB+ of line history)
-    const verbosity = String(args.verbosity || 'full').toLowerCase();
-    if (verbosity === 'minimal') return formatGetPlayDetailsMinimal(response);
-    if (verbosity === 'standard') return formatGetPlayDetailsStandard(response);
-    return response;
-  }
-
-  // eslint-disable-next-line complexity
-  async function runValidatePlayImpl(client, args = {}) {
-    const league = String(args.league || '').trim();
-    const gameId = String(args.gameId || '').trim();
-    const selection = String(args.selection || '').trim();
-    const requestedPlayId = String(args.playId || '').trim();
-    if (!league) {
-      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'league is required' } };
-    }
-    if (!gameId) {
-      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'gameId is required' } };
-    }
-    if (!selection && !requestedPlayId) {
-      return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'selection or playId is required' } };
-    }
-    const market = String(args.market || 'Moneyline').trim() || 'Moneyline';
-    const books = normalizeBookList(args.books);
-    const lookbackHours = Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : 6;
-    const skipResearch = args.skipResearch === true;
-    const skipGameContext = args.skipGameContext === true;
-
-    // Steps 1 + 2 in parallel: re-fetch the screen for this game AND run
-    // player_context research concurrently. The two calls are independent —
-    // research only needs the selection name + league, not the detail row —
-    // so serializing them doubled wall-clock latency for no reason. We
-    // resolve detail first so we can pass `gameTime` to research without a
-    // second round-trip; in practice this is still 30-40% faster than the
-    // previous all-serial path on the typical validate_play invocation.
-    const detailPromise = (async () => {
-      try {
-        return {
-          ok: true,
-          value: await runGetPlayDetailsImpl(client, {
-            league,
-            market,
-            gameIds: [gameId],
-            books: books.length ? books : undefined,
-            lookbackHours
-          })
-        };
-      } catch (err) {
-        return { ok: false, error: err?.message || String(err) };
-      }
-    })();
-    const researchPromise = skipResearch
-      ? Promise.resolve(null)
-      : (async () => {
-          try {
-            return {
-              ok: true,
-              value: await handlers.player_context({
-                player: selection,
-                sport: league
-              })
-            };
-          } catch (err) {
-            return { ok: false, error: err?.message || String(err) };
-          }
-        })();
-
-    // MLB game-level context (pitcher, weather, park, lineup). Only runs
-    // for league=MLB. The screen gameId is the format
-    // "MLB:PREMATCH:<homeSlug>:<awaySlug>:<unixStart>" — note the
-    // <home>:<away> order, not the more intuitive away-first. The last
-    // segment is a Unix timestamp, NOT the MLB gamePk. We resolve the
-    // real gamePk via the schedule endpoint using the homeSlug + awaySlug
-    // + the start date derived from the Unix timestamp. The lookup is
-    // best-effort: if the schedule fetch fails or no match is found,
-    // gameContext stays null and the verdict is unaffected. Skipped on
-    // skipResearch to honor that opt-out.
-    const isMlb = league.toUpperCase() === 'MLB';
-    // The screen gameId encodes the matchup; parse it to seed the lookup.
-    const gameIdParts = isMlb && gameId ? gameId.split(':') : [];
-    // Convention: index 2 = HOME slug, index 3 = AWAY slug.
-    const seedHomeTeam = gameIdParts[2] ? gameIdParts[2].replace(/_/g, ' ') : '';
-    const seedAwayTeam = gameIdParts[3] ? gameIdParts[3].replace(/_/g, ' ') : '';
-    // Start date is the date of the Unix timestamp (last segment).
-    const seedStartDate =
-      gameIdParts[4] && /^\d{10}$/.test(gameIdParts[4])
-        ? new Date(Number(gameIdParts[4]) * 1000).toISOString().slice(0, 10)
-        : '';
-    const gameContextPromise = skipGameContext
-      ? Promise.resolve(null)
-      : isMlb
-        ? (async () => {
-            try {
-              if (!seedAwayTeam || !seedHomeTeam || !seedStartDate) {
-                return { ok: false, error: 'missing MLB matchup data for game context' };
-              }
-              const attemptedLookup = {
-                isoDate: seedStartDate,
-                awayTeam: seedAwayTeam,
-                homeTeam: seedHomeTeam,
-                unixStart: gameIdParts[4] && /^\d{10}$/.test(gameIdParts[4]) ? Number(gameIdParts[4]) : undefined
-              };
-              const gamePk = await findMlbGamePk(attemptedLookup);
-              if (!gamePk) {
-                return {
-                  ok: false,
-                  error: {
-                    errorType: 'schedule_not_found',
-                    errorDetail: 'no MLB gamePk found for matchup',
-                    attemptedLookup
-                  }
-                };
-              }
-              return { ok: true, value: await getMlbGameContext({ gamePk }) };
-            } catch (err) {
-              return { ok: false, error: err?.message || String(err) };
-            }
-          })()
-        : (async () => {
-            try {
-              // Non-MLB: run sport-agnostic game context via dispatcher.
-              // For Tennis, parse the gameId to extract the unix start
-              // (Tennis:PREMATCH:p1:p2:unixStart) so the resolver can
-              // map a matchup string ("Dart vs Sonmez") to a real
-              // tourney via the 2026 weekly schedule.
-              let derivedStart = null;
-              let tennisGameStr = gameId;
-              if (league.toLowerCase() === 'tennis' && gameId) {
-                const parts = gameId.split(':');
-                const ts = parts[parts.length - 1];
-                if (ts && /^\d{10}$/.test(ts)) {
-                  derivedStart = new Date(Number(ts) * 1000).toISOString();
-                }
-                // Build "player1 vs player2" from the gameId so parseGameString
-                // can extract player names (it splits on "vs"/"@"/"at", not colons).
-                // Format: Tennis:PREMATCH:player1:player2:unixTimestamp
-                const p1 = (parts[2] || '').trim();
-                const p2 = (parts[3] || '').trim();
-                if (p1 && p2) {
-                  tennisGameStr = `${p1} vs ${p2}`;
-                }
-              }
-              const ctx = await getGameContext({
-                sport: league,
-                selection,
-                game: tennisGameStr,
-                start: derivedStart
-              });
-              return { ok: true, value: ctx };
-            } catch (err) {
-              return { ok: false, error: err?.message || String(err) };
-            }
-          })();
-
-    const [detailOutcome, researchOutcome, gameContextOutcome] = await Promise.all([
-      detailPromise,
-      researchPromise,
-      gameContextPromise
-    ]);
-    const detailResult = detailOutcome?.ok ? detailOutcome.value : null;
-    const detailError = detailOutcome?.ok ? null : detailOutcome.error;
-    const gameContext = gameContextOutcome?.ok ? gameContextOutcome.value : null;
-    const gameContextError = gameContextOutcome?.ok ? null : gameContextOutcome?.error || null;
-
-    // Extract the specific row that matches the selection.
-    // The screen's `selection` field for spread/total plays concatenates the
-    // line (e.g. "Harris -1.5", "Over 22.5", "Under 2.5 sets"), but
-    // get_play_details stores them as `participant: "Harris"` with the line
-    // in a separate `line` field. To match both shapes:
-    //   1. Try exact match (moneyline case).
-    //   2. Strip trailing line digits and re-try (spread case).
-    //   3. Strip "Over "/"Under " prefix and re-try (total case).
-    //   4. Fall back to home/away includes.
-    const detailRows = Array.isArray(detailResult?.result) ? detailResult.result : [];
-    const matchingRow = findBestMatch(detailRows, selection, requestedPlayId, books[0] || '');
-
-    // If research was started before we had the row, re-run it with
-    // gameTime now that we know the start. Skip the round-trip when the
-    // gameTime is already present in the result.
-    let research = researchOutcome?.ok ? researchOutcome.value : null;
-    const researchError = researchOutcome?.ok ? null : researchOutcome?.error || null;
-    if (research && !research.gameTime && matchingRow?.start) {
-      research = { ...research, gameTime: matchingRow.start };
-    }
-
-    // Step 3: compute the verdict.
-    // We classify the play using the same signals the ranker uses,
-    // then layer on the risk-flag downgrade from research.
-    let verdict = 'PASS';
-    const reasons = [];
-    const screenTier = args.screenTier || (matchingRow && matchingRow.screenTier);
-    const screenKaiCall = args.screenKaiCall || (matchingRow && matchingRow.screenKaiCall);
-    // Prefer the agent's already-returned tier for consistency, unless research/exec downgrades.
-    // Fallback chain: screenTier → confidenceTier → kaiCall→tier mapping → 'TIER 4'
-    let tier = screenTier || matchingRow?.confidenceTier || null;
-    if (!tier) {
-      const kaiCall = screenKaiCall || matchingRow?.kaiCall;
-      if (kaiCall === 'BET') tier = 'TIER 1';
-      else if (kaiCall === 'CONSIDER') tier = 'TIER 2';
-      else tier = 'TIER 4';
-    }
-    let lookupStatus = 'resolved';
-    let reasonType = 'signal';
-
-    // Consensus drift detection: compare the agent's snapshot against the re-fetched row.
-    // Drift is only meaningful when the consensus materially collapses — a 15→12 book
-    // swing is normal market noise, not a reason to downgrade. Use relative threshold:
-    // must lose >25% of books AND at least 4 books absolute to qualify as drift.
-    // This prevents the validateTop path from producing false PASSes that the standalone
-    // validate_play (which doesn't pass screenConsensusBookCount) never would.
-    let consensusDrift = false;
-    let driftReason = null;
-    if (matchingRow) {
-      const screenCbk = Number(args.screenConsensusBookCount);
-      const screenExec = String(args.screenExecutionQuality || '');
-      const currentCbk = Number(matchingRow.consensusBookCount || 0);
-      const currentExec = String(matchingRow.executionQuality || '');
-
-      if (Number.isFinite(screenCbk) && screenCbk > 0) {
-        const absDrop = screenCbk - currentCbk;
-        const pctDrop = screenCbk > 0 ? absDrop / screenCbk : 0;
-        // Only flag drift when the book count meaningfully collapsed:
-        // lost at least 4 books AND lost more than 25% of the screen consensus.
-        if (absDrop >= 4 && pctDrop > 0.25) {
-          consensusDrift = true;
-          driftReason = `consensus collapsed (${screenCbk} → ${currentCbk} books)`;
-        }
-      }
-      if (
-        !consensusDrift &&
-        screenExec &&
-        screenExec !== 'unknown' &&
-        screenExec !== currentExec &&
-        currentExec === 'bad'
-      ) {
-        consensusDrift = true;
-        driftReason = 'execution quality changed';
-      }
-    }
-
-    if (matchingRow) {
-      // Base quality from the existing ranker output.
-      if (tier === 'TIER 1') {
-        verdict = 'BET';
-      } else if (tier === 'TIER 2' || tier === 'TIER 3') {
-        verdict = 'CONSIDER';
-      } else {
-        verdict = 'PASS';
-        reasons.push('TIER 4 (no signal)');
-      }
-
-      // Consensus-drift guard: the screen snapshot showed broad agreement
-      // (e.g. 5 books) but the re-fetch collapsed to a thin/none consensus
-      // (e.g. 1 book). That is NOT noise — it means the line either lost
-      // cross-book support or moved off the requested number between the
-      // screen and validation. A BET built on a phantom 5-book consensus is
-      // a lie, so downgrade to CONSIDER and flag it. Without this, the
-      // surveyor ships TIER 1 BETs whose real support evaporated.
-      if (consensusDrift && verdict === 'BET') {
-        verdict = 'CONSIDER';
-        reasons.push(`consensus drift: ${driftReason} (re-fetch disagrees with screen snapshot)`);
-      }
-
-      // Execution quality on the requested book.
-      const exec = String(matchingRow.executionQuality || '');
-      if (exec === 'bad') {
-        verdict = 'PASS';
-        reasons.push('execution quality is "bad" on the requested book');
-      } else if (exec === 'playable') {
-        reasons.push('execution quality is "playable" (within 10¢ of best)');
-      } else if (exec === 'best') {
-        reasons.push('execution quality is "best" (top of market)');
-      } else {
-        reasons.push(`execution quality is "${exec || 'unknown'}"`);
-      }
-
-      // Consensus/movement support.
-      const cbk = Number(matchingRow.consensusBookCount || 0);
-      if (cbk >= 3) reasons.push(`consensus: ${cbk} comp books agree`);
-      else if (cbk >= 1) reasons.push(`consensus: ${cbk} comp book (thin)`);
-      else reasons.push('no comp book consensus');
-    } else {
-      lookupStatus = 'lookup_failed';
-      reasonType = 'lookup_failure';
-      verdict = 'CONSIDER';
-      reasons.push(
-        detailError
-          ? `screen lookup failed: ${detailError}`
-          : `no row matched selection "${selection}" on gameId ${gameId}`
-      );
-    }
-
-    // Consistency guard: if the caller supplied a lower screen snapshot tier/kaiCall
-    // (the row the agent already returned), refuse a fresh re-fetch upgrade to BET.
-    if (screenKaiCall && screenKaiCall !== 'BET' && verdict === 'BET') {
-      verdict = 'CONSIDER';
-      reasons.push(`downgraded to match screen snapshot (${screenKaiCall})`);
-    }
-
-    // Risk-flag override.
-    if (research && research.riskFlag === 'high') {
-      verdict = 'PASS';
-      reasons.push('player_context riskFlag = "high"');
-    } else if (research && research.riskFlag === 'medium') {
-      if (verdict === 'BET') verdict = 'CONSIDER';
-      reasons.push('player_context riskFlag = "medium" — proceed with caution');
-    } else if (research && research.riskFlag === 'low') {
-      reasons.push('player_context riskFlag = "low"');
-    }
-
-    // Game-context risk override (weather / park / rest / surface). Applied
-    // AFTER player_context so a high weather flag can still PASS a play
-    // that survived the player-news check. Same downgrades as
-    // player_context so the agent's reasoning doesn't have to branch.
-    if (gameContext && gameContext.riskFlag === 'high') {
-      verdict = 'PASS';
-      reasons.push(`game_context riskFlag = "high"${gameContext.riskSummary ? ` — ${gameContext.riskSummary}` : ''}`);
-    } else if (gameContext && gameContext.riskFlag === 'medium') {
-      if (verdict === 'BET') verdict = 'CONSIDER';
-      reasons.push(`game_context riskFlag = "medium" — ${gameContext.riskSummary || 'proceed with caution'}`);
-    } else if (gameContext && gameContext.riskFlag === 'low') {
-      reasons.push(`game_context riskFlag = "low" — ${gameContext.riskSummary || 'minor flag'}`);
-    } else if (gameContext && gameContext.riskFlag === 'unknown') {
-      // Surface/level couldn't be determined — note it but don't downgrade
-      if (gameContext.riskSummary) {
-        reasons.push(`game_context: ${gameContext.riskSummary}`);
-      }
-    }
-
-    // --- Synthesize verdict summary for agents ---
-    // Combines movement disposition, verdict, risk flags, and execution quality
-    // into a single "should I bet this" answer. This encodes the bet-card drill
-    // so no agent-side skill doc is needed.
-    //
-    // BUGFIX: the re-fetched matchingRow from get_play_details often lacks
-    // sharpBookMovementConfirmed (set during quick_screen's sharp-book cross-
-    // reference, not in the detail endpoint). Without it, computeMovementDisposition
-    // returns 'insufficient' on thin-history slates where the screen correctly
-    // showed supportive_bouncy. Carry the screen snapshot's value if available.
-    const _rowForDisposition = matchingRow ? { ...matchingRow } : null;
-    if (_rowForDisposition && !_rowForDisposition.sharpBookMovementConfirmed && args.screenSharpBookConfirmed) {
-      _rowForDisposition.sharpBookMovementConfirmed = true;
-    }
-    const _disposition = _rowForDisposition ? computeMovementDisposition(_rowForDisposition) : 'insufficient';
-
-    // Tier downgrade for adverse movement: the screen ranker's tier is a
-    // pre-validation snapshot — it can't see what the re-fetch reveals. If
-    // validation finds adverse movement (adverse_recent or adverse_full),
-    // the play's tier must reflect that. Otherwise you get TIER 2 plays
-    // with validated "movement adverse" sitting above TIER 3 plays with
-    // validated "supportive_clean" — the tier lies.
-    if ((_disposition === 'adverse_recent' || _disposition === 'adverse_full') && tier !== 'TIER 4') {
-      tier = 'TIER 3';
-      reasons.push(`movement ${_disposition} — tier downgraded from screen snapshot`);
-    }
-
-    const _statusMessages = {
-      supportive_clean: 'all signals aligned — green movement, supportive direction, clean path',
-      supportive_bouncy: 'direction is right but path was rocky — yellow grade or V-shaped recovery',
-      adverse_recent: 'recent movement turned adverse — the direction went against the play recently',
-      adverse_full: 'full-window direction is adverse — do not bet',
-      insufficient: 'not enough data to evaluate movement quality'
-    };
-
-    const _riskFlags = [];
-    if (research && research.riskFlag && research.riskFlag !== 'low' && research.riskFlag !== 'clean') {
-      _riskFlags.push(`player_context: ${research.riskFlag}`);
-    }
-    if (gameContext && gameContext.riskFlag && gameContext.riskFlag !== 'low' && gameContext.riskFlag !== 'clean') {
-      _riskFlags.push(`game_context: ${gameContext.riskFlag}`);
-    }
-    if (_disposition === 'adverse_recent' || _disposition === 'adverse_full') {
-      _riskFlags.push('movement adverse');
-    }
-
-    let _actionableSummary;
-    if (_riskFlags.length === 0 && verdict === 'BET') {
-      _actionableSummary = 'No red flags. Clean play across all checks.';
-    } else if (verdict === 'BET' && _riskFlags.length > 0) {
-      _actionableSummary = `BET with caution — flags: ${_riskFlags.join(', ')}`;
-    } else if (lookupStatus === 'lookup_failed') {
-      _actionableSummary =
-        "Couldn't be rehydrated from the current screen snapshot. Treat as stale / unverified, not an automatic fade.";
-    } else if (verdict === 'CONSIDER') {
-      // Nuanced tiers within CONSIDER — not all thin plays are equal.
-      const cbk = Number(matchingRow?.consensusBookCount || 0);
-      // Fall back to screen snapshot's edge when the re-fetched row lacks it
-      // (the detail endpoint doesn't always compute consensusEdge).
-      const edge = Number(matchingRow?.consensusEdge || args.screenConsensusEdge || 0);
-      const clv = Number(matchingRow?.clvProxyPct || 0);
-      const riskFlagsSuffix = _riskFlags.length > 0 ? ` — ${_riskFlags.join(', ')}` : '';
-
-      if (cbk >= 10 && _disposition === 'supportive_clean') {
-        _actionableSummary = `Deep consensus (${cbk} books, ${edge.toFixed(1)}% edge). Clean movement — playable with standard sizing.`;
-      } else if (cbk >= 8 && _disposition === 'supportive_clean' && edge > 1.5) {
-        _actionableSummary = `Strong signal across deep consensus (${cbk} books, ${edge.toFixed(1)}% edge). Playable with standard sizing.`;
-      } else if (cbk >= 8 && _disposition === 'supportive_bouncy' && edge > 1.0) {
-        _actionableSummary = `Deep consensus (${cbk} books, ${edge.toFixed(1)}% edge). Direction is right but path was rocky — standard sizing.`;
-      } else if (cbk >= 8 && _disposition === 'supportive_clean') {
-        _actionableSummary = `Deep consensus (${cbk} books). Clean movement, edge is thin (${edge.toFixed(1)}%) — reduce stake.`;
-      } else if (cbk >= 8 && _disposition === 'supportive_bouncy') {
-        _actionableSummary = `Deep consensus (${cbk} books). Bouncy movement, edge is thin (${edge.toFixed(1)}%) — reduce stake${riskFlagsSuffix}.`;
-      } else if (cbk >= 5 && _disposition === 'supportive_clean' && edge > 0.5) {
-        _actionableSummary = `Solid signal — ${cbk} books agree, clean movement. Standard sizing${riskFlagsSuffix}.`;
-      } else if (cbk >= 5 && _disposition === 'supportive_bouncy' && edge > 0.5) {
-        _actionableSummary = `Decent consensus (${cbk} books, ${edge.toFixed(1)}% edge). Bouncy but direction is right — reduce stake${riskFlagsSuffix}.`;
-      } else if (cbk >= 3 && _disposition !== 'adverse_recent') {
-        _actionableSummary = `Thin consensus (${cbk} books) but direction is right. Reduce stake or skip${riskFlagsSuffix}.`;
-      } else if (cbk >= 1) {
-        _actionableSummary = `Marginal — only ${cbk} book${cbk > 1 ? 's' : ''} in consensus. Skip unless you have a strong read${riskFlagsSuffix}.`;
-      } else {
-        _actionableSummary = `No comp book consensus. Pass${riskFlagsSuffix}.`;
-      }
-      // CLV nuance: append a note for significant CLV values
-      if (clv > 4) {
-        _actionableSummary += ` Strong CLV (${clv.toFixed(1)}%) confirms the move direction.`;
-      } else if (clv < -4) {
-        _actionableSummary += ` Weak CLV (${clv.toFixed(1)}%) — line moved against you. Reduce stake or pass.`;
-      }
-    } else {
-      _actionableSummary = 'PASS — one or more hard checks failed.';
-    }
-
-    const verdictSummary = {
-      displayTier: verdict === 'BET' ? 'BET' : verdict === 'CONSIDER' ? 'CONSIDER' : 'PASS',
-      movementDisposition: _disposition,
-      movementStatus: _statusMessages[_disposition] || 'unknown',
-      executionQuality: matchingRow?.executionQuality || null,
-      consensusSupport:
-        matchingRow?.consensusBookCount > 0 ? `${matchingRow.consensusBookCount} books` : 'no consensus',
-      riskFlags: _riskFlags,
-      actionableSummary: _actionableSummary,
-      rationale: (() => {
-        const parts = [];
-        const sharpSource = matchingRow?.sharpBookMovementSource || null;
-        if (sharpSource) parts.push(`${sharpSource} confirms`);
-        if (_disposition === 'supportive_clean') parts.push('clean movement');
-        else if (_disposition === 'supportive_bouncy') parts.push('direction right, bouncy path');
-        else if (_disposition === 'adverse_recent' || _disposition === 'adverse_full')
-          parts.push('movement went against');
-        else if (_disposition === 'insufficient') parts.push('no directional signal');
-        const cbk = Number(matchingRow?.consensusBookCount || 0);
-        if (cbk >= 3) parts.push(`${cbk} books`);
-        const edgeVal = Number(matchingRow?.consensusEdge || args.screenConsensusEdge || 0);
-        if (edgeVal > 0) parts.push(`+${edgeVal.toFixed(1)}% edge`);
-        const clvVal = Number(matchingRow?.clvProxyPct ?? 0);
-        if (clvVal > 0) parts.push(`+${clvVal.toFixed(1)}% CLV`);
-        else if (clvVal < 0) parts.push(`${clvVal.toFixed(1)}% CLV`);
-        else parts.push('0% CLV');
-        if (consensusDrift && driftReason) parts.push(`drift: ${driftReason}`);
-        return parts.length ? parts.join(' · ') : null;
-      })()
-    };
-
-    return {
-      ok: true,
-      league,
-      market,
-      gameId,
-      selection,
-      executionBook: String(args.book || books[0] || ''),
-      verdict,
-      tier,
-      lookupStatus,
-      reasonType,
-      reasons,
-      verdictSummary,
-      screenFreshness: detailResult?.freshness || null,
-      consensusDrift,
-      driftReason,
-      play: matchingRow
-        ? {
-            playId: matchingRow.playId || buildCanonicalPlayId(matchingRow),
-            selectionKey:
-              matchingRow.selectionKey || normalizeSelectionKey(matchingRow.selection || matchingRow.participant || ''),
-            gameId: matchingRow.gameId,
-            homeTeam: matchingRow.homeTeam,
-            awayTeam: matchingRow.awayTeam,
-            start: matchingRow.start,
-            odds: matchingRow.odds,
-            bestAvailableOdds: matchingRow.bestAvailableOdds,
-            executionQuality: matchingRow.executionQuality,
-            consensusEdge: matchingRow.consensusEdge,
-            consensusBookCount: matchingRow.consensusBookCount,
-            clvProxyPct: matchingRow.clvProxyPct,
-            openToCurrentClvPct: matchingRow.openToCurrentClvPct,
-            freshnessSource: matchingRow.freshnessSource || null,
-            movementLabel: matchingRow.movementLabel,
-            kaiCall: matchingRow.kaiCall,
-            screenScore: matchingRow.screenScore,
-            screenUrl:
-              `https://app.propprofessor.com/screen?market=${encodeURIComponent(market)}` +
-              `&game=${encodeURIComponent(gameId)}` +
-              `&league=${encodeURIComponent(league)}` +
-              `&participant=${encodeURIComponent(selection)}`
-          }
-        : null,
-      research: research
-        ? {
-            riskFlag: research.riskFlag,
-            riskSummary: research.summary || null,
-            topTweet:
-              Array.isArray(research.tweets) && research.tweets.length > 0
-                ? research.tweets[0]?.text?.slice(0, 200) || null
-                : null,
-            cached: Boolean(research.cached),
-            fetchedAt: research.fetchedAt
-          }
-        : skipResearch
-          ? { skipped: true }
-          : { error: researchError || 'research failed' },
-      gameContext: gameContext
-        ? {
-            gamePk: gameContext.gamePk,
-            sport: gameContext.sport || null,
-            riskFlag: gameContext.riskFlag,
-            riskSummary: gameContext.riskSummary || null,
-            signals: gameContext.signals || null,
-            cached: Boolean(gameContext.cached),
-            fetchedAt: gameContext.fetchedAt,
-            // MLB-specific
-            ...(isMlb
-              ? {
-                  venue: gameContext.venue || null,
-                  pitchers: gameContext.pitchers || null,
-                  park: gameContext.park || null,
-                  weather: gameContext.weather || null,
-                  lineups: gameContext.lineups || null
-                }
-              : {}),
-            // Basketball-specific
-            ...(gameContext.awayTeam
-              ? {
-                  awayTeam: gameContext.awayTeam,
-                  homeTeam: gameContext.homeTeam
-                }
-              : {}),
-            // Tennis-specific
-            ...(gameContext.surface
-              ? {
-                  surface: gameContext.surface,
-                  level: gameContext.level,
-                  matchupNewsCount: gameContext.matchupNewsCount
-                }
-              : {})
-          }
-        : isMlb
-          ? skipGameContext
-            ? { skipped: true }
-            : gameContextError
-              ? typeof gameContextError === 'string'
-                ? { error: gameContextError }
-                : gameContextError
-              : null
-          : null
-    };
-  }
-
-  function buildCacheKey(prefix, args, league) {
-    return JSON.stringify({
-      prefix,
-      league,
-      market: args.market || 'Moneyline',
-      books: normalizeBookList(args.books),
-      is_live: false,
-      cardWindow: String(args.cardWindow || 'all')
-        .trim()
-        .toLowerCase(),
-      lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : null,
-      games: args.games || [],
-      participants: args.participants || []
-    });
-  }
-  async function runLeagueScreen(args = {}, league) {
-    const requestedBooks = normalizeBookList(args.books);
-    const marketResolution = resolveMarkets(args, league);
-    const market = marketResolution.single;
-    const preset = getLeagueRankingPreset(league, market);
-    const focusBook = requestedBooks[0] || preset.preferredBooks[0];
-
-    // Auto-augment with sharp books for consensus data.
-    // When the user requests a single non-sharp book (e.g. NoVigApp), the backend
-    // returns zero consensus because vig-removed lines don't match other books.
-    // We always query with the league's sharp book set included, so consensus
-    // and movement data populate. The focus book (user's execution book) is
-    // preserved for display via focusPlays in extractScreenRows.
-    // Non-major leagues (Tennis, Soccer, UFC, WNBA, etc.) need
-    // ALL_SCREEN_BOOKS for the backend to return multi-book data.
-    // The default sharp-book set (5 books) is too narrow — Total Goals on
-    // Soccer, for example, returns insufficient_history without the full set.
-    // Same logic as runScreenRankedImpl (lines 468-471).
-    const nonMajorLeagues = ['TENNIS', 'SOCCER', 'UFC', 'WNBA', 'NCAAB', 'NCAAF'];
-    const leagueUpper = (league || '').toUpperCase();
-    const sharpBookSet = getSharpBookComparisonSet({ league, market });
-    const augmentedBooks = nonMajorLeagues.includes(leagueUpper)
-      ? ALL_SCREEN_BOOKS
-      : uniqueBooks([...requestedBooks, ...sharpBookSet]);
-
-    // Check cache first (only cache full responses, not compact/fields-filtered)
-    // Use augmented books in cache key so different book combos don't collide
-    const canCache = !args.compact && !args.fields && !args.include;
-    const cacheKey = canCache ? buildCacheKey('league', { ...args, books: augmentedBooks }, league) : null;
-    if (cacheKey) {
-      const cached = responseCache.get(cacheKey);
-      if (cached) {
-        return { ...cached, resultMeta: { ...cached.resultMeta, cached: true } };
-      }
-    }
-
-    const payload = await client.queryScreenOddsBestComps({
-      market,
-      league,
-      games: Array.isArray(args.games) ? args.games : [],
-      participants: Array.isArray(args.participants) ? args.participants : [],
-      books: augmentedBooks,
-      is_live: false
-    });
-    const response = buildRankedScreenResponseShared({
-      client,
-      payloads: [payload],
-      args: { ...args, historySportsbooks: augmentedBooks },
-      league,
-      focusBook,
-      rankRows: (hydratedRows, { debug } = {}) =>
-        rankLeagueScreenRows(hydratedRows, {
-          league,
-          market,
-          limit: getLimit(args),
-          books: requestedBooks.length ? requestedBooks : undefined,
-          includeAll: getIncludeAll(args),
-          maxAgeMs: getMaxAgeMs(args),
-          debug,
-          // Audit 2026-06-15: same gate as screen_ranked — drop rows where
-          // the user-requested book has no price. Without this, sharp_plays
-          // could surface "Fliff -117" when Fliff never posted a line.
-          requirePreferredBook: requestedBooks.length > 0,
-          // playableOnly flag (2026-06-15): see screen_ranked comment.
-          playableOnly: args.playableOnly === true
-        })
-    });
-
-    // Add market alias info to resultMeta if any aliases were used
-    if (marketResolution.aliasesUsed.length) {
-      response.resultMeta = {
-        ...response.resultMeta,
-        markets_alias_used: marketResolution.aliasesUsed
-      };
-    }
-
-    // Store in cache — but NEVER pin a transient empty/errored response.
-    // The live backend intermittently returns 0 rows (rate-limit / refresh);
-    // caching that would serve an empty slate for the full TTL and make
-    // back-to-back calls look broken ("5 plays then 0"). Only cache real data.
-    if (cacheKey) {
-      const hasResults = Array.isArray(response.result) && response.result.length > 0;
-      const hasError = response.error || (response.resultMeta && response.resultMeta.error);
-      if (hasResults && !hasError) {
-        responseCache.set(cacheKey, response, responseCacheTtlMs);
-      }
-    }
-
-    return response;
-  }
-
-  const { runTennisScreen } = createTennisScreenHandler(client, { responseCache, responseCacheTtlMs });
-
-  async function runUfcCard(args = {}) {
-    try {
-      const marketResolution = resolveMarkets(args, 'UFC');
-      const normalizedMarkets = marketResolution.array.length ? marketResolution.array : [marketResolution.single];
-      const market = normalizedMarkets[0];
-      const targetBook = String(args.book || args.targetBook || '').trim();
-      const rankedArgs = {
-        ...args,
-        market,
-        books: targetBook ? [targetBook] : Array.isArray(args.books) ? args.books : []
-      };
-      const rankedResponse = await runLeagueScreen(rankedArgs, 'UFC');
-      const rankedRows = Array.isArray(rankedResponse?.result) ? rankedResponse.result : [];
-      const shortlist = buildUfcShortlist(rankedRows, {
-        ...args,
-        market,
-        targetBook,
-        limit: getLimit(args)
-      });
-      if (!shortlist || typeof shortlist !== 'object') {
-        return {
-          ok: false,
-          league: 'UFC',
-          error: { code: 'UFC_CARD_FAILED', message: 'buildUfcShortlist returned null/undefined' }
-        };
-      }
-      const count = shortlist.shortlistMeta?.filteredCount ?? shortlist.officialCount;
-      const cardWindow = shortlist.shortlistMeta?.cardWindow || shortlist.shortlistCardWindow || null;
-      const eventDate = shortlist.shortlistMeta?.eventDate || shortlist.shortlistEventDate || null;
-      return {
-        ok: true,
-        league: 'UFC',
-        officialPlays: shortlist.bestBets,
-        bestLooks: shortlist.bestLooks,
-        passes: shortlist.bestPasses,
-        summaryText: shortlist.summaryText,
-        count,
-        resultMeta: {
-          ...rankedResponse.resultMeta,
-          source: 'ufc_card',
-          cardWindow,
-          eventDate,
-          count,
-          // Include aliases from the UFC card's own resolution
-          markets_alias_used: [
-            ...(rankedResponse.resultMeta?.markets_alias_used || []),
-            ...marketResolution.aliasesUsed
-          ],
-          shortlist: {
-            ...shortlist,
-            count
-          }
-        }
-      };
-    } catch (error) {
-      process.stderr.write(`[propprofessor-mcp] ufc_card handler error: ${error.stack || error.message || error}\n`);
-      return {
-        ok: false,
-        league: 'UFC',
-        error: { code: 'UFC_CARD_FAILED', message: error.message || String(error) }
-      };
-    }
-  }
+  // runValidatePlayImpl extracted to handlers/validate-play.js
+  // buildCacheKey, runLeagueScreen, runUfcCard extracted to handlers/screen-leagues.js
+  //
 
   // ===== CONSOLIDATED HANDLER MAP =====
   // 30 old tools → 20 new tools:
@@ -1865,19 +753,19 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       // If gameId is present, use the canonical cache; otherwise proceed without caching
       if (canonicalKey) {
         return canonicalScreenCache.memoize(async () => {
-          return await runScreenRankedImpl(client, args);
+          return await ctx.handlers.runScreenRankedImpl(client, args);
         }, canonicalKey);
       }
 
       // Full-league scan - no caching
-      return runScreenRankedImpl(client, args);
+      return ctx.handlers.runScreenRankedImpl(client, args);
     },
 
     // ─── Sharp Movement ─────────────────────────────────────────────
     async sharp_plays(args = {}) {
       const response = await runSharpPlays(args, {
-        queryLeagueScreen: runLeagueScreen,
-        queryTennisScreen: (rankedArgs) => runTennisScreen(rankedArgs)
+        queryLeagueScreen: (rankedArgs) => ctx.handlers.runLeagueScreen(rankedArgs, rankedArgs.league),
+        queryTennisScreen: (rankedArgs) => ctx.handlers.runTennisScreen(rankedArgs)
       });
       // Research: when includeResearch=true (default), run player_context
       // on the top N ranked rows to attach injury/risk flags.
@@ -2332,7 +1220,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
               (async () => {
                 try {
                   const VALIDATION_TIMEOUT_MS = 15000;
-                  const validatePromise = runValidatePlayImpl(client, {
+                  const validatePromise = ctx.handlers.runValidatePlayImpl(client, {
                     league: entry.league,
                     gameId: candidate.gameId,
                     selection: candidate.selection,
@@ -2875,7 +1763,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
               (async () => {
                 try {
                   const VALIDATION_TIMEOUT_MS = 15000;
-                  const validatePromise = runValidatePlayImpl(client, {
+                  const validatePromise = ctx.handlers.runValidatePlayImpl(client, {
                     league: leagueEntry.league,
                     gameId: play.gameId,
                     selection: play.selection,
@@ -3276,7 +2164,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
             let warnings = undefined;
             for (const resolvedMarket of resolvedMarkets) {
               if (leagueKey === 'TENNIS') {
-                const tennisResult = await runTennisScreen({
+                const tennisResult = await ctx.handlers.runTennisScreen({
                   market: resolvedMarket,
                   limit,
                   includeAll: args.includeAll,
@@ -3291,20 +2179,18 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
                 source = tennisResult.source || source;
                 warnings = tennisResult.warnings || warnings;
               } else {
-                const leagueResult = await runLeagueScreen(
-                  {
-                    market: resolvedMarket,
-                    limit,
-                    includeAll: args.includeAll,
-                    lookbackHours: args.lookbackHours,
-                    is_live: false,
-                    compact: Boolean(args.compact),
-                    fields: Array.isArray(args.fields) ? args.fields : undefined,
-                    include: Array.isArray(args.include) ? args.include : undefined,
-                    skipHistory: args.skipHistory === true
-                  },
-                  league
-                );
+                const leagueResult = await ctx.handlers.runLeagueScreen({
+                  market: resolvedMarket,
+                  league,
+                  limit: limit * 2,
+                  includeAll: args.includeAll,
+                  lookbackHours: args.lookbackHours,
+                  is_live: false,
+                  compact: Boolean(args.compact),
+                  fields: Array.isArray(args.fields) ? args.fields : undefined,
+                  include: Array.isArray(args.include) ? args.include : undefined,
+                  skipHistory: args.skipHistory === true
+                });
                 allRows.push(...(leagueResult.result || []));
                 warnings = leagueResult.warnings || warnings;
               }
@@ -3432,7 +2318,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
 
     // ─── UFC ────────────────────────────────────────────────────────
     async ufc_card(args = {}) {
-      return runUfcCard(args);
+      return ctx.handlers.runUfcCard(args);
     },
 
     // ─── Play Detail & Validation Handlers ──────────────────────────────────
@@ -3444,10 +2330,10 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       const canonicalKey = canonicalizeScreenArgs(args);
       if (canonicalKey) {
         return await canonicalScreenCache.memoize(async () => {
-          return await runGetPlayDetailsImpl(client, args);
+          return await ctx.handlers.runGetPlayDetailsImpl(client, args);
         }, canonicalKey)();
       }
-      return runGetPlayDetailsImpl(client, args);
+      return ctx.handlers.runGetPlayDetailsImpl(client, args);
     },
 
     /**
@@ -3467,7 +2353,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
       // Reset per-call tier hysteresis so each screen call starts clean
       // (prevents cross-call tier drift from stale cache state).
       clearTierCache();
-      const result = await runValidatePlayImpl(client, args);
+      const result = await ctx.handlers.runValidatePlayImpl(client, args);
       if (result && result.ok === false) {
         return result;
       }
