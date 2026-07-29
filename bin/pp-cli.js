@@ -553,8 +553,7 @@ async function cmdScan(handlers, positional, flags, client) {
       const hasResults = res.data?.results || res.results || [];
       const totalPlays = hasResults.reduce((s, r) => s + (r.plays || []).length, 0);
       if (tennisOnly && totalPlays === 0) {
-        console.error('Tennis: showing delayed/recovered plays (odds detected on ' + book + ')');
-        console.error('(movement/edge analysis unavailable — sharp books may not carry tennis markets)');
+        console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
         const tennisPlays = await recoverTennisFromScreen({ book, client });
         if (tennisPlays.length) {
           res.data = res.data || {};
