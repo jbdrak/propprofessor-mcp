@@ -956,6 +956,42 @@ describe('game-conflict resolution (resolveGameConflicts)', () => {
     assert.equal(pass.confidenceTier, 'TIER 1', 'already-PASS row is untouched');
   });
 
+  it('downgrades an intra-team duplicate where the same team appears twice at different handicaps in the same market', () => {
+    // Regression: MLB Run Line with both "Rays -1.5" (BET) and "Rays +1.5" (BET)
+    // in the same game+market. resolveGameConflicts must catch this even though
+    // baseTeamFromSelection normalises both to "tampa bay rays" (same team) and
+    // the cross-team check (teams.size >= 2) can't see it.
+    const ranked = [
+      {
+        game: 'Tampa Bay Rays vs Texas Rangers',
+        market: 'Run Line',
+        selection: 'Tampa Bay Rays -1.5',
+        confidenceTier: 'TIER 1',
+        kaiCall: 'BET',
+        consensusEdge: 0.53,
+        screenScore: 7.2
+      },
+      {
+        game: 'Tampa Bay Rays vs Texas Rangers',
+        market: 'Run Line',
+        selection: 'Tampa Bay Rays +1.5',
+        confidenceTier: 'TIER 2',
+        kaiCall: 'BET',
+        consensusEdge: 0.55,
+        screenScore: 6.5
+      }
+    ];
+    const out = resolveGameConflicts(ranked);
+    const fav = out.find((r) => r.selection === 'Tampa Bay Rays -1.5');
+    const dog = out.find((r) => r.selection === 'Tampa Bay Rays +1.5');
+    assert.equal(fav.confidenceTier, 'TIER 1', 'best (TIER 1) entry is kept');
+    assert.equal(fav.kaiCall, 'BET', 'best entry stays BET');
+    assert.equal(fav.conflictFlag, undefined, 'winner is not flagged');
+    assert.notEqual(dog.confidenceTier, 'TIER 2', 'duplicate is NOT kept at its original tier');
+    assert.ok(dog.conflictFlag, 'duplicate row is flagged as a conflict');
+    assert.match(dog.conflictWith || '', /intra-team/i, 'duplicate explains the conflict source');
+  });
+
   it('baseTeamFromSelection strips line suffixes and parenthetical tags', () => {
     assert.equal(baseTeamFromSelection('Cleveland Guardians -1.5'), 'cleveland guardians');
     assert.equal(baseTeamFromSelection('Minnesota Twins'), 'minnesota twins');

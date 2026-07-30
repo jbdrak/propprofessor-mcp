@@ -297,6 +297,20 @@ function clvColor(clv) {
   return clv + '¢';
 }
 
+function oddsFmt(n) {
+  if (!Number.isFinite(Number(n))) return null;
+  const v = Number(n);
+  return v > 0 ? `+${v}` : String(v);
+}
+
+function openerContextLabel(openingOdds, currentOdds) {
+  const open = Number(openingOdds);
+  const current = Number(currentOdds);
+  if (!Number.isFinite(open) || !Number.isFinite(current) || open === current) return null;
+  const direction = current > open ? 'vs open: longer' : 'vs open: shorter';
+  return `open ${oddsFmt(open)} -> now ${oddsFmt(current)}  ·  ${direction}`;
+}
+
 function momentumLabel(p) {
   // Future-CLV signal label: shows what predicts continued movement
   const parts = [];
@@ -305,8 +319,8 @@ function momentumLabel(p) {
   if (p.steamMove && isSupportive) parts.push(CYAN + 'STEAM' + R);
   if (p.sharpBookMovementConfirmed || p.pinnacle) parts.push(G + 'SHARP' + R);
   const clv = p.clvProxyPct ?? p.clv;
-  if (clv > 5) parts.push(G + 'CLV+5¢' + R);
-  else if (clv > 3) parts.push(CYAN + 'CLV+3¢' + R);
+  if (clv > 5) parts.push(G + 'CLV vs open +5¢' + R);
+  else if (clv > 3) parts.push(CYAN + 'CLV vs open +3¢' + R);
   if ((p.lastMoveAgeMs || 0) > 0 && (p.lastMoveAgeMs || 0) < 3600000) parts.push(Y + 'FRESH' + R);
   return parts.length ? parts.join(' ') : '';
 }
@@ -336,6 +350,8 @@ function formatScan(results) {
       if (p.consensusEdge != null)
         details.push('edge ' + (p.consensusEdge >= 0 ? '+' : '') + (p.consensusEdge * 100).toFixed(1) + '%');
       out += '    ' + details.join('  ·  ') + '\n';
+      const openerLine = openerContextLabel(p.openingOdds, p.currentOdds);
+      if (openerLine) out += '    ' + openerLine + '\n';
       const momentum = momentumLabel(p);
       if (momentum) out += '    ' + momentum + '\n';
       const matchup = p.game || p.matchup || '';
@@ -560,25 +576,33 @@ async function cmdScan(handlers, positional, flags, client) {
           console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
           const tennisPlays = await recoverTennisFromScreen({ book, client });
           if (tennisPlays.length) {
-            const filtered = resultsArr.filter((r) => !isTennisLeague(r.league));
-            filtered.push({
-              league: 'Tennis',
-              market: 'All Markets',
-              plays: tennisPlays.sort((a, b) => {
-                const aMs = parseGameStartMs(a.start);
-                const bMs = parseGameStartMs(b.start);
-                if (!Number.isFinite(aMs) && !Number.isFinite(bMs)) return 0;
-                if (!Number.isFinite(aMs)) return 1;
-                if (!Number.isFinite(bMs)) return -1;
-                return aMs - bMs;
-              })
-            });
-            // Write back — match where we read from (res.data preferred)
-            if (res.data) {
-              res.data.results = filtered;
-              res.data.totalCount = (res.data.totalCount || 0) + tennisPlays.length;
-            } else {
-              res.results = filtered;
+            // Apply onlyBets filtering to injected fallback plays.
+            // Tennis fallback plays carry `verdict` (not `finalVerdict`)
+            // because they bypass the validation pipeline in quick_screen.
+            const filteredPlays = onlyBets
+              ? tennisPlays.filter((p) => (p.verdict || p.finalVerdict || p.kaiCall) === 'BET')
+              : tennisPlays;
+            if (filteredPlays.length) {
+              const filtered = resultsArr.filter((r) => !isTennisLeague(r.league));
+              filtered.push({
+                league: 'Tennis',
+                market: 'All Markets',
+                plays: filteredPlays.sort((a, b) => {
+                  const aMs = parseGameStartMs(a.start);
+                  const bMs = parseGameStartMs(b.start);
+                  if (!Number.isFinite(aMs) && !Number.isFinite(bMs)) return 0;
+                  if (!Number.isFinite(aMs)) return 1;
+                  if (!Number.isFinite(bMs)) return -1;
+                  return aMs - bMs;
+                })
+              });
+              // Write back — match where we read from (res.data preferred)
+              if (res.data) {
+                res.data.results = filtered;
+                res.data.totalCount = (res.data.totalCount || 0) + filteredPlays.length;
+              } else {
+                res.results = filtered;
+              }
             }
           }
         }
@@ -1132,4 +1156,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { cmdScan };
+module.exports = { cmdScan, formatScan, momentumLabel, openerContextLabel, oddsFmt };

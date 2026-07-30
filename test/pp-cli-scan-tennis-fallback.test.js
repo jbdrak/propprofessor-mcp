@@ -19,6 +19,8 @@ const PROJECT = path.resolve(__dirname, '..');
 
 describe('cmdScan tennis fallback in mixed-league scans', () => {
   let cmdScan;
+  let formatScan;
+  let momentumLabel;
 
   // ── mock recoverTennisFromScreen ─────────────────────────────────
   // We replace the tennis-fallback module in require.cache BEFORE
@@ -44,6 +46,25 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     source: 'tennis_fallback (Pinnacle)'
   };
 
+  // Simulates a live tennis fallback play that should be filtered out by -B
+  const CONSIDER_TENNIS_PLAY = {
+    game: 'Nakashima vs Thompson',
+    gameId: 'tennis-game-2',
+    league: 'Tennis',
+    market: 'Moneyline',
+    start: '2026-07-30T20:00:00.000Z',
+    selection: 'Nakashima',
+    participant: 'Nakashima',
+    odds: -110,
+    book: 'NoVigApp',
+    tier: 'TIER 2',
+    verdict: 'CONSIDER',
+    movementDisposition: 'adverse_full',
+    edge: 0,
+    clvProxyPct: 0,
+    source: 'tennis_fallback'
+  };
+
   before(() => {
     const tennisFallbackPath = require.resolve(PROJECT + '/lib/tennis-fallback');
     // Remove any stale cache entry
@@ -54,7 +75,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
       filename: tennisFallbackPath,
       loaded: true,
       exports: {
-        recoverTennisFromScreen: async () => [SAMPLE_TENNIS_PLAY],
+        recoverTennisFromScreen: async () => [SAMPLE_TENNIS_PLAY, CONSIDER_TENNIS_PLAY],
         computeClvFromHistory: () => null,
         deriveMovementFromClv: () => 'insufficient',
         assignTierFromClv: () => 'TIER 2',
@@ -64,6 +85,8 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
 
     const mod = require(PROJECT + '/bin/pp-cli');
     cmdScan = mod.cmdScan;
+    formatScan = mod.formatScan;
+    momentumLabel = mod.momentumLabel;
   });
 
   // ── helpers ──────────────────────────────────────────────────────
@@ -404,5 +427,216 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     assert.equal(tennisGroups[0].market, 'Moneyline', 'existing bucket not replaced');
     assert.equal(tennisGroups[0].plays.length, 1, 'existing plays intact');
     assert.equal(res.data.totalCount, 1, 'totalCount unchanged');
+  });
+
+  // ── -B (onlyBets) regression tests ──────────────────────────────
+  // These prove the fix for the live scan bug where non-BET tennis
+  // fallback rows leaked into `pp scan -b NoVigApp -B -j` output.
+
+  it('-B filters out CONSIDER tennis fallback rows in mixed-league scan', async () => {
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis', '-B'], { B: true }, {});
+    } finally {
+      restoreConsole(orig);
+    }
+    const results = res.data.results;
+    const tennisGroup = results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis group should exist');
+    // Only the BET play should survive; CONSIDER should be filtered out
+    assert.equal(tennisGroup.plays.length, 1, 'only BET play should survive -B filter');
+    assert.equal(tennisGroup.plays[0].verdict, 'BET', 'surviving play must be BET');
+    assert.equal(tennisGroup.plays[0].selection, 'Djokovic N', 'BET play is Djokovic');
+  });
+
+  it('-B updates totalCount to reflect only retained BET rows', async () => {
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis', '-B'], { B: true }, {});
+    } finally {
+      restoreConsole(orig);
+    }
+    // totalCount should be 1 (MLB) + 1 (BET tennis) = 2, not 1 + 2 = 3
+    assert.equal(res.data.totalCount, 2, 'totalCount = original + BET plays only');
+  });
+
+  it('-B filters CONSIDER rows in tennis-only scan', async () => {
+    const res = {
+      data: {
+        results: [],
+        totalCount: 0
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'tennis', '-B'], { B: true }, {});
+    } finally {
+      restoreConsole(orig);
+    }
+    const results = res.data.results;
+    assert.equal(results.length, 1, 'should have 1 Tennis result group');
+    assert.equal(results[0].plays.length, 1, 'only BET play survives -B in tennis-only scan');
+    assert.equal(results[0].plays[0].verdict, 'BET');
+    assert.equal(res.data.totalCount, 1, 'totalCount should reflect only BET rows');
+  });
+
+  it('without -B, all tennis fallback rows (BET + CONSIDER) are included', async () => {
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis group should exist');
+    assert.equal(tennisGroup.plays.length, 2, 'both BET and CONSIDER plays included without -B');
+    assert.equal(res.data.totalCount, 3, 'totalCount includes all fallback plays');
+  });
+
+  // ── formatScan opener context regression tests ──────────────────
+
+  it('prints opener to current odds line when both are present and different', () => {
+    const results = [{
+      league: 'Tennis',
+      market: 'Moneyline',
+      plays: [{
+        selection: 'Djokovic',
+        odds: -120,
+        openingOdds: -140,
+        currentOdds: -120,
+        tier: 'TIER 1',
+        verdict: 'BET',
+        clvProxyPct: 3.4,
+        edge: 2.1,
+        books: 5,
+        game: 'Djokovic vs Alcaraz',
+        movementDisposition: 'supportive_clean'
+      }]
+    }];
+    const out = formatScan(results);
+    assert.match(out, /open -140 -> now -120/, 'shows opener-to-current path');
+    assert.match(out, /vs open: longer/, 'indicates direction vs opener (American odds: -140→-120 is longer)');
+    assert.match(out, /CLV vs open \+3¢/, 'CLV label references opener');
+  });
+
+  it('suppresses opener line when openingOdds equals currentOdds', () => {
+    const results = [{
+      league: 'Tennis',
+      market: 'Moneyline',
+      plays: [{
+        selection: 'Djokovic',
+        odds: -120,
+        openingOdds: -120,
+        currentOdds: -120,
+        tier: 'TIER 1',
+        verdict: 'BET',
+        clvProxyPct: 0,
+        edge: 1.5,
+        books: 4,
+        game: 'Djokovic vs Alcaraz',
+        movementDisposition: 'insufficient'
+      }]
+    }];
+    const out = formatScan(results);
+    assert.equal(/open.*->.*now/.test(out), false, 'no opener line when equal');
+  });
+
+  it('suppresses opener line when openingOdds is missing', () => {
+    const results = [{
+      league: 'Tennis',
+      market: 'Moneyline',
+      plays: [{
+        selection: 'Djokovic',
+        odds: -120,
+        openingOdds: undefined,
+        currentOdds: -120,
+        tier: 'TIER 2',
+        verdict: 'CONSIDER',
+        clvProxyPct: 0,
+        edge: 0,
+        books: 3,
+        game: 'Djokovic vs Alcaraz',
+        movementDisposition: 'insufficient'
+      }]
+    }];
+    const out = formatScan(results);
+    assert.equal(/open.*->.*now/.test(out), false, 'no opener line when opener missing');
+  });
+
+  it('suppresses opener line when currentOdds is missing', () => {
+    const results = [{
+      league: 'Tennis',
+      market: 'Moneyline',
+      plays: [{
+        selection: 'Djokovic',
+        odds: -120,
+        openingOdds: -140,
+        currentOdds: undefined,
+        tier: 'TIER 2',
+        verdict: 'CONSIDER',
+        clvProxyPct: 0,
+        edge: 0,
+        books: 3,
+        game: 'Djokovic vs Alcaraz',
+        movementDisposition: 'insufficient'
+      }]
+    }];
+    const out = formatScan(results);
+    assert.equal(/open.*->.*now/.test(out), false, 'no opener line when current missing');
+  });
+
+  it('momentumLabel uses "vs open" wording for CLV', () => {
+    const label = momentumLabel({ clvProxyPct: 6, movementDisposition: 'supportive_clean' });
+    assert.match(label, /CLV vs open \+5¢/, 'high CLV references opener');
+  });
+
+  it('momentumLabel uses "vs open" wording for lower CLV', () => {
+    const label = momentumLabel({ clvProxyPct: 4, movementDisposition: 'supportive_clean' });
+    assert.match(label, /CLV vs open \+3¢/, 'medium CLV references opener');
+  });
+
+  it('formatScan shows "vs open: longer" when current is worse than opener', () => {
+    const results = [{
+      league: 'Tennis',
+      market: 'Moneyline',
+      plays: [{
+        selection: 'Alcaraz',
+        odds: 110,
+        openingOdds: -105,
+        currentOdds: 110,
+        tier: 'TIER 2',
+        verdict: 'CONSIDER',
+        clvProxyPct: 0,
+        edge: 0,
+        books: 3,
+        game: 'Djokovic vs Alcaraz',
+        movementDisposition: 'adverse_full'
+      }]
+    }];
+    const out = formatScan(results);
+    assert.match(out, /open -105 -> now \+110/, 'shows adjusted odds path');
+    assert.match(out, /vs open: longer/, 'indicates longer odds vs opener');
   });
 });
