@@ -546,19 +546,22 @@ async function cmdScan(handlers, positional, flags, client) {
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
 
-    // Tennis fallback: if tennis scan returned 0 plays, try direct screen query
+    // Tennis fallback: if tennis was among requested leagues but returned 0
+    // plays, try direct screen query.  Works for mixed-league scans too.
     const tennisFallbackEnabled = flags['tennis-fallback'] !== false;
+    const isTennisLeague = (leagueName) => String(leagueName || '').toLowerCase() === 'tennis';
     if (tennisFallbackEnabled) {
-      const tennisOnly = leagues.length === 1 && leagues[0].toLowerCase() === 'tennis';
-      const hasResults = res.data?.results || res.results || [];
-      const totalPlays = hasResults.reduce((s, r) => s + (r.plays || []).length, 0);
-      if (tennisOnly && totalPlays === 0) {
-        console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
-        const tennisPlays = await recoverTennisFromScreen({ book, client });
-        if (tennisPlays.length) {
-          res.data = res.data || {};
-          res.data.results = [
-            {
+      const tennisInLeagues = leagues.some(isTennisLeague);
+      if (tennisInLeagues) {
+        const resultsArr = res.data?.results || res.results || [];
+        const tennisResult = resultsArr.find((r) => isTennisLeague(r.league));
+        const tennisPlaysCount = tennisResult ? (tennisResult.plays || []).length : 0;
+        if (tennisPlaysCount === 0) {
+          console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
+          const tennisPlays = await recoverTennisFromScreen({ book, client });
+          if (tennisPlays.length) {
+            const filtered = resultsArr.filter((r) => !isTennisLeague(r.league));
+            filtered.push({
               league: 'Tennis',
               market: 'All Markets',
               plays: tennisPlays.sort((a, b) => {
@@ -569,9 +572,15 @@ async function cmdScan(handlers, positional, flags, client) {
                 if (!Number.isFinite(bMs)) return -1;
                 return aMs - bMs;
               })
+            });
+            // Write back — match where we read from (res.data preferred)
+            if (res.data) {
+              res.data.results = filtered;
+              res.data.totalCount = (res.data.totalCount || 0) + tennisPlays.length;
+            } else {
+              res.results = filtered;
             }
-          ];
-          res.data.totalCount = tennisPlays.length;
+          }
         }
       }
     }
@@ -1115,8 +1124,12 @@ async function main() {
   console.error('\nDone in ' + ((Date.now() - start) / 1000).toFixed(1) + 's');
 }
 
-main().catch((e) => {
-  const context = process.argv.slice(2).join(' ');
-  console.error(formatError(e, context));
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((e) => {
+    const context = process.argv.slice(2).join(' ');
+    console.error(formatError(e, context));
+    process.exit(1);
+  });
+}
+
+module.exports = { cmdScan };

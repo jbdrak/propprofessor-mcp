@@ -1,0 +1,321 @@
+'use strict';
+
+/**
+ * Regression coverage for mixed-scan tennis fallback injection.
+ *
+ * When Tennis is among requested leagues but returns 0 plays from the
+ * quick_screen pipeline, the CLI should call recoverTennisFromScreen()
+ * and inject the fallback Tennis bucket alongside non-Tennis results.
+ *
+ * These tests exercise cmdScan directly (exported by pp-cli.js when
+ * required, guarded so main() does not auto-run).
+ */
+
+const { describe, it, before } = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('path');
+
+const PROJECT = path.resolve(__dirname, '..');
+
+describe('cmdScan tennis fallback in mixed-league scans', () => {
+  let cmdScan;
+
+  // ── mock recoverTennisFromScreen ─────────────────────────────────
+  // We replace the tennis-fallback module in require.cache BEFORE
+  // loading pp-cli.js so that cmdScan's module-level import gets our
+  // deterministic mock instead of the real recovery logic (which calls
+  // external APIs via client + correctTennisTimes).
+
+  const SAMPLE_TENNIS_PLAY = {
+    game: 'Djokovic N vs Alcaraz C',
+    gameId: 'tennis-game-1',
+    league: 'Tennis',
+    market: 'Moneyline',
+    start: '2026-07-30T18:00:00.000Z',
+    selection: 'Djokovic N',
+    participant: 'Djokovic N',
+    odds: -120,
+    book: 'NoVigApp',
+    tier: 'TIER 1',
+    verdict: 'BET',
+    movementDisposition: 'supportive_clean',
+    edge: 2.1,
+    clvProxyPct: 2.1,
+    source: 'tennis_fallback (Pinnacle)'
+  };
+
+  before(() => {
+    const tennisFallbackPath = require.resolve(PROJECT + '/lib/tennis-fallback');
+    // Remove any stale cache entry
+    delete require.cache[tennisFallbackPath];
+    // Register the mock before anything imports it
+    require.cache[tennisFallbackPath] = {
+      id: tennisFallbackPath,
+      filename: tennisFallbackPath,
+      loaded: true,
+      exports: {
+        recoverTennisFromScreen: async () => [SAMPLE_TENNIS_PLAY],
+        computeClvFromHistory: () => null,
+        deriveMovementFromClv: () => 'insufficient',
+        assignTierFromClv: () => 'TIER 2',
+        isStandardLine: () => true
+      }
+    };
+
+    const mod = require(PROJECT + '/bin/pp-cli');
+    cmdScan = mod.cmdScan;
+  });
+
+  // ── helpers ──────────────────────────────────────────────────────
+
+  function suppressConsole() {
+    const orig = { log: console.log, error: console.error };
+    console.log = () => {};
+    console.error = () => {};
+    return orig;
+  }
+
+  function restoreConsole(orig) {
+    console.log = orig.log;
+    console.error = orig.error;
+  }
+
+  // ── tests ────────────────────────────────────────────────────────
+
+  it('injects tennis fallback when tennis is among requested leagues but returned empty', async () => {
+    const res = {
+      data: {
+        results: [
+          { league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] },
+          { league: 'NBA', market: 'Spread', plays: [{ selection: 'Lakers', odds: -110 }] }
+        ],
+        totalCount: 2
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    // Results should have 3 groups: MLB, NBA, Tennis
+    const results = res.data.results;
+    assert.equal(results.length, 3, 'should have 3 result groups (MLB, NBA, Tennis)');
+
+    const tennisGroup = results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis fallback group should be injected');
+    assert.equal(tennisGroup.market, 'All Markets', 'fallback bucket uses All Markets label');
+    assert.ok(tennisGroup.plays.length > 0, 'fallback group should contain plays');
+    assert.equal(tennisGroup.plays[0].selection, 'Djokovic N');
+
+    // Non-tennis groups should be untouched
+    const mlbGroup = results.find((r) => r.league === 'MLB');
+    assert.ok(mlbGroup, 'MLB group preserved');
+    assert.equal(mlbGroup.plays.length, 1);
+
+    const nbaGroup = results.find((r) => r.league === 'NBA');
+    assert.ok(nbaGroup, 'NBA group preserved');
+    assert.equal(nbaGroup.plays.length, 1);
+  });
+
+  it('does not inject tennis fallback when tennis already has plays', async () => {
+    const res = {
+      data: {
+        results: [
+          { league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] },
+          { league: 'Tennis', market: 'Moneyline', plays: [{ selection: 'Djokovic', odds: -150 }] },
+          { league: 'NBA', market: 'Spread', plays: [{ selection: 'Lakers', odds: -110 }] }
+        ],
+        totalCount: 3
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis', 'nba'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    assert.equal(res.data.results.length, 3, 'should still have 3 result groups');
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.equal(tennisGroup.plays.length, 1, 'Tennis should still have original play');
+    assert.equal(tennisGroup.market, 'Moneyline', 'Tennis market should be unchanged');
+  });
+
+  it("respects --no-tennis-fallback flag (flags['tennis-fallback'] === false)", async () => {
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], { 'tennis-fallback': false }, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    assert.equal(res.data.results.length, 1, 'should still have only the original group');
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.equal(tennisGroup, undefined, 'Tennis fallback should NOT be injected');
+  });
+
+  it('does not affect scans that do not include tennis', async () => {
+    const res = {
+      data: {
+        results: [
+          { league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] },
+          { league: 'NBA', market: 'Spread', plays: [{ selection: 'Lakers', odds: -110 }] }
+        ],
+        totalCount: 2
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'nba'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    assert.equal(res.data.results.length, 2, 'should have only the original groups');
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.equal(tennisGroup, undefined, 'Tennis should not appear');
+  });
+
+  it('handles case where tennis bucket is absent from results (not just empty)', async () => {
+    // quick_screen may not include a Tennis result group at all when
+    // the pipeline dropped it — fallback should still inject one.
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis', 'nba'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    const results = res.data.results;
+    const tennisGroup = results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis fallback should be injected even when absent from results');
+    assert.ok(tennisGroup.plays.length > 0, 'fallback group should have plays');
+    assert.equal(results.length, 2, 'should have 2 groups (MLB + injected Tennis); NBA not in source results');
+    // NBA was requested but not in quick_screen results (pipeline dropped it,
+    // not the same issue as tennis — the fallback only injects tennis)
+  });
+
+  it('handles mixed case where tennis bucket exists but has 0 plays', async () => {
+    const res = {
+      data: {
+        results: [
+          { league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] },
+          { league: 'Tennis', market: 'Moneyline', plays: [] },
+          { league: 'NBA', market: 'Spread', plays: [{ selection: 'Lakers', odds: -110 }] }
+        ],
+        totalCount: 2
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis', 'nba'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    const results = res.data.results;
+    assert.equal(results.length, 3, 'should have 3 groups');
+    const tennisGroup = results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis group should exist');
+    assert.equal(tennisGroup.market, 'All Markets', 'empty Tennis bucket was replaced with fallback');
+    assert.ok(tennisGroup.plays.length > 0, 'Tennis should have fallback plays');
+  });
+
+  it('replaces lowercase tennis buckets instead of appending duplicate fallback output', async () => {
+    const res = {
+      data: {
+        results: [
+          { league: 'tennis', market: 'Moneyline', plays: [] },
+          { league: 'tennis', market: 'Game Handicap', plays: [] },
+          { league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }
+        ],
+        totalCount: 1
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'tennis', 'mlb'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    const tennisGroups = res.data.results.filter((r) => String(r.league).toLowerCase() === 'tennis');
+    assert.equal(tennisGroups.length, 1, 'should leave exactly one Tennis group after fallback replacement');
+    assert.equal(tennisGroups[0].league, 'Tennis', 'fallback output should normalize league casing');
+    assert.equal(tennisGroups[0].market, 'All Markets', 'fallback output should replace empty per-market tennis buckets');
+    assert.ok(tennisGroups[0].plays.length > 0, 'replacement tennis group should contain fallback plays');
+  });
+
+  it('does not inject fallback when lowercase tennis bucket already has plays', async () => {
+    const res = {
+      data: {
+        results: [
+          { league: 'tennis', market: 'Moneyline', plays: [{ selection: 'Djokovic', odds: -150 }] },
+          { league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }
+        ],
+        totalCount: 2
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'tennis', 'mlb'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    const tennisGroups = res.data.results.filter((r) => String(r.league).toLowerCase() === 'tennis');
+    assert.equal(tennisGroups.length, 1, 'existing lowercase tennis bucket should be preserved');
+    assert.equal(tennisGroups[0].market, 'Moneyline', 'existing populated tennis bucket should not be replaced');
+    assert.equal(tennisGroups[0].plays.length, 1, 'existing populated tennis bucket should stay intact');
+  });
+
+  it('preserves totalCount with addition of fallback plays', async () => {
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    // totalCount should have been incremented by fallback plays
+    assert.ok(res.data.totalCount >= 2, 'totalCount should include fallback plays');
+  });
+});

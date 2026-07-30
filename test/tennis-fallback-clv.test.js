@@ -2,7 +2,14 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { computeClvFromHistory, deriveMovementFromClv, assignTierFromClv, isStandardLine } = require('../lib/tennis-fallback');
+const {
+  computeClvFromHistory,
+  deriveMovementFromClv,
+  verdictFromDisposition,
+  assignTierFromClv,
+  isTennisAlternateLine,
+  resolveOppositeSideConflicts
+} = require('../lib/tennis-fallback');
 
 describe('computeClvFromHistory', () => {
   it('returns null for empty array', () => {
@@ -47,7 +54,7 @@ describe('computeClvFromHistory', () => {
     ];
     const clv = computeClvFromHistory(history);
     // 133/233=57.08% → 129/229=56.33% = -0.75%
-    assert.ok(Math.abs(clv - (-0.75)) < 0.1, `expected ~-0.75, got ${clv}`);
+    assert.ok(Math.abs(clv - -0.75) < 0.1, `expected ~-0.75, got ${clv}`);
   });
 
   it('sorts by timestamp', () => {
@@ -87,6 +94,28 @@ describe('deriveMovementFromClv', () => {
   });
 });
 
+describe('verdictFromDisposition', () => {
+  it('returns BET for supportive_clean', () => {
+    assert.equal(verdictFromDisposition('supportive_clean'), 'BET');
+  });
+
+  it('returns BET for supportive_bouncy', () => {
+    assert.equal(verdictFromDisposition('supportive_bouncy'), 'BET');
+  });
+
+  it('returns CONSIDER for adverse_full', () => {
+    assert.equal(verdictFromDisposition('adverse_full'), 'CONSIDER');
+  });
+
+  it('returns CONSIDER for adverse_recent', () => {
+    assert.equal(verdictFromDisposition('adverse_recent'), 'CONSIDER');
+  });
+
+  it('returns CONSIDER for insufficient', () => {
+    assert.equal(verdictFromDisposition('insufficient'), 'CONSIDER');
+  });
+});
+
 describe('assignTierFromClv', () => {
   it('returns TIER 1 for high CLV', () => {
     assert.equal(assignTierFromClv(3, 1), 'TIER 1');
@@ -105,13 +134,198 @@ describe('assignTierFromClv', () => {
   });
 });
 
-describe('isStandardLine', () => {
-  it('accepts -110', () => assert.equal(isStandardLine(-110), true));
-  it('accepts +100', () => assert.equal(isStandardLine(100), true));
-  it('accepts -150', () => assert.equal(isStandardLine(-150), true));
-  it('accepts +150', () => assert.equal(isStandardLine(150), true));
-  it('rejects -200 (big favorite)', () => assert.equal(isStandardLine(-200), false));
-  it('rejects +300 (big underdog)', () => assert.equal(isStandardLine(300), false));
-  it('rejects -488', () => assert.equal(isStandardLine(-488), false));
-  it('rejects null', () => assert.equal(isStandardLine(null), false));
+describe('isTennisAlternateLine', () => {
+  // Moneyline is always standard
+  it('returns false for Moneyline regardless of selection text', () => {
+    assert.equal(isTennisAlternateLine('Moneyline', 'Djokovic'), false);
+  });
+
+  it('returns false for Moneyline with empty selection', () => {
+    assert.equal(isTennisAlternateLine('Moneyline', ''), false);
+  });
+
+  // Total Games is always standard
+  it('returns false for Total Games regardless of line number', () => {
+    assert.equal(isTennisAlternateLine('Total Games', 'Over 22.5'), false);
+  });
+
+  // Game Handicap
+  it('returns false for standard Game Handicap ±1.5', () => {
+    assert.equal(isTennisAlternateLine('Game Handicap', 'Djokovic -1.5'), false);
+  });
+
+  it('returns false for standard Game Handicap +1.5', () => {
+    assert.equal(isTennisAlternateLine('Game Handicap', 'Alcaraz +1.5'), false);
+  });
+
+  it('returns false for Game Handicap ±2.5 (also standard)', () => {
+    assert.equal(isTennisAlternateLine('Game Handicap', 'Djokovic -2.5'), false);
+    assert.equal(isTennisAlternateLine('Game Handicap', 'Alcaraz +2.5'), false);
+  });
+
+  it('returns true for expanded Game Handicap +3.5 (alternate)', () => {
+    assert.equal(isTennisAlternateLine('Game Handicap', 'Djokovic +3.5'), true);
+  });
+
+  it('returns true for expanded Game Handicap -4.5 (alternate)', () => {
+    assert.equal(isTennisAlternateLine('Game Handicap', 'Alcaraz -4.5'), true);
+  });
+
+  it('returns true for expanded Game Handicap +6.5 (alternate)', () => {
+    assert.equal(isTennisAlternateLine('Game Handicap', 'Djokovic +6.5'), true);
+  });
+
+  it('returns false for Game Handicap with no numeric line (keep by default)', () => {
+    assert.equal(isTennisAlternateLine('Game Handicap', 'Djokovic'), false);
+  });
+
+  // Unknown market type
+  it('returns false for unknown market type', () => {
+    assert.equal(isTennisAlternateLine('Player Props', 'Djokovic Ace Count'), false);
+  });
+});
+
+describe('resolveOppositeSideConflicts', () => {
+  it('passes through non-array input', () => {
+    assert.deepEqual(resolveOppositeSideConflicts(null), null);
+    assert.deepEqual(resolveOppositeSideConflicts(undefined), undefined);
+  });
+
+  it('leaves single BET unchanged', () => {
+    const plays = [
+      {
+        gameId: 'g1',
+        market: 'Moneyline',
+        verdict: 'BET',
+        movementDisposition: 'supportive_clean',
+        clvProxyPct: 3,
+        selection: 'Djokovic'
+      }
+    ];
+    resolveOppositeSideConflicts(plays);
+    assert.equal(plays.length, 1);
+    assert.equal(plays[0].verdict, 'BET');
+  });
+
+  it('downgrades second BET when opposite sides conflict', () => {
+    const plays = [
+      {
+        gameId: 'g1',
+        market: 'Moneyline',
+        verdict: 'BET',
+        movementDisposition: 'supportive_clean',
+        clvProxyPct: 3,
+        selection: 'Djokovic'
+      },
+      {
+        gameId: 'g1',
+        market: 'Moneyline',
+        verdict: 'BET',
+        movementDisposition: 'supportive_bouncy',
+        clvProxyPct: -3,
+        selection: 'Alcaraz'
+      }
+    ];
+    resolveOppositeSideConflicts(plays);
+    const bet = plays.filter((p) => p.verdict === 'BET');
+    assert.equal(bet.length, 1, 'only one BET should remain');
+    assert.equal(bet[0].selection, 'Djokovic', 'clean movement should win');
+    const consider = plays.find((p) => p.verdict === 'CONSIDER');
+    assert.ok(consider.conflictResolved, 'loser should be flagged');
+    assert.ok(consider.conflictNote, 'loser should have a conflict note');
+  });
+
+  it('does not interfere with different gameIds', () => {
+    const plays = [
+      {
+        gameId: 'g1',
+        market: 'Moneyline',
+        verdict: 'BET',
+        movementDisposition: 'supportive_clean',
+        clvProxyPct: 3,
+        selection: 'Djokovic'
+      },
+      {
+        gameId: 'g2',
+        market: 'Moneyline',
+        verdict: 'BET',
+        movementDisposition: 'supportive_clean',
+        clvProxyPct: 2.5,
+        selection: 'Swiatek'
+      }
+    ];
+    resolveOppositeSideConflicts(plays);
+    assert.equal(plays.filter((p) => p.verdict === 'BET').length, 2);
+  });
+
+  it('does not interfere with different markets', () => {
+    const plays = [
+      {
+        gameId: 'g1',
+        market: 'Moneyline',
+        verdict: 'BET',
+        movementDisposition: 'supportive_clean',
+        clvProxyPct: 3,
+        selection: 'Djokovic'
+      },
+      {
+        gameId: 'g1',
+        market: 'Game Handicap',
+        verdict: 'BET',
+        movementDisposition: 'supportive_clean',
+        clvProxyPct: 2.5,
+        selection: 'Djokovic -1.5'
+      }
+    ];
+    resolveOppositeSideConflicts(plays);
+    assert.equal(plays.filter((p) => p.verdict === 'BET').length, 2);
+  });
+
+  it('ignores CONSIDER plays when counting conflicts', () => {
+    const plays = [
+      {
+        gameId: 'g1',
+        market: 'Moneyline',
+        verdict: 'BET',
+        movementDisposition: 'supportive_clean',
+        clvProxyPct: 3,
+        selection: 'Djokovic'
+      },
+      {
+        gameId: 'g1',
+        market: 'Moneyline',
+        verdict: 'CONSIDER',
+        movementDisposition: 'adverse_recent',
+        clvProxyPct: -1,
+        selection: 'Alcaraz'
+      }
+    ];
+    resolveOppositeSideConflicts(plays);
+    assert.equal(plays.filter((p) => p.verdict === 'BET').length, 1);
+    assert.equal(plays[0].verdict, 'BET');
+  });
+
+  it('prefers supportive_clean over supportive_bouncy', () => {
+    const plays = [
+      {
+        gameId: 'g1',
+        market: 'Moneyline',
+        verdict: 'BET',
+        movementDisposition: 'supportive_bouncy',
+        clvProxyPct: 5,
+        selection: 'Djokovic'
+      },
+      {
+        gameId: 'g1',
+        market: 'Moneyline',
+        verdict: 'BET',
+        movementDisposition: 'supportive_clean',
+        clvProxyPct: 3,
+        selection: 'Alcaraz'
+      }
+    ];
+    resolveOppositeSideConflicts(plays);
+    const bet = plays.find((p) => p.verdict === 'BET');
+    assert.equal(bet.selection, 'Alcaraz', 'clean should win over bouncy even with lower CLV');
+  });
 });
