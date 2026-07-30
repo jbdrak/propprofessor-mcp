@@ -58,7 +58,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
         computeClvFromHistory: () => null,
         deriveMovementFromClv: () => 'insufficient',
         assignTierFromClv: () => 'TIER 2',
-        isStandardLine: () => true
+        isTennisAlternateLine: () => false
       }
     };
 
@@ -270,8 +270,13 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     const tennisGroups = res.data.results.filter((r) => String(r.league).toLowerCase() === 'tennis');
     assert.equal(tennisGroups.length, 1, 'should leave exactly one Tennis group after fallback replacement');
     assert.equal(tennisGroups[0].league, 'Tennis', 'fallback output should normalize league casing');
-    assert.equal(tennisGroups[0].market, 'All Markets', 'fallback output should replace empty per-market tennis buckets');
+    assert.equal(
+      tennisGroups[0].market,
+      'All Markets',
+      'fallback output should replace empty per-market tennis buckets'
+    );
     assert.ok(tennisGroups[0].plays.length > 0, 'replacement tennis group should contain fallback plays');
+    assert.ok(res.data.totalCount >= tennisGroups[0].plays.length, 'totalCount should include fallback plays');
   });
 
   it('does not inject fallback when lowercase tennis bucket already has plays', async () => {
@@ -297,6 +302,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     assert.equal(tennisGroups.length, 1, 'existing lowercase tennis bucket should be preserved');
     assert.equal(tennisGroups[0].market, 'Moneyline', 'existing populated tennis bucket should not be replaced');
     assert.equal(tennisGroups[0].plays.length, 1, 'existing populated tennis bucket should stay intact');
+    assert.equal(res.data.totalCount, 2, 'totalCount unchanged (2 original plays)');
   });
 
   it('preserves totalCount with addition of fallback plays', async () => {
@@ -317,5 +323,86 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
 
     // totalCount should have been incremented by fallback plays
     assert.ok(res.data.totalCount >= 2, 'totalCount should include fallback plays');
+  });
+
+  it('handles tennis-only scan where quick_screen returns empty results (fallback injects Tennis bucket)', async () => {
+    const res = {
+      data: {
+        results: [],
+        totalCount: 0
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'tennis'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    const results = res.data.results;
+    assert.equal(results.length, 1, 'should have 1 result group');
+    assert.equal(results[0].league, 'Tennis', 'bucket league should be canonical Tennis');
+    assert.equal(results[0].market, 'All Markets', 'fallback bucket uses All Markets label');
+    assert.ok(results[0].plays.length > 0, 'fallback group should contain plays');
+    assert.ok(res.data.totalCount >= 1, 'totalCount should include fallback plays');
+  });
+
+  it('handles tennis-only scan with lowercase empty tennis buckets (normalizes to single canonical Tennis)', async () => {
+    const res = {
+      data: {
+        results: [
+          { league: 'tennis', market: 'Moneyline', plays: [] },
+          { league: 'tennis', market: 'Game Handicap', plays: [] }
+        ],
+        totalCount: 0
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'tennis'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    const results = res.data.results;
+    const tennisGroups = results.filter((r) => String(r.league).toLowerCase() === 'tennis');
+    assert.equal(tennisGroups.length, 1, 'should leave exactly one Tennis group');
+    assert.equal(tennisGroups[0].league, 'Tennis', 'normalized to canonical casing');
+    assert.equal(
+      tennisGroups[0].market,
+      'All Markets',
+      'fallback replaces per-market buckets with a single All Markets group'
+    );
+    assert.ok(tennisGroups[0].plays.length > 0, 'fallback group should contain plays');
+    assert.equal(results.length, 1, 'only Tennis bucket in results');
+    assert.ok(res.data.totalCount >= 1, 'totalCount should include fallback plays');
+  });
+
+  it('does not replace lowercase tennis bucket with plays in tennis-only scan', async () => {
+    const res = {
+      data: {
+        results: [{ league: 'tennis', market: 'Moneyline', plays: [{ selection: 'Djokovic', odds: -150 }] }],
+        totalCount: 1
+      }
+    };
+
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'tennis'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    const results = res.data.results;
+    const tennisGroups = results.filter((r) => String(r.league).toLowerCase() === 'tennis');
+    assert.equal(tennisGroups.length, 1, 'existing lowercase tennis bucket preserved');
+    assert.equal(tennisGroups[0].market, 'Moneyline', 'existing bucket not replaced');
+    assert.equal(tennisGroups[0].plays.length, 1, 'existing plays intact');
+    assert.equal(res.data.totalCount, 1, 'totalCount unchanged');
   });
 });
