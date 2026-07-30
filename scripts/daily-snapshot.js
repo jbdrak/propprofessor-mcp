@@ -87,8 +87,11 @@ function playsFromHandlerResult(result, { source } = {}) {
   const plays = [];
   if (!result || result.ok === false) return plays;
   if (source === 'quick_screen') {
-    for (const p of Array.isArray(result.plays) ? result.plays : []) {
-      plays.push(normalizePlay(p, {}));
+    // quick_screen returns { results: [{ league, market, candidates: [...] }] }
+    for (const entry of Array.isArray(result.results) ? result.results : []) {
+      for (const p of Array.isArray(entry.candidates) ? entry.candidates : []) {
+        plays.push(normalizePlay(p, { league: entry.league }));
+      }
     }
     return plays;
   }
