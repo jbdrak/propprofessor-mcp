@@ -17,7 +17,8 @@ const {
   loadSnapshot,
   saveSnapshot,
   annotateResultsWithPreviousSnapshot,
-  buildSnapshotFromResults
+  buildSnapshotFromResults,
+  mergeSnapshotEntries
 } = require(PROJECT + '/lib/pp-scan-snapshot-store');
 
 // ── color support ───────────────────────────────────────────────
@@ -673,7 +674,10 @@ async function cmdScan(handlers, positional, flags, client) {
       const total = results.reduce((s, r) => s + (r.plays || []).length, 0);
       console.log('\n' + total + ' plays across ' + results.length + ' markets');
     }
-    saveSnapshot(buildSnapshotFromResults(results));
+    const nextSnapshot = buildSnapshotFromResults(results);
+    if (Object.keys(nextSnapshot).length) {
+      saveSnapshot(mergeSnapshotEntries(previousSnapshot, nextSnapshot));
+    }
   } catch (e) {
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');

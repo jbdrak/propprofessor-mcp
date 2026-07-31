@@ -24,6 +24,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   let formatScan;
   let momentumLabel;
   let recentDriftContextLabel;
+  let snapshotStore;
   const SNAPSHOT_FILE = path.join(os.tmpdir(), 'pp-scan-snapshot-test-' + process.pid + '.json');
 
   // ── mock recoverTennisFromScreen ─────────────────────────────────
@@ -93,6 +94,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     formatScan = mod.formatScan;
     momentumLabel = mod.momentumLabel;
     recentDriftContextLabel = mod.recentDriftContextLabel;
+    snapshotStore = require(PROJECT + '/lib/pp-scan-snapshot-store');
   });
 
   beforeEach(() => {
@@ -702,6 +704,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
             currentOdds: -147,
             game: 'Nationals vs Braves',
             gameId: 'MLB:1',
+            book: 'NoVigApp',
             movementDisposition: 'supportive_clean',
             tier: 'TIER 1',
             verdict: 'BET'
@@ -721,6 +724,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
             currentOdds: -141,
             game: 'Nationals vs Braves',
             gameId: 'MLB:1',
+            book: 'NoVigApp',
             movementDisposition: 'supportive_clean',
             tier: 'TIER 1',
             verdict: 'BET'
@@ -756,5 +760,104 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     const joined = logs.join('\n');
     assert.match(joined, /prev -147 -> now -141/);
     assert.match(joined, /recent adverse/);
+  });
+
+  it('snapshot keys include the book so scans from different books do not cross-contaminate', () => {
+    const noVigKey = snapshotStore.buildSnapshotKey({
+      league: 'MLB',
+      market: 'Moneyline',
+      gameId: 'MLB:1',
+      selection: 'Braves',
+      book: 'NoVigApp'
+    });
+    const dkKey = snapshotStore.buildSnapshotKey({
+      league: 'MLB',
+      market: 'Moneyline',
+      gameId: 'MLB:1',
+      selection: 'Braves',
+      book: 'DraftKings'
+    });
+    assert.notEqual(noVigKey, dkKey);
+  });
+
+  it('ignores stale previous snapshots older than the TTL', () => {
+    const staleSeenAt = new Date(Date.now() - snapshotStore.DEFAULT_PREVIOUS_SNAPSHOT_TTL_MS - 1000).toISOString();
+    const key = snapshotStore.buildSnapshotKey({
+      league: 'MLB',
+      market: 'Moneyline',
+      gameId: 'MLB:1',
+      selection: 'Braves',
+      book: 'NoVigApp'
+    });
+    const results = [{
+      league: 'MLB',
+      market: 'Moneyline',
+      plays: [{
+        selection: 'Braves',
+        gameId: 'MLB:1',
+        book: 'NoVigApp',
+        currentOdds: -141,
+        odds: -141
+      }]
+    }];
+    snapshotStore.annotateResultsWithPreviousSnapshot(results, {
+      [key]: { odds: -147, seenAt: staleSeenAt }
+    });
+    assert.equal(results[0].plays[0].previousSeenOdds, undefined);
+  });
+
+  it('preserves existing snapshot entries when a later scan returns no plays', async () => {
+    const first = {
+      data: {
+        results: [{
+          league: 'MLB',
+          market: 'Moneyline',
+          plays: [{
+            selection: 'Braves',
+            odds: -147,
+            currentOdds: -147,
+            game: 'Nationals vs Braves',
+            gameId: 'MLB:1',
+            book: 'NoVigApp',
+            movementDisposition: 'supportive_clean',
+            tier: 'TIER 1',
+            verdict: 'BET'
+          }]
+        }],
+        totalCount: 1
+      }
+    };
+    const empty = {
+      data: {
+        results: [],
+        totalCount: 0
+      }
+    };
+
+    const handlers = {
+      quick_screen: async () => {
+        const next = handlers.__calls === 0 ? first : empty;
+        handlers.__calls += 1;
+        return next;
+      },
+      __calls: 0
+    };
+
+    const origLog = console.log;
+    const origError = console.error;
+    console.log = () => {};
+    console.error = () => {};
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb'], {}, {});
+      const afterFirst = snapshotStore.loadSnapshot();
+      assert.equal(Object.keys(afterFirst).length, 1);
+      await cmdScan(handlers, ['pp', 'scan', 'mlb'], {}, {});
+      const afterEmpty = snapshotStore.loadSnapshot();
+      assert.equal(Object.keys(afterEmpty).length, 1);
+      assert.deepEqual(afterEmpty, afterFirst);
+    } finally {
+      console.log = origLog;
+      console.error = origError;
+    }
   });
 });
