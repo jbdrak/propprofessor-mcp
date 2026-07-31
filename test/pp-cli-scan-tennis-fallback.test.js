@@ -11,8 +11,10 @@
  * required, guarded so main() does not auto-run).
  */
 
-const { describe, it, before } = require('node:test');
+const { describe, it, before, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('path');
 
 const PROJECT = path.resolve(__dirname, '..');
@@ -21,6 +23,8 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   let cmdScan;
   let formatScan;
   let momentumLabel;
+  let recentDriftContextLabel;
+  const SNAPSHOT_FILE = path.join(os.tmpdir(), 'pp-scan-snapshot-test-' + process.pid + '.json');
 
   // ── mock recoverTennisFromScreen ─────────────────────────────────
   // We replace the tennis-fallback module in require.cache BEFORE
@@ -66,6 +70,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   };
 
   before(() => {
+    process.env.PP_SCAN_SNAPSHOT_FILE = SNAPSHOT_FILE;
     const tennisFallbackPath = require.resolve(PROJECT + '/lib/tennis-fallback');
     // Remove any stale cache entry
     delete require.cache[tennisFallbackPath];
@@ -87,6 +92,15 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     cmdScan = mod.cmdScan;
     formatScan = mod.formatScan;
     momentumLabel = mod.momentumLabel;
+    recentDriftContextLabel = mod.recentDriftContextLabel;
+  });
+
+  beforeEach(() => {
+    fs.rmSync(SNAPSHOT_FILE, { force: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(SNAPSHOT_FILE, { force: true });
   });
 
   // ── helpers ──────────────────────────────────────────────────────
@@ -638,5 +652,109 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     const out = formatScan(results);
     assert.match(out, /open -105 -> now \+110/, 'shows adjusted odds path');
     assert.match(out, /vs open: longer/, 'indicates longer odds vs opener');
+  });
+
+  it('recentDriftContextLabel marks longer odds as recent adverse', () => {
+    const label = recentDriftContextLabel(-147, -141);
+    assert.match(label, /prev -147 -> now -141/);
+    assert.match(label, /since last scan: longer \(recent adverse\)/);
+  });
+
+  it('recentDriftContextLabel marks shorter odds as recent supportive', () => {
+    const label = recentDriftContextLabel(163, 150);
+    assert.match(label, /prev \+163 -> now \+150/);
+    assert.match(label, /since last scan: shorter \(recent supportive\)/);
+  });
+
+  it('formatScan prints previous-scan drift when previousSeenOdds is present', () => {
+    const results = [{
+      league: 'MLB',
+      market: 'Moneyline',
+      plays: [{
+        selection: 'Braves',
+        odds: -141,
+        currentOdds: -141,
+        previousSeenOdds: -147,
+        openingOdds: -152,
+        tier: 'TIER 1',
+        verdict: 'BET',
+        clvProxyPct: 2.1,
+        edge: 1.5,
+        books: 4,
+        game: 'Nationals vs Braves',
+        movementDisposition: 'supportive_clean'
+      }]
+    }];
+    const out = formatScan(results);
+    assert.match(out, /prev -147 -> now -141/);
+    assert.match(out, /recent adverse/);
+  });
+
+  it('cmdScan stores prior snapshot and shows drift on the next scan', async () => {
+    const first = {
+      data: {
+        results: [{
+          league: 'MLB',
+          market: 'Moneyline',
+          plays: [{
+            selection: 'Braves',
+            odds: -147,
+            currentOdds: -147,
+            game: 'Nationals vs Braves',
+            gameId: 'MLB:1',
+            movementDisposition: 'supportive_clean',
+            tier: 'TIER 1',
+            verdict: 'BET'
+          }]
+        }],
+        totalCount: 1
+      }
+    };
+    const second = {
+      data: {
+        results: [{
+          league: 'MLB',
+          market: 'Moneyline',
+          plays: [{
+            selection: 'Braves',
+            odds: -141,
+            currentOdds: -141,
+            game: 'Nationals vs Braves',
+            gameId: 'MLB:1',
+            movementDisposition: 'supportive_clean',
+            tier: 'TIER 1',
+            verdict: 'BET'
+          }]
+        }],
+        totalCount: 1
+      }
+    };
+
+    const handlers = {
+      quick_screen: async () => {
+        const next = handlers.__calls === 0 ? first : second;
+        handlers.__calls += 1;
+        return next;
+      },
+      __calls: 0
+    };
+
+    let logs = [];
+    const origLog = console.log;
+    const origError = console.error;
+    console.log = (...args) => logs.push(args.join(' '));
+    console.error = () => {};
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb'], {}, {});
+      logs = [];
+      await cmdScan(handlers, ['pp', 'scan', 'mlb'], {}, {});
+    } finally {
+      console.log = origLog;
+      console.error = origError;
+    }
+
+    const joined = logs.join('\n');
+    assert.match(joined, /prev -147 -> now -141/);
+    assert.match(joined, /recent adverse/);
   });
 });

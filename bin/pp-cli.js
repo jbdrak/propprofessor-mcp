@@ -13,6 +13,12 @@ const { createMcpHandlers } = require(PROJECT + '/scripts/server/handlers');
 const { getLocalTimezone } = require(PROJECT + '/lib/mcp-runtime-config');
 const { parseGameStartMs } = require(PROJECT + '/lib/propprofessor-shared-utils');
 const { recoverTennisFromScreen } = require(PROJECT + '/lib/tennis-fallback');
+const {
+  loadSnapshot,
+  saveSnapshot,
+  annotateResultsWithPreviousSnapshot,
+  buildSnapshotFromResults
+} = require(PROJECT + '/lib/pp-scan-snapshot-store');
 
 // ── color support ───────────────────────────────────────────────
 
@@ -311,6 +317,16 @@ function openerContextLabel(openingOdds, currentOdds) {
   return `open ${oddsFmt(open)} -> now ${oddsFmt(current)}  ·  ${direction}`;
 }
 
+function recentDriftContextLabel(previousSeenOdds, currentOdds) {
+  const previous = Number(previousSeenOdds);
+  const current = Number(currentOdds);
+  if (!Number.isFinite(previous) || !Number.isFinite(current) || previous === current) return null;
+  const isAdverse = current > previous;
+  const direction = isAdverse ? 'longer' : 'shorter';
+  const note = isAdverse ? 'recent adverse' : 'recent supportive';
+  return `prev ${oddsFmt(previous)} -> now ${oddsFmt(current)}  ·  since last scan: ${direction} (${note})`;
+}
+
 function momentumLabel(p) {
   // Future-CLV signal label: shows what predicts continued movement
   const parts = [];
@@ -352,6 +368,8 @@ function formatScan(results) {
       out += '    ' + details.join('  ·  ') + '\n';
       const openerLine = openerContextLabel(p.openingOdds, p.currentOdds);
       if (openerLine) out += '    ' + openerLine + '\n';
+      const recentDriftLine = recentDriftContextLabel(p.previousSeenOdds, p.currentOdds ?? p.odds);
+      if (recentDriftLine) out += '    ' + recentDriftLine + '\n';
       const momentum = momentumLabel(p);
       if (momentum) out += '    ' + momentum + '\n';
       const matchup = p.game || p.matchup || '';
@@ -610,6 +628,8 @@ async function cmdScan(handlers, positional, flags, client) {
     }
 
     const results = res.data?.results || res.results || [];
+    const previousSnapshot = loadSnapshot();
+    annotateResultsWithPreviousSnapshot(results, previousSnapshot);
     // Build the date-range header line using actual candidate start times
     const allStarts = [];
     for (const r of results) {
@@ -653,6 +673,7 @@ async function cmdScan(handlers, positional, flags, client) {
       const total = results.reduce((s, r) => s + (r.plays || []).length, 0);
       console.log('\n' + total + ' plays across ' + results.length + ' markets');
     }
+    saveSnapshot(buildSnapshotFromResults(results));
   } catch (e) {
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
@@ -1156,4 +1177,11 @@ if (require.main === module) {
   });
 }
 
-module.exports = { cmdScan, formatScan, momentumLabel, openerContextLabel, oddsFmt };
+module.exports = {
+  cmdScan,
+  formatScan,
+  momentumLabel,
+  openerContextLabel,
+  recentDriftContextLabel,
+  oddsFmt
+};
