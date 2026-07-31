@@ -7,6 +7,7 @@ const {
   rankScreenRows,
   isEdgePlausible,
   resolveGameConflicts,
+  resolveTotalsConflicts,
   baseTeamFromSelection,
   isSideMarket
 } = require('../lib/screen-ranker');
@@ -1000,5 +1001,92 @@ describe('game-conflict resolution (resolveGameConflicts)', () => {
     assert.equal(isSideMarket('Run Line'), true);
     assert.equal(isSideMarket('Total Points'), false);
     assert.equal(isSideMarket('Total Games'), false);
+  });
+});
+
+describe('totals-conflict resolution (resolveTotalsConflicts)', () => {
+  it('does not demote same-direction totals on the same game', () => {
+    const ranked = [
+      {
+        gameId: 'WNBA:game-1',
+        market: 'Total Points',
+        selection: 'Over 168.5',
+        confidenceTier: 'TIER 1',
+        kaiCall: 'BET',
+        consensusEdge: 2.1
+      },
+      {
+        gameId: 'WNBA:game-1',
+        market: 'Total Points',
+        selection: 'Over 171.5',
+        confidenceTier: 'TIER 2',
+        kaiCall: 'BET',
+        consensusEdge: 1.6
+      }
+    ];
+
+    resolveTotalsConflicts(ranked);
+
+    assert.equal(ranked[0].kaiCall, 'BET', 'higher-edge Over 168.5 stays BET');
+    assert.equal(ranked[1].kaiCall, 'BET', 'Over 171.5 stays BET — same direction, no conflict');
+    assert.equal(ranked[0].totalsConflictWith, undefined);
+    assert.equal(ranked[1].totalsConflictWith, undefined);
+    assert.equal(ranked[0].confidenceTier, 'TIER 1');
+    assert.equal(ranked[1].confidenceTier, 'TIER 2');
+  });
+
+  it('demotes opposite-direction totals on the same game', () => {
+    const ranked = [
+      {
+        gameId: 'WNBA:game-2',
+        market: 'Total Points',
+        selection: 'Over 168.5',
+        confidenceTier: 'TIER 1',
+        kaiCall: 'BET',
+        consensusEdge: 2.1
+      },
+      {
+        gameId: 'WNBA:game-2',
+        market: 'Total Points',
+        selection: 'Under 171.5',
+        confidenceTier: 'TIER 2',
+        kaiCall: 'BET',
+        consensusEdge: 1.6
+      }
+    ];
+
+    resolveTotalsConflicts(ranked);
+
+    assert.equal(ranked[0].kaiCall, 'BET', 'higher-edge Over stays BET');
+    assert.equal(ranked[1].kaiCall, 'CONSIDER', 'Under gets demoted');
+    assert.equal(ranked[1].totalsConflictWith, 'Over 168.5');
+  });
+
+  it('does not demote same-direction totals on different lines but same game', () => {
+    const ranked = [
+      {
+        gameId: 'MLB:game-3',
+        market: 'Total Runs',
+        selection: 'Under 8.5',
+        confidenceTier: 'TIER 1',
+        kaiCall: 'BET',
+        consensusEdge: 1.9
+      },
+      {
+        gameId: 'MLB:game-3',
+        market: 'Total Runs',
+        selection: 'Under 9.5',
+        confidenceTier: 'TIER 2',
+        kaiCall: 'BET',
+        consensusEdge: 2.2
+      }
+    ];
+
+    resolveTotalsConflicts(ranked);
+
+    assert.equal(ranked[0].kaiCall, 'BET');
+    assert.equal(ranked[1].kaiCall, 'BET');
+    assert.equal(ranked[0].totalsConflictWith, undefined);
+    assert.equal(ranked[1].totalsConflictWith, undefined);
   });
 });
