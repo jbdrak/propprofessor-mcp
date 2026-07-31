@@ -381,6 +381,18 @@ function applyFinalVerdict(target) {
     verdict = 'CONSIDER';
   }
 
+  // Conflict resurrection guard: a row already demoted by side-conflict
+  // resolution (conflictFlag) or totals-conflict resolution (totalsConflictWith)
+  // cannot resurrect to BET via validatedVerdict. The screen ranker already
+  // decided these are mutually-exclusive losers. Preserve the deeper demotion:
+  // a row downgraded to PASS stays PASS; one at CONSIDER stays at CONSIDER.
+  if (target.conflictFlag || target.totalsConflictWith) {
+    const conflictLoserVerdict = target.kaiCall === 'PASS' || target.displayTier === 'PASS' ? 'PASS' : 'CONSIDER';
+    if (verdict === 'BET' || verdict === 'CONSIDER') {
+      verdict = conflictLoserVerdict;
+    }
+  }
+
   // PASS verdicts always force TIER 4 — a play can't be 'high confidence
   // PASS' in PropProfessor's model. This must happen here (not only in
   // promoteFinalVerdictToDisplay) so that finalConfidenceTier is set

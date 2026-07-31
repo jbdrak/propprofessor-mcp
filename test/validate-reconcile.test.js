@@ -118,3 +118,53 @@ test('applyFinalVerdict does NOT hard-PASS a screen-blessed BET when bad was ove
   applyFinalVerdict(cand);
   assert.strictEqual(cand.finalVerdict, 'BET', 'screen-blessed BET must survive a non-drift validate bad');
 });
+
+test('applyFinalVerdict prevents a side-conflict loser from resurrecting as BET', () => {
+  const cand = {
+    conflictFlag: true,
+    kaiCall: 'CONSIDER',
+    displayTier: 'CONSIDER',
+    confidenceTier: 'TIER 2',
+    validatedConfidenceTier: 'TIER 1',
+    validatedVerdict: 'BET',
+    validatedRiskFlags: [],
+    validatedConsensusDrift: false,
+    validatedUnverified: false
+  };
+  applyFinalVerdict(cand);
+  assert.notStrictEqual(cand.finalVerdict, 'BET', 'conflict loser must not resurrect as BET');
+  assert.strictEqual(cand.finalVerdict, 'CONSIDER', 'conflict loser stays at CONSIDER');
+});
+
+test('applyFinalVerdict prevents a totals-conflict loser from resurrecting as BET', () => {
+  const cand = {
+    totalsConflictWith: 'Under 171.5',
+    kaiCall: 'CONSIDER',
+    displayTier: 'CONSIDER',
+    confidenceTier: 'TIER 2',
+    validatedConfidenceTier: 'TIER 1',
+    validatedVerdict: 'BET',
+    validatedRiskFlags: [],
+    validatedConsensusDrift: false,
+    validatedUnverified: false
+  };
+  applyFinalVerdict(cand);
+  assert.notStrictEqual(cand.finalVerdict, 'BET', 'totals-conflict loser must not resurrect as BET');
+  assert.strictEqual(cand.finalVerdict, 'CONSIDER', 'totals-conflict loser stays at CONSIDER');
+});
+
+test('applyFinalVerdict preserves deeper PASS demotion on conflict loser', () => {
+  const cand = {
+    conflictFlag: true,
+    kaiCall: 'PASS',
+    displayTier: 'PASS',
+    confidenceTier: 'TIER 4',
+    validatedConfidenceTier: 'TIER 1',
+    validatedVerdict: 'BET',
+    validatedRiskFlags: [],
+    validatedConsensusDrift: false,
+    validatedUnverified: false
+  };
+  applyFinalVerdict(cand);
+  assert.strictEqual(cand.finalVerdict, 'PASS', 'already-PASS conflict row stays PASS');
+});
