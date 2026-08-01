@@ -315,13 +315,11 @@ make install          # register MCP server + install default config
 
 Or manually: add `propprofessor` to your `mcp_servers` in config.yaml. The `get_started` tool provides on-demand workflow guidance.
 
-### Optional: Sharp-money alert cron
+### Sharp-money alerts
 
-```bash
-make install-cron
-```
-
-Runs hourly, delivers TIER 1 plays to your home Telegram channel.
+PropProfessor is manual-only. There is no supported cron, scheduled workflow,
+or background polling mode. Run `sharp_plays` or `quick_screen` on demand when
+you want a fresh result.
 
 ## 🎯 The Natural Language Flow
 

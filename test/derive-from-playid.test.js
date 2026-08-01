@@ -19,7 +19,6 @@ function loadDeriveFromPlayId() {
   const end = src.indexOf('\n}\n', start);
   assert.ok(end !== -1, 'deriveFromPlayId must end with a closing brace');
   const fnSrc = src.slice(start, end + 2);
-  // eslint-disable-next-line no-eval
   return eval(`(${fnSrc})`);
 }
 

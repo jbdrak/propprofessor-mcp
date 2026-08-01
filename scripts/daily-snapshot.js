@@ -110,9 +110,7 @@ function playsFromHandlerResult(result, { source } = {}) {
  * without pulling in the full handler graph.
  */
 async function defaultGetPlays({ leagues, market } = {}) {
-  // eslint-disable-next-line global-require
   const { createMcpHandlers } = require('../scripts/server/handlers');
-  // eslint-disable-next-line global-require
   const { createPropProfessorClient } = require('../lib/propprofessor-api');
   const handlers = createMcpHandlers({ client: createPropProfessorClient() });
   const res = await handlers.quick_screen({

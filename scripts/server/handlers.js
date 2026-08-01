@@ -1,5 +1,4 @@
 'use strict';
-/* eslint-disable max-lines */
 /**
  * MCP tool handlers (extracted from scripts/propprofessor-mcp-server.js in v2.0.0).
  *

@@ -88,7 +88,7 @@ jobs:
         run: npm ci --include=dev
 
       - name: Run tests (shard ${{ matrix.shard }}/3)
-        # Sharding the 1666 tests across 3 runners cuts wall-clock time
-        # from ~190s to ~65s per shard. fail-fast: false on the matrix
+        # Sharding the 1868 tests across 3 runners keeps the slowest shard
+        # around five minutes. fail-fast: false on the matrix
         # means one flaky shard won't cancel the others.
         run: node --test --test-concurrency=1 --test-shard=${{ matrix.shard }}/3 test/*.test.js
