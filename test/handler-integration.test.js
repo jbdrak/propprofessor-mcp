@@ -387,20 +387,24 @@ describe('handler integration: sharp_alerts', () => {
     handlers.quick_screen = async () => ({
       ok: true,
       research: [],
-      results: [{
-        market: 'Moneyline',
-        candidates: [{
-          gameId: 'nba-alert-game',
-          game: 'Lakers @ Celtics',
-          selection: 'Lakers',
-          odds: -110,
-          edge: 3.2,
-          start: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-          startCST: '8:00 PM CDT',
-          finalVerdict: 'BET',
-          finalConfidenceTier: 'TIER 1'
-        }]
-      }]
+      results: [
+        {
+          market: 'Moneyline',
+          candidates: [
+            {
+              gameId: 'nba-alert-game',
+              game: 'Lakers @ Celtics',
+              selection: 'Lakers',
+              odds: -110,
+              edge: 3.2,
+              start: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+              startCST: '8:00 PM CDT',
+              finalVerdict: 'BET',
+              finalConfidenceTier: 'TIER 1'
+            }
+          ]
+        }
+      ]
     });
     return handlers;
   }

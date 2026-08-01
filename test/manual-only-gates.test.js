@@ -17,15 +17,14 @@ const INSTALL_PY = path.join(REPO_ROOT, 'scripts', 'install.py');
 function hasScheduleTrigger(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
   // Match the `schedule:` key under `on:` at the top level of the workflow
-  return /\bon:\s*\n(\s+#.*\n)*\s+schedule:/.test(content)
-      || /\bon:\s*\[[^\]]*schedule[^\]]*\]/.test(content);
+  return /\bon:\s*\n(\s+#.*\n)*\s+schedule:/.test(content) || /\bon:\s*\[[^\]]*schedule[^\]]*\]/.test(content);
 }
 
 describe('manual-only gates — scheduling', () => {
   describe('GitHub Actions workflows', () => {
     let workflows;
     try {
-      workflows = fs.readdirSync(WORKFLOW_DIR).filter(f => f.endsWith('.yml'));
+      workflows = fs.readdirSync(WORKFLOW_DIR).filter((f) => f.endsWith('.yml'));
     } catch {
       workflows = [];
     }
@@ -33,8 +32,10 @@ describe('manual-only gates — scheduling', () => {
     it('no workflow has a schedule trigger', () => {
       for (const wf of workflows) {
         const fullPath = path.join(WORKFLOW_DIR, wf);
-        assert.ok(!hasScheduleTrigger(fullPath),
-          `workflow ${wf} has a schedule trigger — PropProfessor is manual-only`);
+        assert.ok(
+          !hasScheduleTrigger(fullPath),
+          `workflow ${wf} has a schedule trigger — PropProfessor is manual-only`
+        );
       }
     });
 
@@ -43,8 +44,7 @@ describe('manual-only gates — scheduling', () => {
         const fullPath = path.join(WORKFLOW_DIR, wf);
         const content = fs.readFileSync(fullPath, 'utf8');
         const hasSmokeLive = /smoke\s*:\s*live/.test(content);
-        assert.ok(!hasSmokeLive,
-          `workflow ${wf} references smoke:live — PropProfessor is manual-only`);
+        assert.ok(!hasSmokeLive, `workflow ${wf} references smoke:live — PropProfessor is manual-only`);
       }
     });
   });
@@ -54,14 +54,18 @@ describe('manual-only gates — scheduling', () => {
       const content = fs.readFileSync(INSTALL_PY, 'utf8');
       // `cron` should not appear as a subcommand name in the argparse registration
       const hasCronSubcommand = /"cron"/.test(content) || /'cron'/.test(content);
-      assert.ok(!hasCronSubcommand,
-        'install.py has a cron subcommand — PropProfessor cron installation is not supported');
+      assert.ok(
+        !hasCronSubcommand,
+        'install.py has a cron subcommand — PropProfessor cron installation is not supported'
+      );
     });
 
     it('install.py has no install_cron function', () => {
       const content = fs.readFileSync(INSTALL_PY, 'utf8');
-      assert.ok(!/def install_cron/.test(content),
-        'install.py has an install_cron function — PropProfessor cron installation is not supported');
+      assert.ok(
+        !/def install_cron/.test(content),
+        'install.py has an install_cron function — PropProfessor cron installation is not supported'
+      );
     });
   });
 
@@ -75,8 +79,10 @@ describe('manual-only gates — scheduling', () => {
       } catch {
         return; // No Makefile, skip
       }
-      assert.ok(!/install-cron\s*:/.test(content),
-        'Makefile has an install-cron target — PropProfessor cron installation is not supported');
+      assert.ok(
+        !/install-cron\s*:/.test(content),
+        'Makefile has an install-cron target — PropProfessor cron installation is not supported'
+      );
     });
   });
 
@@ -91,8 +97,10 @@ describe('manual-only gates — scheduling', () => {
         return; // File doesn't exist, skip
       }
       const hasExecutableCronCommand = /hermes cron create/.test(content);
-      assert.ok(!hasExecutableCronCommand,
-        'cron prompt template contains an executable hermes cron create command — replace with manual-only documentation');
+      assert.ok(
+        !hasExecutableCronCommand,
+        'cron prompt template contains an executable hermes cron create command — replace with manual-only documentation'
+      );
     });
   });
 });

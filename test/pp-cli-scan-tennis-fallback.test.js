@@ -534,23 +534,27 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   // ── formatScan opener context regression tests ──────────────────
 
   it('prints opener to current odds line when both are present and different', () => {
-    const results = [{
-      league: 'Tennis',
-      market: 'Moneyline',
-      plays: [{
-        selection: 'Djokovic',
-        odds: -120,
-        openingOdds: -140,
-        currentOdds: -120,
-        tier: 'TIER 1',
-        verdict: 'BET',
-        clvProxyPct: 3.4,
-        edge: 2.1,
-        books: 5,
-        game: 'Djokovic vs Alcaraz',
-        movementDisposition: 'supportive_clean'
-      }]
-    }];
+    const results = [
+      {
+        league: 'Tennis',
+        market: 'Moneyline',
+        plays: [
+          {
+            selection: 'Djokovic',
+            odds: -120,
+            openingOdds: -140,
+            currentOdds: -120,
+            tier: 'TIER 1',
+            verdict: 'BET',
+            clvProxyPct: 3.4,
+            edge: 2.1,
+            books: 5,
+            game: 'Djokovic vs Alcaraz',
+            movementDisposition: 'supportive_clean'
+          }
+        ]
+      }
+    ];
     const out = formatScan(results);
     assert.match(out, /open -140 -> now -120/, 'shows opener-to-current path');
     assert.match(out, /vs open: longer/, 'indicates direction vs opener (American odds: -140→-120 is longer)');
@@ -558,67 +562,79 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   });
 
   it('suppresses opener line when openingOdds equals currentOdds', () => {
-    const results = [{
-      league: 'Tennis',
-      market: 'Moneyline',
-      plays: [{
-        selection: 'Djokovic',
-        odds: -120,
-        openingOdds: -120,
-        currentOdds: -120,
-        tier: 'TIER 1',
-        verdict: 'BET',
-        clvProxyPct: 0,
-        edge: 1.5,
-        books: 4,
-        game: 'Djokovic vs Alcaraz',
-        movementDisposition: 'insufficient'
-      }]
-    }];
+    const results = [
+      {
+        league: 'Tennis',
+        market: 'Moneyline',
+        plays: [
+          {
+            selection: 'Djokovic',
+            odds: -120,
+            openingOdds: -120,
+            currentOdds: -120,
+            tier: 'TIER 1',
+            verdict: 'BET',
+            clvProxyPct: 0,
+            edge: 1.5,
+            books: 4,
+            game: 'Djokovic vs Alcaraz',
+            movementDisposition: 'insufficient'
+          }
+        ]
+      }
+    ];
     const out = formatScan(results);
     assert.equal(/open.*->.*now/.test(out), false, 'no opener line when equal');
   });
 
   it('suppresses opener line when openingOdds is missing', () => {
-    const results = [{
-      league: 'Tennis',
-      market: 'Moneyline',
-      plays: [{
-        selection: 'Djokovic',
-        odds: -120,
-        openingOdds: undefined,
-        currentOdds: -120,
-        tier: 'TIER 2',
-        verdict: 'CONSIDER',
-        clvProxyPct: 0,
-        edge: 0,
-        books: 3,
-        game: 'Djokovic vs Alcaraz',
-        movementDisposition: 'insufficient'
-      }]
-    }];
+    const results = [
+      {
+        league: 'Tennis',
+        market: 'Moneyline',
+        plays: [
+          {
+            selection: 'Djokovic',
+            odds: -120,
+            openingOdds: undefined,
+            currentOdds: -120,
+            tier: 'TIER 2',
+            verdict: 'CONSIDER',
+            clvProxyPct: 0,
+            edge: 0,
+            books: 3,
+            game: 'Djokovic vs Alcaraz',
+            movementDisposition: 'insufficient'
+          }
+        ]
+      }
+    ];
     const out = formatScan(results);
     assert.equal(/open.*->.*now/.test(out), false, 'no opener line when opener missing');
   });
 
   it('suppresses opener line when currentOdds is missing', () => {
-    const results = [{
-      league: 'Tennis',
-      market: 'Moneyline',
-      plays: [{
-        selection: 'Djokovic',
-        odds: -120,
-        openingOdds: -140,
-        currentOdds: undefined,
-        tier: 'TIER 2',
-        verdict: 'CONSIDER',
-        clvProxyPct: 0,
-        edge: 0,
-        books: 3,
-        game: 'Djokovic vs Alcaraz',
-        movementDisposition: 'insufficient'
-      }]
-    }];
+    const results = [
+      {
+        league: 'Tennis',
+        market: 'Moneyline',
+        plays: [
+          {
+            selection: 'Djokovic',
+            odds: -120,
+            openingOdds: -140,
+            currentOdds: undefined,
+            tier: 'TIER 2',
+            verdict: 'CONSIDER',
+            clvProxyPct: 0,
+            edge: 0,
+            books: 3,
+            game: 'Djokovic vs Alcaraz',
+            movementDisposition: 'insufficient'
+          }
+        ]
+      }
+    ];
     const out = formatScan(results);
     assert.equal(/open.*->.*now/.test(out), false, 'no opener line when current missing');
   });
@@ -634,23 +650,27 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   });
 
   it('formatScan shows "vs open: longer" when current is worse than opener', () => {
-    const results = [{
-      league: 'Tennis',
-      market: 'Moneyline',
-      plays: [{
-        selection: 'Alcaraz',
-        odds: 110,
-        openingOdds: -105,
-        currentOdds: 110,
-        tier: 'TIER 2',
-        verdict: 'CONSIDER',
-        clvProxyPct: 0,
-        edge: 0,
-        books: 3,
-        game: 'Djokovic vs Alcaraz',
-        movementDisposition: 'adverse_full'
-      }]
-    }];
+    const results = [
+      {
+        league: 'Tennis',
+        market: 'Moneyline',
+        plays: [
+          {
+            selection: 'Alcaraz',
+            odds: 110,
+            openingOdds: -105,
+            currentOdds: 110,
+            tier: 'TIER 2',
+            verdict: 'CONSIDER',
+            clvProxyPct: 0,
+            edge: 0,
+            books: 3,
+            game: 'Djokovic vs Alcaraz',
+            movementDisposition: 'adverse_full'
+          }
+        ]
+      }
+    ];
     const out = formatScan(results);
     assert.match(out, /open -105 -> now \+110/, 'shows adjusted odds path');
     assert.match(out, /vs open: longer/, 'indicates longer odds vs opener');
@@ -669,24 +689,28 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   });
 
   it('formatScan prints previous-scan drift when previousSeenOdds is present', () => {
-    const results = [{
-      league: 'MLB',
-      market: 'Moneyline',
-      plays: [{
-        selection: 'Braves',
-        odds: -141,
-        currentOdds: -141,
-        previousSeenOdds: -147,
-        openingOdds: -152,
-        tier: 'TIER 1',
-        verdict: 'BET',
-        clvProxyPct: 2.1,
-        edge: 1.5,
-        books: 4,
-        game: 'Nationals vs Braves',
-        movementDisposition: 'supportive_clean'
-      }]
-    }];
+    const results = [
+      {
+        league: 'MLB',
+        market: 'Moneyline',
+        plays: [
+          {
+            selection: 'Braves',
+            odds: -141,
+            currentOdds: -141,
+            previousSeenOdds: -147,
+            openingOdds: -152,
+            tier: 'TIER 1',
+            verdict: 'BET',
+            clvProxyPct: 2.1,
+            edge: 1.5,
+            books: 4,
+            game: 'Nationals vs Braves',
+            movementDisposition: 'supportive_clean'
+          }
+        ]
+      }
+    ];
     const out = formatScan(results);
     assert.match(out, /prev -147 -> now -141/);
     assert.match(out, /recent adverse/);
@@ -695,41 +719,49 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   it('cmdScan stores prior snapshot and shows drift on the next scan', async () => {
     const first = {
       data: {
-        results: [{
-          league: 'MLB',
-          market: 'Moneyline',
-          plays: [{
-            selection: 'Braves',
-            odds: -147,
-            currentOdds: -147,
-            game: 'Nationals vs Braves',
-            gameId: 'MLB:1',
-            book: 'NoVigApp',
-            movementDisposition: 'supportive_clean',
-            tier: 'TIER 1',
-            verdict: 'BET'
-          }]
-        }],
+        results: [
+          {
+            league: 'MLB',
+            market: 'Moneyline',
+            plays: [
+              {
+                selection: 'Braves',
+                odds: -147,
+                currentOdds: -147,
+                game: 'Nationals vs Braves',
+                gameId: 'MLB:1',
+                book: 'NoVigApp',
+                movementDisposition: 'supportive_clean',
+                tier: 'TIER 1',
+                verdict: 'BET'
+              }
+            ]
+          }
+        ],
         totalCount: 1
       }
     };
     const second = {
       data: {
-        results: [{
-          league: 'MLB',
-          market: 'Moneyline',
-          plays: [{
-            selection: 'Braves',
-            odds: -141,
-            currentOdds: -141,
-            game: 'Nationals vs Braves',
-            gameId: 'MLB:1',
-            book: 'NoVigApp',
-            movementDisposition: 'supportive_clean',
-            tier: 'TIER 1',
-            verdict: 'BET'
-          }]
-        }],
+        results: [
+          {
+            league: 'MLB',
+            market: 'Moneyline',
+            plays: [
+              {
+                selection: 'Braves',
+                odds: -141,
+                currentOdds: -141,
+                game: 'Nationals vs Braves',
+                gameId: 'MLB:1',
+                book: 'NoVigApp',
+                movementDisposition: 'supportive_clean',
+                tier: 'TIER 1',
+                verdict: 'BET'
+              }
+            ]
+          }
+        ],
         totalCount: 1
       }
     };
@@ -789,17 +821,21 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
       selection: 'Braves',
       book: 'NoVigApp'
     });
-    const results = [{
-      league: 'MLB',
-      market: 'Moneyline',
-      plays: [{
-        selection: 'Braves',
-        gameId: 'MLB:1',
-        book: 'NoVigApp',
-        currentOdds: -141,
-        odds: -141
-      }]
-    }];
+    const results = [
+      {
+        league: 'MLB',
+        market: 'Moneyline',
+        plays: [
+          {
+            selection: 'Braves',
+            gameId: 'MLB:1',
+            book: 'NoVigApp',
+            currentOdds: -141,
+            odds: -141
+          }
+        ]
+      }
+    ];
     snapshotStore.annotateResultsWithPreviousSnapshot(results, {
       [key]: { odds: -147, seenAt: staleSeenAt }
     });
@@ -809,21 +845,25 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   it('preserves existing snapshot entries when a later scan returns no plays', async () => {
     const first = {
       data: {
-        results: [{
-          league: 'MLB',
-          market: 'Moneyline',
-          plays: [{
-            selection: 'Braves',
-            odds: -147,
-            currentOdds: -147,
-            game: 'Nationals vs Braves',
-            gameId: 'MLB:1',
-            book: 'NoVigApp',
-            movementDisposition: 'supportive_clean',
-            tier: 'TIER 1',
-            verdict: 'BET'
-          }]
-        }],
+        results: [
+          {
+            league: 'MLB',
+            market: 'Moneyline',
+            plays: [
+              {
+                selection: 'Braves',
+                odds: -147,
+                currentOdds: -147,
+                game: 'Nationals vs Braves',
+                gameId: 'MLB:1',
+                book: 'NoVigApp',
+                movementDisposition: 'supportive_clean',
+                tier: 'TIER 1',
+                verdict: 'BET'
+              }
+            ]
+          }
+        ],
         totalCount: 1
       }
     };

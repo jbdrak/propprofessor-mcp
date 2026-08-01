@@ -60,9 +60,7 @@ function main() {
     process.exit(1);
   }
 
-  process.stderr.write(
-    `[flashscore] Found ${data.totalMatches} matches (${data.scheduled} scheduled)\n`
-  );
+  process.stderr.write(`[flashscore] Found ${data.totalMatches} matches (${data.scheduled} scheduled)\n`);
 
   if (DRY_RUN) {
     const tournaments = {};
@@ -74,7 +72,7 @@ function main() {
     for (const [t, count] of Object.entries(tournaments).sort()) {
       process.stderr.write(`  ${t}: ${count}\n`);
     }
-    const scheduled = data.matches.filter(m => m.status === 'scheduled').slice(0, 5);
+    const scheduled = data.matches.filter((m) => m.status === 'scheduled').slice(0, 5);
     if (scheduled.length) {
       process.stderr.write('\nSample scheduled:\n');
       for (const m of scheduled) {
