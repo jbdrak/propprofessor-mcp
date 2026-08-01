@@ -1182,6 +1182,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+  main,
+  formatError,
   cmdScan,
   formatScan,
   momentumLabel,

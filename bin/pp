@@ -4,4 +4,12 @@
  * pp — PropProfessor CLI entry point.
  * All logic lives in bin/pp-cli.js.
  */
-require('./pp-cli.js');
+const { main, formatError } = require('./pp-cli.js');
+
+if (require.main === module) {
+  main().catch((e) => {
+    const context = process.argv.slice(2).join(' ');
+    console.error(formatError(e, context));
+    process.exit(1);
+  });
+}
