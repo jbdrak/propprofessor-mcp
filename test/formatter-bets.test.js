@@ -12,6 +12,7 @@ const {
   formatBetsSummaryLine,
   buildByLeagueStats
 } = require('../lib/propprofessor-formatter');
+const { computeClvFromHistory } = require('../lib/tennis-fallback');
 
 // ---------------------------------------------------------------------------
 // movementGradeEmoji
@@ -40,6 +41,24 @@ describe('movementGradeEmoji', () => {
   });
 });
 
+describe('computeClvFromHistory', () => {
+  it('returns CLV and the opening/current odds for two entries', () => {
+    const result = computeClvFromHistory([
+      { odds: -110, start_ts: 2 },
+      { odds: -125, start_ts: 1 }
+    ]);
+    assert.deepEqual(result, {
+      clv: (100 / 225 - 100 / 210) * 100,
+      openingOdds: -125,
+      currentOdds: -110
+    });
+  });
+
+  it('returns null when history has fewer than two entries', () => {
+    assert.equal(computeClvFromHistory([{ odds: -110, start_ts: 1 }]), null);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // formatBetCompact — stripped riskScore, added movementGrade
 // ---------------------------------------------------------------------------
@@ -65,6 +84,16 @@ describe('formatBetCompact', () => {
     };
     const result = formatBetCompact(bet);
     assert.equal(result.risk, undefined);
+  });
+
+  it('preserves opening and current odds', () => {
+    const result = formatBetCompact({
+      selection: 'Test',
+      openingOdds: -110,
+      currentOdds: -125
+    });
+    assert.equal(result.openingOdds, -110);
+    assert.equal(result.currentOdds, -125);
   });
 
   it('still includes essential fields', () => {

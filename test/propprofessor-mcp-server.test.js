@@ -64,6 +64,9 @@ function createRankedScreenClientStub({
         calls.queryBackendFantasyPicks.push(filters);
         return [{ id: 'fantasy-row-1', sportsbook: filters?.sportsbook || 'DraftKings6' }];
       },
+      queryFantasyPicks: async () => {
+        throw new Error('legacy fantasy endpoint must not be called');
+      },
       querySportsbook: async (filters) => {
         calls.querySportsbook.push(filters);
         return [{ id: 'ev-row-1', book: 'Fliff', ev: 4.2 }];
@@ -591,7 +594,10 @@ describe('propprofessor MCP server stdio contract', () => {
   it('fantasy_optimizer handles empty results gracefully', async () => {
     const handlers = createMcpHandlers({
       client: {
-        queryBackendFantasyPicks: async () => []
+        queryBackendFantasyPicks: async () => [],
+        queryFantasyPicks: async () => {
+          throw new Error('legacy fantasy endpoint must not be called');
+        }
       }
     });
 
