@@ -44,13 +44,8 @@ jobs:
       - name: Run lint
         run: npm run lint
 
-      - name: Check JSDoc types (informational, not a gate)
-        # Type-check files opted into tsconfig.json's `include` list. The
-        # check currently has many pre-existing errors (mostly in screen-ranker,
-        # api, auth, formatter) that are out of scope for the audit. The plan
-        # is to fix them in a follow-up task and re-enable the gate then.
-        # For now we just print the errors so they're visible in CI logs.
-        run: npm run check:types || echo "::warning::tsc has pre-existing errors; see audit follow-up"
+      - name: Check JSDoc types
+        run: npm run check:types
 
       - name: Check for circular dependencies
         # Substitutes for the blocked `eslint-plugin-import/no-cycle` rule

@@ -2,19 +2,14 @@
 
 This file is for release and maintenance workflow details that should not clutter the beginner setup flow in `README.md`.
 
-## Manual Live Smoke Workflow
+## Manual PropProfessor Usage
 
-This repo includes a manual GitHub Actions workflow for a live smoke check.
+PropProfessor is manual-only. There are no automated schedules, cron jobs, or
+CI-driven live smoke tests. To run a live smoke check:
 
-Before running it, add this repository secret:
-
-- `PROPPROFESSOR_AUTH_JSON`, the full contents of a working `auth.json`
-
-Then run the `manual-live-smoke` workflow from the Actions tab. It installs dependencies, writes `auth.json` from the secret, and runs:
-
-```bash
-npm run smoke:live
-```
+1. Ensure you have a valid `auth.json` in `~/.propprofessor/`
+2. Run from the CLI: `pp-query doctor`
+3. Or invoke individual MCP tools via Hermes: `recommended_bets`, `sharp_plays`, etc.
 
 ## Release Checklist
 
@@ -24,13 +19,11 @@ Before creating a new GitHub release:
 2. Add the matching heading in `CHANGELOG.md`
 3. Run `npm test`
 4. Run `npm run check:version`
-5. Run `npm run smoke:live`
-6. Create and push the git tag
-7. Publish the GitHub release from that tag
+5. Create and push the git tag
+6. Publish the GitHub release from that tag
 
 ## Packaging Notes
 
 - `main` points at the MCP server entrypoint
 - `pp-mcp` and `pp-query` are exposed as binaries
 - `npm test` runs the `node:test` suite
-- `npm run smoke:live` performs a live authenticated ranked `/screen` smoke check before tagging a release

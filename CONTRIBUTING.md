@@ -37,7 +37,7 @@ The `pp` CLI lives in `bin/pp-cli.js`. Changes are:
 - `lib/` uses Node's built-in `node:test` framework
 - `scripts/server/handlers/` use `node:test` with API mocks
 - New handlers need at least a syntax-check test
-- Smoke tests: `npm run smoke:live` (requires auth)
+- Smoke tests: use `pp-query doctor` or individual MCP tools manually (requires auth)
 
 ## Pull Request Guidelines
 

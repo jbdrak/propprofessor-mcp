@@ -4,7 +4,6 @@
 Subcommands:
   skill     Symlink skills/propprofessor-coach into hermes skills/external/.
   mcp       Register the propprofessor MCP server with hermes.
-  cron      Register the sharp-money alert cron job.
   uninstall Reverse all of the above.
   all       Run skill + mcp (the default).
 """
@@ -116,34 +115,6 @@ def install_mcp() -> None:
     print(f"  ✓ registered MCP server '{MCP_NAME}' with hermes")
 
 
-def install_cron() -> None:
-    """Register a no-agent sharp-money alert cron (optional)."""
-    from install_helpers import hermes_bin
-    import re
-
-    prompt_path = REPO_ROOT / "docs" / "cron-prompts" / "sharp-money-alert.md"
-    if not prompt_path.exists():
-        raise SystemExit(f"Cron prompt template not found: {prompt_path}")
-
-    # Extract the prompt body (between ## Prompt and ## Schedule headers).
-    text = prompt_path.read_text()
-    match = re.search(r"## Prompt\n(.+?)\n## Schedule", text, re.DOTALL)
-    if not match:
-        raise SystemExit("Could not extract prompt body from template")
-    prompt_body = match.group(1).strip()
-
-    cmd = [
-        hermes_bin(), "cron", "create", "every 1h", prompt_body,
-        "--name", "propprofessor-alerts",
-        "--skill", "propprofessor-coach"
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"  ⚠ cron registration failed: {result.stderr}", file=sys.stderr)
-    else:
-        print("  ✓ registered sharp-money alert cron (every 1h)")
-
-
 def uninstall() -> None:
     hermes_home = resolve_hermes_home()
     profile = resolve_active_profile(hermes_home)
@@ -161,14 +132,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Install PropProfessor into hermes.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    for name in ("skill", "mcp", "cron", "uninstall", "all"):
+    for name in ("skill", "mcp", "uninstall", "all"):
         sub.add_parser(name)
 
     args = parser.parse_args()
     handlers = {
         "skill": install_skill,
         "mcp": install_mcp,
-        "cron": install_cron,
         "uninstall": uninstall,
         "all": lambda: (install_skill(), install_mcp()),
     }

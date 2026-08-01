@@ -589,7 +589,6 @@ npm run test:coverage # ~82% statements
 npm run lint          # clean
 npm run format:check  # clean (npm run format to fix)
 npm run check:version # verifies package.json ↔ CHANGELOG
-npm run smoke:live    # end-to-end live smoke (requires auth.json)
 ```
 
 Release: push a `v*` tag → CI runs lint + tests on Node 20 + 22 → auto-creates the GitHub release.
