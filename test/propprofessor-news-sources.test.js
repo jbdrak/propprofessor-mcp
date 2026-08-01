@@ -161,7 +161,7 @@ after(() => {
   cp.execFile = originalExecFile;
 });
 
-describe('fetchGoogleNews', () => {
+describe('fetchGoogleNews', { concurrency: false }, () => {
   beforeEach(() => {
     clearModuleCache();
   });
@@ -200,7 +200,7 @@ describe('fetchGoogleNews', () => {
   });
 });
 
-describe('fetchEspnSearch', () => {
+describe('fetchEspnSearch', { concurrency: false }, () => {
   beforeEach(() => {
     clearModuleCache();
   });
@@ -225,7 +225,7 @@ describe('fetchEspnSearch', () => {
   });
 });
 
-describe('getPlayerContext with news fallback', () => {
+describe('getPlayerContext with news fallback', { concurrency: false }, () => {
   beforeEach(() => {
     clearModuleCache();
   });

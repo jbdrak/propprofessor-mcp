@@ -73,7 +73,7 @@ after(() => {
   cp.execFile = originalExecFile;
 });
 
-describe('getPlayerContext — cache behavior', () => {
+describe('getPlayerContext — cache behavior', { concurrency: false }, () => {
   beforeEach(() => {
     clearModuleCache();
     mockExecSuccess();
@@ -127,7 +127,7 @@ describe('getPlayerContext — cache behavior', () => {
   });
 });
 
-describe('getPlayerContext — TTL behavior', () => {
+describe('getPlayerContext — TTL behavior', { concurrency: false }, () => {
   beforeEach(() => {
     clearModuleCache();
     mockExecSuccess();

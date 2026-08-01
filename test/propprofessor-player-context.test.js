@@ -102,7 +102,7 @@ after(() => {
   cp.execFile = originalExecFile;
 });
 
-describe('extractTweets', () => {
+describe('extractTweets', { concurrency: false }, () => {
   it('parses a SearchTimeline response into flat tweet objects', () => {
     const { extractTweets } = require('../lib/propprofessor-player-context');
     const tweets = extractTweets(TWEET_FIXTURE);
@@ -182,7 +182,7 @@ describe('extractTweets', () => {
   });
 });
 
-describe('buildQuery', () => {
+describe('buildQuery', { concurrency: false }, () => {
   it('for Tennis, query is just the player name', () => {
     const { buildQuery } = require('../lib/propprofessor-player-context');
     assert.equal(buildQuery({ player: 'Frances Tiafoe', sport: 'Tennis' }), 'Frances Tiafoe');
@@ -201,7 +201,7 @@ describe('buildQuery', () => {
   });
 });
 
-describe('getPlayerContext', () => {
+describe('getPlayerContext', { concurrency: false }, () => {
   beforeEach(() => {
     // Restore then apply success mock, clear cache so module re-loads with mock
     cp.execFile = originalExecFile;

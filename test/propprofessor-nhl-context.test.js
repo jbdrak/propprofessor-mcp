@@ -56,7 +56,7 @@ function makeGame({
   };
 }
 
-describe('propprofessor-nhl-context', () => {
+describe('propprofessor-nhl-context', { concurrency: false }, () => {
   let originalExecFile;
 
   beforeEach(() => {

@@ -72,7 +72,7 @@ after(() => {
   cp.execFile = originalExecFile;
 });
 
-describe('fetchViaXurl', () => {
+describe('fetchViaXurl', { concurrency: false }, () => {
   beforeEach(() => {
     clearModuleCache();
   });
@@ -140,7 +140,7 @@ describe('fetchViaXurl', () => {
   });
 });
 
-describe('sanitizePlayerName', () => {
+describe('sanitizePlayerName', { concurrency: false }, () => {
   it('accepts typical player names with spaces, hyphens, apostrophes, dots', () => {
     const { sanitizePlayerName } = require('../lib/propprofessor-player-context');
     assert.equal(sanitizePlayerName('LeBron James'), 'LeBron James');
@@ -185,7 +185,7 @@ describe('sanitizePlayerName', () => {
   });
 });
 
-describe('extractXurlTweets', () => {
+describe('extractXurlTweets', { concurrency: false }, () => {
   it('normalizes v2 response to extractTweets shape', () => {
     const { extractXurlTweets } = require('../lib/propprofessor-player-context');
     const tweets = extractXurlTweets(XURL_SUCCESS_RESPONSE);
@@ -226,7 +226,7 @@ describe('extractXurlTweets', () => {
   });
 });
 
-describe('getPlayerContext with useXurl', () => {
+describe('getPlayerContext with useXurl', { concurrency: false }, () => {
   beforeEach(() => {
     clearModuleCache();
   });

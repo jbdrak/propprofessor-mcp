@@ -84,10 +84,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "docs:openapi": "node scripts/generate-openapi-spec.js > docs/openapi.json",
-    "test": "node --test test/*.test.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
     "test:timings": "node test/timings.js",
-    "test:ci": "node --test test/*.test.js",
-    "test:coverage": "c8 --reporter=text-summary --reporter=lcov node --test test/*.test.js",
+    "test:ci": "node --test --test-concurrency=1 test/*.test.js",
+    "test:coverage": "c8 --reporter=text-summary --reporter=lcov node --test --test-concurrency=1 test/*.test.js",
     "install:verify": "node --test \"test/quick-screen-cache.test.js\" \"test/ask-routes.test.js\" \"test/propprofessor-tool-definitions.test.js\" \"test/place-bet.test.js\" \"test/today.test.js\" \"test/pipeline.test.js\" \"test/propprofessor-verbosity-param.test.js\" \"test/propprofessor-mcp-server-meta.test.js\" \"test/propprofessor-mcp-server-stderr.test.js\""
   },
   "dependencies": {
