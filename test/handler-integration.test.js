@@ -381,8 +381,27 @@ describe('handler integration: quick_screen', () => {
 describe('handler integration: sharp_alerts', () => {
   function makeHandlers() {
     const handlers = createHandlers();
-    // Stub research so the quick_screen delegation never hits network.
-    handlers.player_context = async () => ({ riskFlag: 'clean', tweets: [], news: [] });
+    // sharp_alerts is tested here as an alert/dedup layer. Keep the upstream
+    // screen pipeline out of this test so team selections cannot reach live
+    // game-context lookups.
+    handlers.quick_screen = async () => ({
+      ok: true,
+      research: [],
+      results: [{
+        market: 'Moneyline',
+        candidates: [{
+          gameId: 'nba-alert-game',
+          game: 'Lakers @ Celtics',
+          selection: 'Lakers',
+          odds: -110,
+          edge: 3.2,
+          start: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          startCST: '8:00 PM CDT',
+          finalVerdict: 'BET',
+          finalConfidenceTier: 'TIER 1'
+        }]
+      }]
+    });
     return handlers;
   }
 

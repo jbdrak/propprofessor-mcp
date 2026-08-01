@@ -47,7 +47,7 @@ function makeGame({ gameId = '0022300001', homeTeamName = 'Lakers', awayTeamName
   };
 }
 
-describe('propprofessor-basketball-game-context', () => {
+describe('propprofessor-basketball-game-context', { concurrency: false }, () => {
   let originalExecFile;
 
   beforeEach(() => {
