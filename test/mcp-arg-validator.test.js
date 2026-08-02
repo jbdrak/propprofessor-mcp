@@ -374,4 +374,33 @@ describe('mcp-arg-validator', () => {
       assert.ok(/unknown property/.test(r.message), `got: ${r.message}`);
     });
   });
+
+  describe('MLS league validation', () => {
+    const screenSchema = () => {
+      const tools = buildToolDefinitions();
+      const tool = tools.find((t) => t.name === 'quick_screen');
+      assert.ok(tool, 'quick_screen tool definition must exist');
+      return tool.inputSchema;
+    };
+
+    it('accepts league: MLS as a known league', () => {
+      const schema = screenSchema();
+      const r = validateArgs(schema, { league: 'MLS', market: 'Moneyline' });
+      assert.equal(r.ok, true, `expected ok, got: ${JSON.stringify(r)}`);
+    });
+
+    it('accepts leagues: [MLS] as a known league', () => {
+      const schema = screenSchema();
+      const r = validateArgs(schema, { leagues: ['MLS'], market: 'Moneyline' });
+      assert.equal(r.ok, true, `expected ok, got: ${JSON.stringify(r)}`);
+    });
+
+    it('still rejects genuinely unknown leagues', () => {
+      const schema = screenSchema();
+      const r = validateArgs(schema, { league: 'NOTALEAGUE' });
+      assert.equal(r.ok, false);
+      assert.equal(r.code, 'VALIDATION_ERROR');
+      assert.match(r.message, /Unknown league/);
+    });
+  });
 });

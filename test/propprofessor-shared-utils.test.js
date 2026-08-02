@@ -59,7 +59,7 @@ describe('DEFAULT_LEAGUES', () => {
   const { DEFAULT_LEAGUES } = require('../lib/propprofessor-shared-utils');
 
   it('exports every league the PropProfessor backend supports', () => {
-    const expected = ['NBA', 'NBASL', 'MLB', 'NFL', 'NHL', 'WNBA', 'NCAAB', 'NCAAF', 'Soccer', 'Tennis', 'UFC'];
+    const expected = ['NBA', 'NBASL', 'MLB', 'NFL', 'NHL', 'WNBA', 'NCAAB', 'NCAAF', 'Soccer', 'MLS', 'Tennis', 'UFC'];
     assert.deepEqual([...DEFAULT_LEAGUES], expected);
   });
 
@@ -73,6 +73,7 @@ describe('DEFAULT_LEAGUES', () => {
     assert.ok(DEFAULT_LEAGUES.includes('NBA'), 'must include NBA');
     assert.ok(DEFAULT_LEAGUES.includes('NFL'), 'must include NFL');
     assert.ok(DEFAULT_LEAGUES.includes('Soccer'), 'must include Soccer');
+    assert.ok(DEFAULT_LEAGUES.includes('MLS'), 'must include MLS');
     assert.ok(DEFAULT_LEAGUES.includes('Tennis'), 'must include Tennis');
     assert.ok(!DEFAULT_LEAGUES.includes(''), 'must not contain empty string');
   });

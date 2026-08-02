@@ -280,3 +280,98 @@ test('resolveMarketName canonical names with alias entries', async (t) => {
     });
   });
 });
+
+test('resolveMarketName MLS aliases route to soccer-style markets', async (t) => {
+  // MLS mirrors Soccer: Draw No Bet / Match Handicap / Total Goals. Every
+  // alias group that routes those markets must carry an MLS key — a missed
+  // group silently passes the generic name through and the backend returns
+  // nothing. See test/market-registry.test.js for the drift guard.
+  await t.test('"Moneyline" + MLS -> "Draw No Bet"', () => {
+    assert.deepStrictEqual(resolveMarketName('Moneyline', 'MLS'), {
+      resolved: 'Draw No Bet',
+      wasAliased: true,
+      original: 'Moneyline',
+      aliasKey: 'moneyline'
+    });
+  });
+  await t.test('"Spread" + MLS -> "Match Handicap"', () => {
+    assert.deepStrictEqual(resolveMarketName('Spread', 'MLS'), {
+      resolved: 'Match Handicap',
+      wasAliased: true,
+      original: 'Spread',
+      aliasKey: 'spread'
+    });
+  });
+  await t.test('"Total" + MLS -> "Total Goals"', () => {
+    assert.deepStrictEqual(resolveMarketName('Total', 'MLS'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'Total',
+      aliasKey: 'total'
+    });
+  });
+  await t.test('"Draw No Bet" + MLS -> "Draw No Bet" (canonical)', () => {
+    assert.deepStrictEqual(resolveMarketName('Draw No Bet', 'MLS'), {
+      resolved: 'Draw No Bet',
+      wasAliased: true,
+      original: 'Draw No Bet',
+      aliasKey: 'draw_no_bet'
+    });
+  });
+  await t.test('"Match Handicap" + MLS -> "Match Handicap" (canonical)', () => {
+    assert.deepStrictEqual(resolveMarketName('Match Handicap', 'MLS'), {
+      resolved: 'Match Handicap',
+      wasAliased: true,
+      original: 'Match Handicap',
+      aliasKey: 'match_handicap'
+    });
+  });
+  await t.test('"Total Goals" + MLS -> "Total Goals" (canonical)', () => {
+    assert.deepStrictEqual(resolveMarketName('Total Goals', 'MLS'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'Total Goals',
+      aliasKey: 'total_goals'
+    });
+  });
+  await t.test('"Handicap" + MLS -> "Match Handicap"', () => {
+    assert.deepStrictEqual(resolveMarketName('Handicap', 'MLS'), {
+      resolved: 'Match Handicap',
+      wasAliased: true,
+      original: 'Handicap',
+      aliasKey: 'handicap'
+    });
+  });
+  await t.test('"Game Handicap" + MLS -> "Match Handicap"', () => {
+    assert.deepStrictEqual(resolveMarketName('Game Handicap', 'MLS'), {
+      resolved: 'Match Handicap',
+      wasAliased: true,
+      original: 'Game Handicap',
+      aliasKey: 'game_handicap'
+    });
+  });
+  await t.test('"Over/Under" + MLS -> "Total Goals"', () => {
+    assert.deepStrictEqual(resolveMarketName('Over/Under', 'MLS'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'Over/Under',
+      aliasKey: 'over/under'
+    });
+  });
+  await t.test('"OU" + MLS -> "Total Goals"', () => {
+    assert.deepStrictEqual(resolveMarketName('OU', 'MLS'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'OU',
+      aliasKey: 'ou'
+    });
+  });
+  await t.test('"Total Games" + MLS -> "Total Goals"', () => {
+    assert.deepStrictEqual(resolveMarketName('Total Games', 'MLS'), {
+      resolved: 'Total Goals',
+      wasAliased: true,
+      original: 'Total Games',
+      aliasKey: 'total_games'
+    });
+  });
+});

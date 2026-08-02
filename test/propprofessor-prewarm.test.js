@@ -58,6 +58,7 @@ describe('propprofessor-prewarm', () => {
         'NCAAB',
         'NCAAF',
         'Soccer',
+        'MLS',
         'Tennis',
         'UFC'
       ];

@@ -482,7 +482,7 @@ async function cmdScan(handlers, positional, flags, client) {
   let leagues =
     positional.length > 1
       ? positional.slice(1)
-      : ['MLB', 'NBA', 'WNBA', 'Tennis', 'UFC', 'NFL', 'NHL', 'Soccer', 'NCAAB', 'NCAAF', 'NBASL'];
+      : ['MLB', 'NBA', 'WNBA', 'Tennis', 'UFC', 'NFL', 'NHL', 'Soccer', 'MLS', 'NCAAB', 'NCAAF', 'NBASL'];
 
   // --fast mode
   if (flags.fast && positional.length <= 1) {

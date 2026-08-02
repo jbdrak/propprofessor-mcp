@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 
 describe('recommended_bets default league set', () => {
-  it('defaults to all 11 DEFAULT_LEAGUES when none passed', async () => {
+  it('defaults to all 12 DEFAULT_LEAGUES when none passed', async () => {
     const handlers = createMcpHandlers({ client: {} });
     const leaguesSeen = [];
     handlers.screen_ranked = async (args) => {
@@ -13,15 +13,15 @@ describe('recommended_bets default league set', () => {
       return { ok: true, result: [] };
     };
     await handlers.recommended_bets({ book: 'NoVigApp', limit: 2 });
-    const expected = ['NBA', 'NBASL', 'MLB', 'NFL', 'NHL', 'WNBA', 'NCAAB', 'NCAAF', 'Soccer', 'Tennis', 'UFC'];
+    const expected = ['NBA', 'NBASL', 'MLB', 'NFL', 'NHL', 'WNBA', 'NCAAB', 'NCAAF', 'Soccer', 'MLS', 'Tennis', 'UFC'];
     for (const l of expected) {
       assert.ok(leaguesSeen.includes(l), `should scan ${l}`);
     }
     const uniqueLeagues = [...new Set(leaguesSeen)];
     assert.equal(
       uniqueLeagues.length,
-      11,
-      `expected exactly 11 leagues, got ${uniqueLeagues.length}: ${uniqueLeagues}`
+      12,
+      `expected exactly 12 leagues, got ${uniqueLeagues.length}: ${uniqueLeagues}`
     );
   });
 });

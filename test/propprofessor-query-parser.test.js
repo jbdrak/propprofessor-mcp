@@ -46,4 +46,9 @@ describe('propprofessor query parser', () => {
     assert.equal(inferDefaultLeague('nba player points'), 'NBA');
     assert.equal(inferDefaultMarket('tennis spread', 'Tennis'), 'Spread');
   });
+
+  it('infers MLS from mls / major league soccer phrasing', () => {
+    assert.equal(inferDefaultLeague('mls'), 'MLS');
+    assert.equal(inferDefaultLeague('major league soccer odds'), 'MLS');
+  });
 });
