@@ -1089,4 +1089,109 @@ describe('totals-conflict resolution (resolveTotalsConflicts)', () => {
     assert.equal(ranked[0].totalsConflictWith, undefined);
     assert.equal(ranked[1].totalsConflictWith, undefined);
   });
+
+  it('keeps a same-direction alternate when an opposing row is demoted (3-row game)', () => {
+    const ranked = [
+      {
+        gameId: 'NBA:game-4',
+        market: 'Total Points',
+        selection: 'Over 168.5',
+        confidenceTier: 'TIER 1',
+        kaiCall: 'BET',
+        consensusEdge: 2.1
+      },
+      {
+        gameId: 'NBA:game-4',
+        market: 'Total Points',
+        selection: 'Over 171.5',
+        confidenceTier: 'TIER 2',
+        kaiCall: 'BET',
+        consensusEdge: 1.6
+      },
+      {
+        gameId: 'NBA:game-4',
+        market: 'Total Points',
+        selection: 'Under 165.5',
+        confidenceTier: 'TIER 3',
+        kaiCall: 'BET',
+        consensusEdge: 0.9
+      }
+    ];
+
+    resolveTotalsConflicts(ranked);
+
+    assert.equal(ranked[0].kaiCall, 'BET', 'best Over stays BET');
+    assert.equal(ranked[1].kaiCall, 'BET', 'same-direction Over 171.5 survives the conflict');
+    assert.equal(ranked[1].totalsConflictWith, undefined, 'same-direction row is not a conflict loser');
+    assert.equal(ranked[1].confidenceTier, 'TIER 2', 'same-direction row is not demoted');
+    assert.equal(ranked[2].kaiCall, 'CONSIDER', 'opposing Under is demoted');
+    assert.equal(ranked[2].totalsConflictWith, 'Over 168.5');
+  });
+
+  it('PASS rows cannot win or be demoted in a totals conflict', () => {
+    const ranked = [
+      {
+        gameId: 'MLB:game-5',
+        market: 'Total Runs',
+        selection: 'Over 8.5',
+        confidenceTier: 'TIER 2',
+        kaiCall: 'BET',
+        consensusEdge: 1.0
+      },
+      {
+        gameId: 'MLB:game-5',
+        market: 'Total Runs',
+        selection: 'Under 9.5',
+        confidenceTier: 'TIER 1',
+        kaiCall: 'PASS',
+        consensusEdge: 5.0
+      }
+    ];
+
+    resolveTotalsConflicts(ranked);
+
+    assert.equal(ranked[0].kaiCall, 'BET', 'BET row is not demoted by a PASS row');
+    assert.equal(ranked[0].totalsConflictWith, undefined, 'PASS row never wins');
+    assert.equal(ranked[1].kaiCall, 'PASS', 'PASS row stays PASS');
+    assert.equal(ranked[1].confidenceTier, 'TIER 1', 'PASS row is not demoted');
+    assert.equal(ranked[1].totalsConflictWith, undefined);
+  });
+
+  it('unknown-direction rows cannot win or be demoted in a totals conflict', () => {
+    const ranked = [
+      {
+        gameId: 'NBA:game-6',
+        market: 'Total Points',
+        selection: 'Under 165.5',
+        confidenceTier: 'TIER 1',
+        kaiCall: 'BET',
+        consensusEdge: 2.0
+      },
+      {
+        gameId: 'NBA:game-6',
+        market: 'Total Points',
+        selection: 'Over 168.5',
+        confidenceTier: 'TIER 2',
+        kaiCall: 'BET',
+        consensusEdge: 1.0
+      },
+      {
+        gameId: 'NBA:game-6',
+        market: 'Total Points',
+        selection: 'Total 170',
+        confidenceTier: 'TIER 1',
+        kaiCall: 'BET',
+        consensusEdge: 4.0
+      }
+    ];
+
+    resolveTotalsConflicts(ranked);
+
+    assert.equal(ranked[0].kaiCall, 'BET', 'Under 165.5 wins by consensus edge');
+    assert.equal(ranked[1].kaiCall, 'CONSIDER', 'opposing Over is demoted');
+    assert.equal(ranked[1].totalsConflictWith, 'Under 165.5');
+    assert.equal(ranked[2].kaiCall, 'BET', 'unknown-direction row is untouched');
+    assert.equal(ranked[2].confidenceTier, 'TIER 1', 'unknown-direction row is not demoted');
+    assert.equal(ranked[2].totalsConflictWith, undefined, 'unknown-direction row does not win');
+  });
 });
