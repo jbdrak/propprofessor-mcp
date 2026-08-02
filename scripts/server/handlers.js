@@ -442,7 +442,17 @@ function stripLiteResponse(response) {
 /**
  * Hint the JS engine that now is a good time to run GC.
  */
-function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
+function createMcpHandlers({
+  client = createPropProfessorClient(),
+  gameContextFn = getGameContext,
+  recommendedBetsScreenTimeoutMs = 25_000
+} = {}) {
+  // Clamp the screen timeout so a bad injected value can never disable the
+  // per-market stall guard. Production default stays 25s.
+  const screenTimeoutMs =
+    Number.isFinite(recommendedBetsScreenTimeoutMs) && recommendedBetsScreenTimeoutMs > 0
+      ? recommendedBetsScreenTimeoutMs
+      : 25_000;
   const ctx = createHandlerContext({ client });
   const { getCacheTtlMs, getCacheMaxEntries, getCacheMaxEntrySizeBytes } = require('../../lib/mcp-runtime-config');
   const { LruCache } = require('../../lib/propprofessor-lru-cache');
@@ -1158,14 +1168,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
             })),
             limit: researchBatch.length,
             playerContextFn: handlers.player_context,
-            gameContextFn: (opts) =>
-              getGameContext({
-                sport: opts.sport || opts.league,
-                selection: opts.selection,
-                game: opts.game,
-                start: opts.start,
-                market: opts.market
-              }),
+            gameContextFn,
             concurrency: 3
           });
           for (const r of researchOut.results) {
@@ -1358,7 +1361,7 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
                       include: Array.isArray(args.include) ? args.include : undefined,
                       skipHistory: args.skipHistory === true
                     }),
-                    25000
+                    screenTimeoutMs
                   );
                 } catch {
                   return [];

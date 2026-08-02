@@ -19,10 +19,18 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
+const { isPlayerSelection } = require('../lib/propprofessor-selection-type');
 
-function createHandlers(overrides = {}) {
+function createHandlers(overrides = {}, handlerOptions = {}) {
   const { client } = createMockClient(overrides);
-  const handlers = createMcpHandlers({ client });
+  const handlers = createMcpHandlers({
+    client,
+    // Keep the per-market stall guard tiny in fixtures — no test here wants
+    // to wait on (or leave pending) the real 25s production timeout. The
+    // production default itself is asserted in recommended-bets-resilience.
+    recommendedBetsScreenTimeoutMs: 25,
+    ...handlerOptions
+  });
   // Stub player_context so research doesn't hit Nitter/network and hang.
   // Handler-integration tests cover screen, validation, and tier logic, not
   // research — which is tested separately in the 'research scoping' block
@@ -443,13 +451,29 @@ describe('handler integration: sharp_alerts', () => {
 describe('handler integration: quick_screen research scoping', () => {
   // Stub player_context + game_context paths so research never hits network.
   function makeHandlers() {
-    const handlers = createHandlers();
+    let gameContextCalls = 0;
+    const handlers = createHandlers(
+      {},
+      {
+        // Team/line selections must route through this fake instead of the
+        // real game-context lookups (ESPN/web). Count invocations so tests
+        // can assert every final team/line selection went through it.
+        gameContextFn: async () => {
+          gameContextCalls += 1;
+          return {
+            riskFlag: 'clean',
+            riskSummary: 'fixture game context',
+            fetchedAt: new Date(0).toISOString()
+          };
+        }
+      }
+    );
     handlers.player_context = async () => ({ riskFlag: 'clean', tweets: [], news: [] });
-    return handlers;
+    return { handlers, gameContextCalls: () => gameContextCalls };
   }
 
   it('research runs by default and is scoped to final returned plays', async () => {
-    const handlers = makeHandlers();
+    const { handlers, gameContextCalls } = makeHandlers();
     const result = await handlers.quick_screen({
       leagues: ['NBA'],
       markets: ['Moneyline'],
@@ -481,10 +505,33 @@ describe('handler integration: quick_screen research scoping', () => {
       result.research.length <= totalPlays + 1,
       `research (${result.research.length}) should not exceed returned plays (${totalPlays})`
     );
+
+    // every final team/line selection must have routed through the injected
+    // gameContextFn (no live lookups); player selections use player_context
+    // and are excluded. Match buildFinalResearchBatch's dedup key so the
+    // count equals the number of rows the runner passed to gameContextFn.
+    const seenKeys = new Set();
+    let nonPlayerCandidates = 0;
+    for (const entry of result.results || []) {
+      for (const c of entry.candidates || []) {
+        const sel = String(c.selection || '').trim();
+        if (!sel || isPlayerSelection(sel)) continue;
+        const key = `${c.gameId || ''}:${sel.toLowerCase()}`;
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        nonPlayerCandidates += 1;
+      }
+    }
+    assert.ok(nonPlayerCandidates > 0, 'fixture should include team/line selections');
+    assert.equal(
+      gameContextCalls(),
+      nonPlayerCandidates,
+      `gameContextFn should be called once per non-player candidate (${nonPlayerCandidates}), got ${gameContextCalls()}`
+    );
   });
 
   it('includeResearch:false yields empty research array', async () => {
-    const handlers = makeHandlers();
+    const { handlers } = makeHandlers();
     const result = await handlers.quick_screen({
       leagues: ['NBA'],
       markets: ['Moneyline'],
