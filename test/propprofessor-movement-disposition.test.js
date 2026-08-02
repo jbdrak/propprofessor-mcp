@@ -1,7 +1,7 @@
 'use strict';
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
+const { computeMovementDisposition, computeMovementSummary } = require('../lib/propprofessor-movement-disposition');
 
 describe('computeMovementDisposition', () => {
   it('returns supportive_clean for green grade + supportive label', () => {
@@ -237,5 +237,55 @@ describe('computeMovementDisposition', () => {
       }),
       'adverse_recent'
     );
+  });
+});
+
+describe('computeMovementSummary', () => {
+  const supportiveRow = (consensusEdge) => ({
+    movementGrade: 'green',
+    movementLabel: 'supportive',
+    recentSharpMoveDirection: 'supportive',
+    fullWindowSharpMoveDirection: 'supportive',
+    consensusEdge
+  });
+
+  // consensusEdge is ALREADY percentage points (screen-row-expander computes
+  // (consensusProb - preferredProb) * 100). Rendering it as edge*100 produces
+  // a 100x display bug (2.5 -> '250.0% edge').
+  it('renders consensusEdge 2.5 as 2.5% edge (not 250.0%)', () => {
+    const summary = computeMovementSummary(supportiveRow(2.5), {
+      movementDisposition: 'supportive_clean',
+      selection: 'Under 166.5'
+    });
+    assert.ok(summary.includes('2.5% edge'), `summary was: ${summary}`);
+    assert.ok(!summary.includes('250.0%'), `summary was: ${summary}`);
+  });
+
+  it('renders consensusEdge 11.5 as 11.5% edge (not 1150.0%)', () => {
+    const summary = computeMovementSummary(supportiveRow(11.5), {
+      movementDisposition: 'supportive_clean',
+      selection: 'Under 166.5'
+    });
+    assert.ok(summary.includes('11.5% edge'), `summary was: ${summary}`);
+    assert.ok(!summary.includes('1150.0%'), `summary was: ${summary}`);
+  });
+
+  it('omits edge text when consensusEdge is null/undefined', () => {
+    for (const edge of [null, undefined]) {
+      const summary = computeMovementSummary(supportiveRow(edge), {
+        movementDisposition: 'supportive_clean',
+        selection: 'Under 166.5'
+      });
+      assert.ok(summary, 'summary should be a string');
+      assert.ok(!summary.includes('% edge'), `summary was: ${summary}`);
+    }
+  });
+
+  it('preserves a real zero edge as 0.0% edge', () => {
+    const summary = computeMovementSummary(supportiveRow(0), {
+      movementDisposition: 'supportive_clean',
+      selection: 'Under 166.5'
+    });
+    assert.ok(summary.includes('(0.0% edge)'), `summary was: ${summary}`);
   });
 });

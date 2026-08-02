@@ -77,4 +77,20 @@ describe('mapCandidateRow screenUrl', () => {
     assert.equal(out.movementDisposition, 'adverse_full');
     assert.equal(out.staleMovementWarning, true);
   });
+
+  it('movementSummary renders consensusEdge as percentage points (no 100x inflation)', () => {
+    const out = mapCandidateRow({
+      gameId: 'MLB:PREMATCH:TeamA:TeamB:1783937400',
+      market: 'Moneyline',
+      selection: 'TeamA',
+      movementGrade: 'green',
+      movementLabel: 'supportive',
+      recentSharpMoveDirection: 'supportive',
+      fullWindowSharpMoveDirection: 'supportive',
+      consensusEdge: 2.5
+    });
+    assert.equal(out.movementDisposition, 'supportive_clean');
+    assert.ok(out.movementSummary.includes('2.5% edge'), `summary was: ${out.movementSummary}`);
+    assert.ok(!out.movementSummary.includes('250.0%'), `summary was: ${out.movementSummary}`);
+  });
 });
