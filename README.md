@@ -101,7 +101,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
 
 That's it — your agent now sees 31 tools.
 
-> **Verify your install:** `npm run install:verify` runs the non-API test suite (53 tests, no credentials needed).
+> **Verify your install:** `npm run install:verify` runs the credential-free install verification suite.
 
 ### CLI — `pp`
 
@@ -582,7 +582,7 @@ No paid tier. No upsell. The whole codebase is open and the priority is making i
 ## 🔧 For Maintainers
 
 ```bash
-npm test              # 1396 tests, 0 failures
+npm test              # 1935 tests, 0 failures
 npm run test:coverage # ~82% statements
 npm run lint          # clean
 npm run format:check  # clean (npm run format to fix)
