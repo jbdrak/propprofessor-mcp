@@ -30,11 +30,13 @@ const GAME_LAKERS_CELTICS = {
       participant2: 'Boston Celtics',
       selection2Id: 'Moneyline:Boston_Celtics',
       odds: {
-        NoVigApp: { odds1: -148, odds2: 130 },
-        Pinnacle: { odds1: -150, odds2: 132 },
-        Circa: { odds1: -145, odds2: 128 },
-        BetOnline: { odds1: -152, odds2: 134 },
-        BookMaker: { odds1: -150, odds2: 130 }
+        NoVigApp: { odds1: -148, odds2: 130, liquidity1: 15420, liquidity2: 3100 },
+        Pinnacle: { odds1: -150, odds2: 132, liquidity1: 48200, liquidity2: 9650 },
+        Circa: { odds1: -145, odds2: 128, liquidity1: 22100, liquidity2: 7100 },
+        BetOnline: { odds1: -152, odds2: 134, liquidity1: 9800, liquidity2: 4200 },
+        // BookMaker has MORE dollar depth on side 2 than side 1 — liquidity
+        // preservation must follow the side, not pick the max or always side 1.
+        BookMaker: { odds1: -150, odds2: 130, liquidity1: 7600, liquidity2: 8900 }
       }
     }
   },
@@ -58,12 +60,13 @@ const GAME_WARRIORS_NUGGETS = {
       participant2: 'Denver Nuggets',
       selection2Id: 'Moneyline:Denver_Nuggets',
       odds: {
-        NoVigApp: { odds1: -120, odds2: 105 },
-        Fliff: { odds1: -120, odds2: 105 },
-        Pinnacle: { odds1: -140, odds2: 122 },
-        Circa: { odds1: -138, odds2: 120 },
-        BetOnline: { odds1: -142, odds2: 124 },
-        BookMaker: { odds1: -135, odds2: 118 }
+        // Warriors side 2 (Nuggets) carries more dollar depth than side 1.
+        NoVigApp: { odds1: -120, odds2: 105, liquidity1: 8600, liquidity2: 12200 },
+        Fliff: { odds1: -120, odds2: 105, liquidity1: 4300, liquidity2: 2100 },
+        Pinnacle: { odds1: -140, odds2: 122, liquidity1: 51000, liquidity2: 9800 },
+        Circa: { odds1: -138, odds2: 120, liquidity1: 19000, liquidity2: 6400 },
+        BetOnline: { odds1: -142, odds2: 124, liquidity1: 11200, liquidity2: 3300 },
+        BookMaker: { odds1: -135, odds2: 118, liquidity1: 8700, liquidity2: 2600 }
       }
     }
   },
@@ -87,10 +90,10 @@ const GAME_BUCKS_HEAT = {
       participant2: 'Miami Heat',
       selection2Id: 'Moneyline:Miami_Heat',
       odds: {
-        NoVigApp: { odds1: -110, odds2: -105 },
-        Pinnacle: { odds1: -112, odds2: -103 },
-        Circa: { odds1: -108, odds2: -108 },
-        BetOnline: { odds1: -115, odds2: 100 }
+        NoVigApp: { odds1: -110, odds2: -105, liquidity1: 5400, liquidity2: 4100 },
+        Pinnacle: { odds1: -112, odds2: -103, liquidity1: 28900, liquidity2: 17500 },
+        Circa: { odds1: -108, odds2: -108, liquidity1: 9800, liquidity2: 11300 },
+        BetOnline: { odds1: -115, odds2: 100, liquidity1: 5200, liquidity2: 2900 }
       }
     }
   },
