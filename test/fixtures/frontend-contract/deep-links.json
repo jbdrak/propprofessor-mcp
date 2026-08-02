@@ -1,0 +1,25 @@
+{
+  "deepLinks": [
+    {
+      "path": "/leagues/mls",
+      "expectedLeague": "MLS",
+      "selectorPresent": true,
+      "selectorOptions": 3,
+      "selectorLabel": "market"
+    },
+    {
+      "path": "/leagues/mls?market=total-goals",
+      "expectedLeague": "MLS",
+      "selectorPresent": true,
+      "selectorOptions": 0,
+      "selectorLabel": "market"
+    },
+    {
+      "path": "/leagues/ufc",
+      "expectedLeague": "UFC",
+      "selectorPresent": false,
+      "selectorOptions": 0,
+      "selectorLabel": null
+    }
+  ]
+}

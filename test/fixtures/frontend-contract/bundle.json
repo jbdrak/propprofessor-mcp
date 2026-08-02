@@ -1,0 +1,52 @@
+{
+  "source": "https://app.propprofessor.example.com/_next/static/chunks/app.js",
+  "fetchedAt": "2026-08-01T12:00:00.000Z",
+  "leagues": [
+    {
+      "league": "Soccer",
+      "markets": ["Draw No Bet", "Match Handicap", "Total Goals"],
+      "books": ["NoVigApp", "Fliff"]
+    },
+    {
+      "league": "MLS",
+      "markets": ["Draw No Bet", "Match Handicap", "Total Goals"],
+      "books": ["NoVigApp", "Fliff"]
+    },
+    {
+      "league": "tennis",
+      "markets": ["moneyline", "game handicap", "total games"]
+    },
+    {
+      "league": "MLB",
+      "markets": ["Moneyline", "Run Line", "Total Runs"]
+    },
+    {
+      "league": "NBA",
+      "markets": ["Moneyline", "Point Spread", "Total Points"]
+    },
+    {
+      "league": "WNBA",
+      "markets": ["Moneyline", "Point Spread", "Total Points"]
+    },
+    {
+      "league": "NHL",
+      "markets": ["Moneyline", "Puck Line", "Total Goals"]
+    },
+    {
+      "league": "NFL",
+      "markets": ["Moneyline", "Point Spread", "Total Points"]
+    },
+    {
+      "league": "NCAAB",
+      "markets": ["Moneyline", "Point Spread", "Total Points"]
+    },
+    {
+      "league": "NCAAF",
+      "markets": ["Moneyline", "Point Spread", "Total Points"]
+    },
+    {
+      "league": "UFC",
+      "markets": ["Moneyline", "Total Rounds"]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "source": "https://app.propprofessor.example.com/_next/static/chunks/app.js",
+  "fetchedAt": "2026-08-01T12:00:00.000Z",
+  "leagues": [
+    {
+      "league": "Soccer",
+      "markets": ["Draw No Bet", "Match Handicap", "Total Goals"]
+    },
+    {
+      "league": "NBA",
+      "markets": ["Moneyline", "Point Spread", "Total Points", "Player Points"]
+    },
+    {
+      "league": "Cricket",
+      "markets": ["Match Winner"]
+    }
+  ]
+}
