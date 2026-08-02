@@ -290,6 +290,47 @@ describe('createPropProfessorClient', () => {
     }
   });
 
+  it('canonicalizes MLS screen league aliases before posting', async () => {
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+
+    const fetchCalls = [];
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({
+          token: 'jwt-screen',
+          exp: Math.floor(Date.now() / 1000) + 600,
+          perm: { sportsbook: true }
+        }),
+        statusCode: 200
+      }),
+      fetchImpl: async (url, options) => {
+        fetchCalls.push({ url, options });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => []
+        };
+      }
+    });
+
+    try {
+      await client.queryScreenOdds({ market: 'Moneyline', league: 'MLS', books: ['NoVigApp'] });
+      await client.queryScreenOdds({ market: 'Moneyline', league: 'Major League Soccer', books: ['NoVigApp'] });
+      await client.queryScreenOdds({ market: 'Moneyline', league: 'mls', books: ['NoVigApp'] });
+      await client.queryScreenOdds({ market: 'Moneyline', league: 'Soccer', books: ['NoVigApp'] });
+      assert.equal(JSON.parse(fetchCalls[0].options.body).league, 'MLS');
+      assert.equal(JSON.parse(fetchCalls[1].options.body).league, 'MLS');
+      assert.equal(JSON.parse(fetchCalls[2].options.body).league, 'MLS');
+      assert.equal(JSON.parse(fetchCalls[3].options.body).league, 'Soccer');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('canonicalizes sportsbook aliases like ReBet before posting screen queries', async () => {
     const { dir, file } = makeTempAuthState({
       cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
