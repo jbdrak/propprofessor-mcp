@@ -14,6 +14,7 @@ const {
 } = require('../scripts/propprofessor-mcp-server');
 const { runSharpPlays } = require('../lib/propprofessor-sharp-plays-service');
 const { ALL_SCREEN_BOOKS } = require('../lib/propprofessor-sharp-books');
+const { RateLimiter } = require('../lib/rate-limiter');
 
 const serverPath = path.join(__dirname, '..', 'scripts', 'propprofessor-mcp-server.js');
 
@@ -1498,6 +1499,114 @@ describe('validated candidate concurrency helpers', () => {
 
     assert.equal(result.ok, true);
     assert.equal(historyCalls, 1);
+  });
+
+  it('returns RATE_LIMITED JSON-RPC success without invoking the handler', async () => {
+    let handlerInvocations = 0;
+    const server = createMcpServer({
+      handlers: {
+        screen_ranked: async () => {
+          handlerInvocations += 1;
+          return { ok: true };
+        }
+      },
+      toolDefinitions: [
+        {
+          name: 'screen_ranked',
+          inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+        }
+      ],
+      rateLimiter: new RateLimiter({ maxCalls: 1, windowMs: 60_000, now: () => 1_000_000 })
+    });
+
+    await server.handleRequest({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '1.0.0' } }
+    });
+
+    const first = await server.handleRequest({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'screen_ranked', arguments: {} }
+    });
+    assert.equal(first.result.isError, undefined);
+    assert.equal(first.result.structuredContent.ok, true);
+    assert.equal(handlerInvocations, 1);
+
+    const second = await server.handleRequest({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: { name: 'screen_ranked', arguments: {} }
+    });
+    // JSON-RPC success frame (no protocol-level error), tool-level failure
+    assert.equal(second.error, undefined);
+    assert.equal(second.id, 3);
+    assert.equal(second.result.isError, true);
+    assert.equal(second.result.structuredContent.ok, false);
+    assert.equal(second.result.structuredContent.error.code, 'RATE_LIMITED');
+    assert.match(second.result.structuredContent.error.message, /Rate limit exceeded/);
+    // The rejected call must not reach the handler
+    assert.equal(handlerInvocations, 1);
+  });
+
+  it('default rate limiter honors PROPPROFESSOR_RATE_LIMIT and PROPPROFESSOR_RATE_WINDOW_MS', async () => {
+    const prevLimit = process.env.PROPPROFESSOR_RATE_LIMIT;
+    const prevWindow = process.env.PROPPROFESSOR_RATE_WINDOW_MS;
+    process.env.PROPPROFESSOR_RATE_LIMIT = '1';
+    process.env.PROPPROFESSOR_RATE_WINDOW_MS = '2000';
+    try {
+      let handlerInvocations = 0;
+      const server = createMcpServer({
+        handlers: {
+          screen_ranked: async () => {
+            handlerInvocations += 1;
+            return { ok: true };
+          }
+        },
+        toolDefinitions: [
+          {
+            name: 'screen_ranked',
+            inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+          }
+        ]
+      });
+
+      await server.handleRequest({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '1.0.0' } }
+      });
+
+      await server.handleRequest({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: { name: 'screen_ranked', arguments: {} }
+      });
+      assert.equal(handlerInvocations, 1);
+
+      const second = await server.handleRequest({
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'screen_ranked', arguments: {} }
+      });
+      assert.equal(second.result.isError, true);
+      assert.equal(second.result.structuredContent.error.code, 'RATE_LIMITED');
+      // windowMs env is honored: the wait message renders the 2s window, not the hardcoded 60s
+      assert.match(second.result.structuredContent.error.message, /in the last 2s/);
+      assert.equal(handlerInvocations, 1);
+    } finally {
+      if (prevLimit === undefined) delete process.env.PROPPROFESSOR_RATE_LIMIT;
+      else process.env.PROPPROFESSOR_RATE_LIMIT = prevLimit;
+      if (prevWindow === undefined) delete process.env.PROPPROFESSOR_RATE_WINDOW_MS;
+      else process.env.PROPPROFESSOR_RATE_WINDOW_MS = prevWindow;
+    }
   });
 
   it('bin entrypoints include node shebangs', () => {

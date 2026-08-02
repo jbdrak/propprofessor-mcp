@@ -56,7 +56,10 @@ const TOOL_MODE = (() => {
 function createMcpServer({
   handlers = createMcpHandlers(),
   toolDefinitions = buildToolDefinitions({ mode: TOOL_MODE }),
-  rateLimiter = new RateLimiter({ maxCalls: Number(process.env.PROPPROFESSOR_RATE_LIMIT || 25), windowMs: 60000 })
+  rateLimiter = new RateLimiter({
+    maxCalls: Number(process.env.PROPPROFESSOR_RATE_LIMIT || 25),
+    windowMs: Number(process.env.PROPPROFESSOR_RATE_WINDOW_MS || 60000)
+  })
 } = {}) {
   const toolMap = new Map(toolDefinitions.map((tool) => [tool.name, tool]));
   let initialized = false;
