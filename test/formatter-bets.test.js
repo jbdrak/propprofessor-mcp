@@ -439,7 +439,16 @@ describe('formatQuickScreenBets', () => {
           }
         ]
       }
-    ]
+    ],
+    activeSlate: [
+      { league: 'NBA', market: 'Moneyline', count: 1, error: null },
+      { league: 'MLB', market: 'Moneyline', count: 1, error: null }
+    ],
+    emptySlate: [
+      { league: 'WNBA', market: 'Spread', reason: 'no candidates returned' },
+      { league: 'MLB', market: 'Totals', reason: 'all candidates filtered out (card window / tier / kaiCall)' }
+    ],
+    warnings: ['Some games have already started. Live odds may be stale.']
   };
 
   it('returns ok, totalCandidates, tierStats', () => {
@@ -470,6 +479,42 @@ describe('formatQuickScreenBets', () => {
     assert.equal(out.results[0].plays[0].selection, 'Lakers ML');
     assert.equal(out.results[0].plays[0].movementGrade, 'green');
     assert.equal(out.results[0].plays[0].risk, undefined);
+  });
+
+  it('preserves activeSlate, emptySlate, and warnings diagnostics', () => {
+    const out = formatQuickScreenBets(sampleResponse);
+    assert.deepEqual(out.activeSlate, sampleResponse.activeSlate);
+    assert.deepEqual(out.emptySlate, sampleResponse.emptySlate);
+    assert.deepEqual(out.warnings, sampleResponse.warnings);
+  });
+
+  it('carries empty-slate content through verbatim (league, market, reason)', () => {
+    const response = {
+      ok: true,
+      results: [],
+      activeSlate: [],
+      emptySlate: [
+        { league: 'MLS', market: 'NoVigApp', reason: 'no candidates returned' },
+        { league: 'MLS', market: 'Spread', reason: 'all candidates filtered out (card window / tier / kaiCall)' }
+      ],
+      warnings: []
+    };
+    const out = formatQuickScreenBets(response);
+    assert.deepEqual(out.emptySlate, [
+      { league: 'MLS', market: 'NoVigApp', reason: 'no candidates returned' },
+      { league: 'MLS', market: 'Spread', reason: 'all candidates filtered out (card window / tier / kaiCall)' }
+    ]);
+    assert.equal(out.emptySlate[0].league, 'MLS');
+    assert.equal(out.emptySlate[0].market, 'NoVigApp');
+    assert.equal(out.emptySlate[0].reason, 'no candidates returned');
+    assert.equal(out.emptySlate[1].reason, 'all candidates filtered out (card window / tier / kaiCall)');
+  });
+
+  it('defaults activeSlate/emptySlate/warnings to [] when absent', () => {
+    const out = formatQuickScreenBets({ ok: true, results: [] });
+    assert.deepEqual(out.activeSlate, []);
+    assert.deepEqual(out.emptySlate, []);
+    assert.deepEqual(out.warnings, []);
   });
 });
 

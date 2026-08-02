@@ -17,6 +17,9 @@ const sample = {
   ok: true,
   totalCandidates: 2,
   tierStats: { TIER_1: 1, TIER_2: 1 },
+  activeSlate: [{ league: 'NBA', market: 'Moneyline', count: 1, error: null }],
+  emptySlate: [{ league: 'MLB', market: 'Totals', reason: 'no candidates returned' }],
+  warnings: ['Some games have already started. Live odds may be stale.'],
   results: [
     {
       league: 'NBA',
@@ -92,5 +95,11 @@ describe('quick_screen verbosity field parity', () => {
     assert.ok('verdict' in row, 'bets should expose verdict');
     assert.ok('movement' in row, 'bets should expose movement');
     assert.ok('rationale' in row, 'bets should expose rationale/actionableSummary');
+  });
+
+  it('bets output keeps emptySlate/activeSlate/warnings diagnostics', async () => {
+    assert.deepEqual(bets.activeSlate, sample.activeSlate);
+    assert.deepEqual(bets.emptySlate, sample.emptySlate);
+    assert.deepEqual(bets.warnings, sample.warnings);
   });
 });
