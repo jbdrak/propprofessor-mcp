@@ -5,8 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { EventEmitter } = require('node:events');
 
-const { fetchAccessToken, fetchAccessTokenViaCDP } = require('../lib/propprofessor-auth');
+const { fetchAccessToken, fetchAccessTokenViaCDP, fetchAccessTokenViaEgo } = require('../lib/propprofessor-auth');
 
 let tmpDir;
 let authFile;
@@ -346,7 +347,8 @@ describe('fetchAccessToken — Vercel 429 self-heal via CDP fallback', () => {
       fetchAccessToken({
         authFile,
         gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
-        cdpImpl
+        cdpImpl,
+        enableEgoFallback: false
       }),
       (err) => {
         assert.equal(err.code, 'TOKEN_REFRESH_FAILED_BOTH_PATHS');
@@ -370,7 +372,8 @@ describe('fetchAccessToken — Vercel 429 self-heal via CDP fallback', () => {
         authFile,
         gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
         cdpImpl,
-        enableCdpFallback: false
+        enableCdpFallback: false,
+        enableEgoFallback: false
       }),
       /HTTP 429/
     );
@@ -390,7 +393,8 @@ describe('fetchAccessToken — Vercel 429 self-heal via CDP fallback', () => {
           throw new Error('ECONNRESET');
         },
         cdpImpl,
-        enableCdpFallback: false
+        enableCdpFallback: false,
+        enableEgoFallback: false
       }),
       /ECONNRESET/
     );
@@ -410,5 +414,286 @@ describe('fetchAccessToken — Vercel 429 self-heal via CDP fallback', () => {
     });
     assert.equal(result.token, 'cdp-jwt');
     assert.equal(gotCalls, 1, 'got-scraping should be called exactly once before falling back');
+  });
+});
+
+// ===== fetchAccessTokenViaEgo (the ego-browser fallback in isolation) =====
+
+// JWT-shaped fake token: 3 non-empty base64url segments (matching the
+// validation fetchAccessTokenViaEgo applies). Never a real credential.
+const EGO_FAKE_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0b2tlbiJ9.c2lnbmF0dXJl';
+
+// Fake `spawn` for fetchAccessTokenViaEgo tests. Captures the command/args
+// and the stdin script, then feeds canned stdout/stderr and an exit code on
+// the next tick. Can also simulate a spawn error (missing executable) or a
+// hang (never emits 'close') for timeout tests. Tests never invoke the real
+// ego-browser binary.
+function makeFakeEgoSpawn({ stdout = '', stderr = '', exitCode = 0, spawnError = null, hang = false } = {}) {
+  const calls = [];
+  function FakeEgoSpawn(command, args, options) {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.stdin = {
+      written: '',
+      end(data) {
+        if (data !== undefined) this.written += data;
+      }
+    };
+    child.kill = () => {
+      child.killed = true;
+    };
+    const call = { command, args, options, child };
+    calls.push(call);
+    process.nextTick(() => {
+      if (spawnError) {
+        child.emit('error', spawnError instanceof Error ? spawnError : new Error(String(spawnError)));
+        return;
+      }
+      if (hang) return;
+      if (stdout) child.stdout.emit('data', stdout);
+      if (stderr) child.stderr.emit('data', stderr);
+      child.emit('close', exitCode);
+    });
+    return child;
+  }
+  return { FakeEgoSpawn, calls };
+}
+
+describe('fetchAccessTokenViaEgo', () => {
+  it('spawns ego-browser nodejs, parses the single JSON line, and returns the token', async () => {
+    const { FakeEgoSpawn, calls } = makeFakeEgoSpawn({
+      stdout: JSON.stringify({ ok: true, token: EGO_FAKE_JWT, exp: 9999, perm: { sportsbook: true } }) + '\n'
+    });
+    const result = await fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn });
+    assert.equal(result.token, EGO_FAKE_JWT);
+    assert.equal(result.exp, 9999);
+    assert.deepEqual(result.perm, { sportsbook: true });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].command, 'ego-browser');
+    assert.deepEqual(calls[0].args, ['nodejs']);
+    assert.ok(calls[0].options.stdio, 'should pipe stdio (no shell)');
+    const script = calls[0].child.stdin.written;
+    assert.ok(script.includes('useOrCreateTaskSpace(7)'), 'should reuse task space 7 by default');
+    assert.ok(
+      script.includes('"https://app.propprofessor.com/api/access-token"'),
+      'should embed the JSON-escaped access-token URL'
+    );
+    assert.ok(script.includes('process.stdout.write'), 'should emit the response via process.stdout.write');
+    assert.ok(!script.includes(EGO_FAKE_JWT), 'the script itself must not contain the token');
+  });
+
+  it('parses the JSON response line from the captured stderr channel (ego-browser routes script output there)', async () => {
+    const { FakeEgoSpawn } = makeFakeEgoSpawn({
+      stderr: JSON.stringify({ ok: true, token: EGO_FAKE_JWT, exp: 9999, perm: {} }) + '\n'
+    });
+    const result = await fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn });
+    assert.equal(result.token, EGO_FAKE_JWT);
+  });
+
+  it('uses PROPPROFESSOR_EGO_TASK_SPACE env var for the task space id', async () => {
+    const previous = process.env.PROPPROFESSOR_EGO_TASK_SPACE;
+    try {
+      process.env.PROPPROFESSOR_EGO_TASK_SPACE = '42';
+      const { FakeEgoSpawn, calls } = makeFakeEgoSpawn({
+        stdout: JSON.stringify({ ok: true, token: EGO_FAKE_JWT, exp: 1, perm: {} }) + '\n'
+      });
+      await fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn });
+      assert.ok(calls[0].child.stdin.written.includes('useOrCreateTaskSpace(42)'));
+    } finally {
+      if (previous === undefined) delete process.env.PROPPROFESSOR_EGO_TASK_SPACE;
+      else process.env.PROPPROFESSOR_EGO_TASK_SPACE = previous;
+    }
+  });
+
+  it('rejects when the JSON line has no token', async () => {
+    const { FakeEgoSpawn } = makeFakeEgoSpawn({
+      stdout: JSON.stringify({ ok: true, exp: 9999 }) + '\n'
+    });
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn }), /no token/);
+  });
+
+  it('rejects a truncated/mangled token line — stderr diagnostics must never become token output', async () => {
+    // cliLog-style truncation (e.g. "eyJhbG...7890") is not a valid JWT, so
+    // it must be rejected rather than surfaced as a token.
+    const { FakeEgoSpawn } = makeFakeEgoSpawn({
+      stderr: JSON.stringify({ ok: true, token: 'eyJhbG...7890', exp: 1 }) + '\n'
+    });
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn }), /no token/);
+  });
+
+  it('rejects when exp is missing or invalid', async () => {
+    const { FakeEgoSpawn } = makeFakeEgoSpawn({
+      stdout: JSON.stringify({ ok: true, token: EGO_FAKE_JWT, exp: 0 }) + '\n'
+    });
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn }), /invalid exp/);
+  });
+
+  it('rejects with the ego-side error when the JSON line reports ok:false', async () => {
+    const { FakeEgoSpawn } = makeFakeEgoSpawn({
+      stdout: JSON.stringify({ ok: false, error: 'task space 7 not found' }) + '\n'
+    });
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn }), /task space 7 not found/);
+  });
+
+  it('rejects with a clear error when the captured output contains no JSON line (malformed output)', async () => {
+    const { FakeEgoSpawn } = makeFakeEgoSpawn({ stderr: 'ego runtime banner\nnot json at all\n', exitCode: 1 });
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn }), /no usable JSON output/);
+  });
+
+  it('ignores non-contract stderr noise — only the JSON response line is parsed', async () => {
+    const { FakeEgoSpawn } = makeFakeEgoSpawn({
+      stdout: JSON.stringify({ ok: true, token: EGO_FAKE_JWT, exp: 9999, perm: {} }) + '\n',
+      stderr: 'some noise\n'
+    });
+    const result = await fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn });
+    assert.equal(result.token, EGO_FAKE_JWT);
+  });
+
+  it('rejects when ego-browser fails to spawn (missing executable)', async () => {
+    const { FakeEgoSpawn } = makeFakeEgoSpawn({
+      spawnError: Object.assign(new Error('spawn ego-browser ENOENT'), { code: 'ENOENT' })
+    });
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn }), /Failed to start ego-browser/);
+  });
+
+  it('rejects when the spawn implementation throws synchronously', async () => {
+    const throwingSpawn = () => {
+      throw new Error('boom');
+    };
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: throwingSpawn }), /Failed to spawn ego-browser: boom/);
+  });
+
+  it('times out and kills the child when ego-browser hangs', async () => {
+    const { FakeEgoSpawn, calls } = makeFakeEgoSpawn({ hang: true });
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn, timeoutMs: 100 }), /timed out after 100ms/);
+    assert.equal(calls[0].child.killed, true, 'should kill the hung child');
+  });
+});
+
+// ===== fetchAccessToken — ego fallback (third path) =====
+
+describe('fetchAccessToken — ego fallback (third path)', () => {
+  it('falls back to ego when CDP fails', async () => {
+    const result = await fetchAccessToken({
+      authFile,
+      gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
+      cdpImpl: async () => {
+        throw new Error('CDP: no Chrome running');
+      },
+      egoImpl: async () => ({
+        token: 'ego-jwt',
+        exp: Math.floor(Date.now() / 1000) + 600,
+        perm: { sportsbook: true }
+      })
+    });
+    assert.equal(result.token, 'ego-jwt');
+  });
+
+  it('does NOT call ego when CDP succeeds', async () => {
+    let egoCalled = false;
+    const result = await fetchAccessToken({
+      authFile,
+      gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
+      cdpImpl: async () => ({ token: 'cdp-jwt', exp: 9999, perm: {} }),
+      egoImpl: async () => {
+        egoCalled = true;
+        return { token: 'x', exp: 1, perm: {} };
+      }
+    });
+    assert.equal(result.token, 'cdp-jwt');
+    assert.equal(egoCalled, false, 'ego should not be called when CDP succeeds');
+  });
+
+  it('does NOT call ego when got-scraping succeeds', async () => {
+    let egoCalled = false;
+    const result = await fetchAccessToken({
+      authFile,
+      gotScrapingImpl: async () => ({
+        statusCode: 200,
+        body: JSON.stringify({ token: 'primary-jwt', exp: 9999, perm: { sportsbook: true } })
+      }),
+      cdpImpl: async () => {
+        throw new Error('should not be called');
+      },
+      egoImpl: async () => {
+        egoCalled = true;
+        return { token: 'x', exp: 1, perm: {} };
+      }
+    });
+    assert.equal(result.token, 'primary-jwt');
+    assert.equal(egoCalled, false);
+  });
+
+  it('throws a combined error including ego failure without exposing tokens', async () => {
+    const FAKE_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0b2tlbiJ9.c2lnbmF0dXJl';
+    await assert.rejects(
+      fetchAccessToken({
+        authFile,
+        gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
+        cdpImpl: async () => {
+          throw new Error('CDP: no Chrome running');
+        },
+        egoImpl: async () => {
+          throw new Error(`ego: task space busy ${FAKE_JWT}`);
+        }
+      }),
+      (err) => {
+        assert.equal(err.code, 'TOKEN_REFRESH_FAILED_BOTH_PATHS');
+        assert.match(err.message, /Both token refresh paths failed/);
+        assert.match(err.message, /HTTP 429/);
+        assert.match(err.message, /no Chrome running/);
+        assert.match(err.message, /ego: task space busy/);
+        assert.ok(!err.message.includes(FAKE_JWT), 'combined error must not expose token values');
+        assert.ok(err.cause && err.cause.gotErr && err.cause.cdpErr && err.cause.egoErr);
+        return true;
+      }
+    );
+  });
+
+  it('skips ego when PP_NO_EGO_FALLBACK=1', async () => {
+    const previous = process.env.PP_NO_EGO_FALLBACK;
+    let egoCalled = false;
+    try {
+      process.env.PP_NO_EGO_FALLBACK = '1';
+      await assert.rejects(
+        fetchAccessToken({
+          authFile,
+          gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
+          cdpImpl: async () => {
+            throw new Error('CDP: no Chrome running');
+          },
+          egoImpl: async () => {
+            egoCalled = true;
+            return { token: 'x', exp: 1, perm: {} };
+          }
+        }),
+        /Both token refresh paths failed/
+      );
+    } finally {
+      if (previous === undefined) delete process.env.PP_NO_EGO_FALLBACK;
+      else process.env.PP_NO_EGO_FALLBACK = previous;
+    }
+    assert.equal(egoCalled, false, 'ego should not be called when PP_NO_EGO_FALLBACK=1');
+  });
+
+  it('skips ego when enableEgoFallback is false', async () => {
+    let egoCalled = false;
+    await assert.rejects(
+      fetchAccessToken({
+        authFile,
+        gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
+        cdpImpl: async () => {
+          throw new Error('CDP: no Chrome running');
+        },
+        egoImpl: async () => {
+          egoCalled = true;
+          return { token: 'x', exp: 1, perm: {} };
+        },
+        enableEgoFallback: false
+      }),
+      /Both token refresh paths failed/
+    );
+    assert.equal(egoCalled, false);
   });
 });
