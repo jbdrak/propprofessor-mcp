@@ -99,6 +99,10 @@ const {
 } = require('../../lib/propprofessor-picks');
 const { parseNaturalLanguagePropQuery } = require('../../lib/propprofessor-query-parser');
 
+// Confidence tier rank used by applyFinalVerdict to clamp conflict-downgraded
+// rows out of visually-TIER-1 territory during final verdict reconciliation.
+const TIER_RANK = { 'TIER 1': 1, 'TIER 2': 2, 'TIER 3': 3, 'TIER 4': 4 };
+
 // Strip undefined values so they don't override API client defaults via spread
 
 function createOddsHistoryMemoizedQuery(client) {
@@ -389,6 +393,17 @@ function applyFinalVerdict(target) {
     const conflictLoserVerdict = target.kaiCall === 'PASS' || target.displayTier === 'PASS' ? 'PASS' : 'CONSIDER';
     if (verdict === 'BET' || verdict === 'CONSIDER') {
       verdict = conflictLoserVerdict;
+    }
+    // Tier clamp: the screen ranker already demoted the loser's tier by one
+    // (e.g. TIER 1 → TIER 2). A validated TIER 1 re-grade must not smuggle the
+    // loser back to the top of the board — clamp the final tier to at least the
+    // screen's demoted tier so a conflict loser can never ship as visually TIER 1.
+    if (verdict !== 'BET') {
+      const screenTierRank = TIER_RANK[String(target.confidenceTier || '').trim()] || 0;
+      const validatedTierRank = TIER_RANK[String(validatedTier || '').trim()] || 4;
+      if (screenTierRank > 0 && validatedTierRank < screenTierRank) {
+        validatedTier = target.confidenceTier;
+      }
     }
   }
 
@@ -1756,9 +1771,11 @@ function createMcpHandlers({ client = createPropProfessorClient() } = {}) {
             // overwrites the downgrade — wasting API calls and surfacing noise.
             if (play.altLineFiltered) continue;
 
-            // Per-gameId+market cache: plays from the same game+market share one validate_play call.
-            // Market-scoped to prevent cross-market validation pollution.
-            const rbCacheKey = `${play.gameId}::${play.market || 'Moneyline'}`;
+            // Per-gameId+selection+market cache: plays from the same game+selection
+            // share one validate_play call. The key MUST include the selection —
+            // gameId::market alone would share an Over validation across the
+            // opposing Under line on the same game (and vice versa).
+            const rbCacheKey = `${play.gameId}::${play.selection}::${play.market || 'Moneyline'}`;
             if (validationCache.has(rbCacheKey)) {
               const cached = validationCache.get(rbCacheKey);
               if (cached) {
