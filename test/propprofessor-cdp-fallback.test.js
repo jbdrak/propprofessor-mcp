@@ -158,7 +158,7 @@ describe('fetchAccessTokenViaCDP', () => {
     );
   });
 
-  it('happy path: version -> ws -> fetch -> returns token', async () => {
+  it('happy path: version -> ws -> create target -> settle -> fetch -> returns token', async () => {
     const fetchImpl = async () => ({
       ok: true,
       status: 200,
@@ -173,9 +173,14 @@ describe('fetchAccessTokenViaCDP', () => {
       { id: 2, result: { targetId: 'TARGET_1' } },
       // Target.attachToTarget
       { id: 3, result: { sessionId: 'SESS_1' } },
-      // Runtime.evaluate (returns the access token)
+      // Settle poll: newly created target is already on app.propprofessor.com and loaded
       {
         id: 4,
+        result: { result: { value: JSON.stringify({ href: 'https://app.propprofessor.com/', ready: 'complete' }) } }
+      },
+      // Runtime.evaluate (returns the access token)
+      {
+        id: 5,
         result: { result: { value: JSON.stringify({ token: 'cdp-jwt', exp: 9999, perm: { sportsbook: true } }) } }
       }
     ];
@@ -194,8 +199,14 @@ describe('fetchAccessTokenViaCDP', () => {
     assert.equal(sent[0].method, 'Target.getTargets');
     assert.equal(sent[1].method, 'Target.createTarget');
     assert.equal(sent[2].method, 'Target.attachToTarget');
+    // A settle poll must run before the in-page fetch eval: a freshly created
+    // target starts at about:blank (opaque origin) and needs to land on
+    // app.propprofessor.com first.
     assert.equal(sent[3].method, 'Runtime.evaluate');
-    assert.equal(sent[3].sessionId, 'SESS_1');
+    assert.ok(sent[3].params.expression.includes('location.href'), 'first eval should be the settle poll');
+    assert.equal(sent[4].method, 'Runtime.evaluate');
+    assert.ok(sent[4].params.expression.includes('api/access-token'), 'fetch eval should come after the settle poll');
+    assert.equal(sent[4].sessionId, 'SESS_1');
   });
 
   it('reuses an existing app.propprofessor.com tab instead of creating one', async () => {
@@ -224,6 +235,191 @@ describe('fetchAccessTokenViaCDP', () => {
       'should not have called Target.createTarget when an existing tab is present'
     );
     assert.ok(sentMethods.includes('Target.attachToTarget'));
+  });
+
+  it('uses an explicitly configured versionUrl (e.g. port 9333) for the CDP version endpoint', async () => {
+    let fetchedUrl = null;
+    const fetchImpl = async (url) => {
+      fetchedUrl = url;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ webSocketDebuggerUrl: 'ws://127.0.0.1:9333/devtools/browser/abc' })
+      };
+    };
+    const responses = [
+      { id: 1, result: { targetInfos: [{ type: 'page', url: 'https://app.propprofessor.com/', targetId: 'T1' }] } },
+      { id: 2, result: { sessionId: 'S' } },
+      { id: 3, result: { result: { value: JSON.stringify({ token: 't', exp: 1, perm: {} }) } } }
+    ];
+    const { StubWebSocket } = makeStubWebSocket(responses);
+    await fetchAccessTokenViaCDP({
+      versionUrl: 'http://127.0.0.1:9333/json/version',
+      fetchImpl,
+      WebSocketImpl: StubWebSocket
+    });
+    assert.equal(fetchedUrl, 'http://127.0.0.1:9333/json/version');
+  });
+
+  it('honors PROPPROFESSOR_CDP_VERSION_URL when no option is passed', async () => {
+    const previous = process.env.PROPPROFESSOR_CDP_VERSION_URL;
+    try {
+      process.env.PROPPROFESSOR_CDP_VERSION_URL = 'http://127.0.0.1:9333/json/version';
+      let fetchedUrl = null;
+      const fetchImpl = async (url) => {
+        fetchedUrl = url;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ webSocketDebuggerUrl: 'ws://127.0.0.1:9333/devtools/browser/abc' })
+        };
+      };
+      const responses = [
+        { id: 1, result: { targetInfos: [{ type: 'page', url: 'https://app.propprofessor.com/', targetId: 'T1' }] } },
+        { id: 2, result: { sessionId: 'S' } },
+        { id: 3, result: { result: { value: JSON.stringify({ token: 't', exp: 1, perm: {} }) } } }
+      ];
+      const { StubWebSocket } = makeStubWebSocket(responses);
+      await fetchAccessTokenViaCDP({ fetchImpl, WebSocketImpl: StubWebSocket });
+      assert.equal(fetchedUrl, 'http://127.0.0.1:9333/json/version');
+    } finally {
+      if (previous === undefined) delete process.env.PROPPROFESSOR_CDP_VERSION_URL;
+      else process.env.PROPPROFESSOR_CDP_VERSION_URL = previous;
+    }
+  });
+
+  it('explicit versionUrl wins over PROPPROFESSOR_CDP_VERSION_URL', async () => {
+    const previous = process.env.PROPPROFESSOR_CDP_VERSION_URL;
+    try {
+      process.env.PROPPROFESSOR_CDP_VERSION_URL = 'http://127.0.0.1:9333/json/version';
+      let fetchedUrl = null;
+      const fetchImpl = async (url) => {
+        fetchedUrl = url;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ webSocketDebuggerUrl: 'ws://127.0.0.1:9444/devtools/browser/abc' })
+        };
+      };
+      const responses = [
+        { id: 1, result: { targetInfos: [{ type: 'page', url: 'https://app.propprofessor.com/', targetId: 'T1' }] } },
+        { id: 2, result: { sessionId: 'S' } },
+        { id: 3, result: { result: { value: JSON.stringify({ token: 't', exp: 1, perm: {} }) } } }
+      ];
+      const { StubWebSocket } = makeStubWebSocket(responses);
+      await fetchAccessTokenViaCDP({
+        versionUrl: 'http://127.0.0.1:9444/json/version',
+        fetchImpl,
+        WebSocketImpl: StubWebSocket
+      });
+      assert.equal(fetchedUrl, 'http://127.0.0.1:9444/json/version');
+    } finally {
+      if (previous === undefined) delete process.env.PROPPROFESSOR_CDP_VERSION_URL;
+      else process.env.PROPPROFESSOR_CDP_VERSION_URL = previous;
+    }
+  });
+
+  it('defaults to the 127.0.0.1:9222 version endpoint when nothing is configured', async () => {
+    const previous = process.env.PROPPROFESSOR_CDP_VERSION_URL;
+    try {
+      delete process.env.PROPPROFESSOR_CDP_VERSION_URL;
+      let fetchedUrl = null;
+      const fetchImpl = async (url) => {
+        fetchedUrl = url;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/abc' })
+        };
+      };
+      const responses = [
+        { id: 1, result: { targetInfos: [{ type: 'page', url: 'https://app.propprofessor.com/', targetId: 'T1' }] } },
+        { id: 2, result: { sessionId: 'S' } },
+        { id: 3, result: { result: { value: JSON.stringify({ token: 't', exp: 1, perm: {} }) } } }
+      ];
+      const { StubWebSocket } = makeStubWebSocket(responses);
+      await fetchAccessTokenViaCDP({ fetchImpl, WebSocketImpl: StubWebSocket });
+      assert.equal(fetchedUrl, 'http://127.0.0.1:9222/json/version');
+    } finally {
+      if (previous === undefined) delete process.env.PROPPROFESSOR_CDP_VERSION_URL;
+      else process.env.PROPPROFESSOR_CDP_VERSION_URL = previous;
+    }
+  });
+
+  it('waits for a newly created target to settle on app.propprofessor.com before the in-page fetch', async () => {
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/abc' })
+    });
+    const responses = [
+      // Target.getTargets (no existing PP tab → create)
+      { id: 1, result: { targetInfos: [] } },
+      // Target.createTarget
+      { id: 2, result: { targetId: 'TARGET_1' } },
+      // Target.attachToTarget
+      { id: 3, result: { sessionId: 'SESS_1' } },
+      // Settle poll #1: still at about:blank (opaque origin) — must NOT fetch yet
+      { id: 4, result: { result: { value: JSON.stringify({ href: 'about:blank', ready: 'loading' }) } } },
+      // Settle poll #2: landed on app.propprofessor.com and loaded
+      {
+        id: 5,
+        result: { result: { value: JSON.stringify({ href: 'https://app.propprofessor.com/', ready: 'complete' }) } }
+      },
+      // In-page fetch (only after the settled state was observed)
+      { id: 6, result: { result: { value: JSON.stringify({ token: 'cdp-jwt', exp: 9999, perm: {} }) } } }
+    ];
+    const { StubWebSocket, sent } = makeStubWebSocket(responses);
+
+    const result = await fetchAccessTokenViaCDP({
+      fetchImpl,
+      WebSocketImpl: StubWebSocket,
+      cdpTimeoutMs: 1000,
+      runtimeTimeoutMs: 1000
+    });
+    assert.equal(result.token, 'cdp-jwt');
+
+    const evals = sent.filter((m) => m.method === 'Runtime.evaluate');
+    assert.equal(evals.length, 3, 'two settle polls + one fetch eval');
+    assert.ok(evals[0].params.expression.includes('location.href'), 'poll 1 checks page location');
+    assert.ok(evals[1].params.expression.includes('location.href'), 'poll 2 checks page location');
+    assert.ok(
+      evals[2].params.expression.includes('"https://app.propprofessor.com/api/access-token"'),
+      'the fetch eval must run only after the page settled on the app origin'
+    );
+    const fetchSentIdx = sent.findIndex(
+      (m) => m.method === 'Runtime.evaluate' && m.params.expression.includes('api/access-token')
+    );
+    const settledPollSentIdx = sent.findIndex(
+      (m) => m.method === 'Runtime.evaluate' && m.params.expression.includes('location.href')
+    );
+    assert.ok(fetchSentIdx > settledPollSentIdx, 'fetch eval must be sent after the poll that observed the settled state');
+  });
+
+  it('throws a clear bounded error when a created target never settles on the app origin', async () => {
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/abc' })
+    });
+    const neverSettled = { result: { value: JSON.stringify({ href: 'about:blank', ready: 'loading' }) } };
+    const responses = [
+      { id: 1, result: { targetInfos: [] } },
+      { id: 2, result: { targetId: 'TARGET_1' } },
+      { id: 3, result: { sessionId: 'SESS_1' } },
+      { id: 4, result: neverSettled },
+      { id: 5, result: neverSettled }
+    ];
+    const { StubWebSocket } = makeStubWebSocket(responses);
+    await assert.rejects(
+      fetchAccessTokenViaCDP({
+        fetchImpl,
+        WebSocketImpl: StubWebSocket,
+        cdpTimeoutMs: 1000,
+        runtimeTimeoutMs: 250
+      }),
+      /did not settle on app\.propprofessor\.com/
+    );
   });
 
   it('throws when the in-page fetch returns an error object', async () => {
@@ -261,8 +457,8 @@ describe('fetchAccessTokenViaCDP', () => {
 
 // ===== fetchAccessToken fallback behavior =====
 
-describe('fetchAccessToken — Vercel 429 self-heal via CDP fallback', () => {
-  it('falls back to CDP when got-scraping returns 429', async () => {
+describe('fetchAccessToken — Vercel 429 self-heal via browser fallbacks (ego → CDP)', () => {
+  it('falls back to CDP when got-scraping returns 429 (ego disabled)', async () => {
     const cdpImpl = async () => ({
       token: 'cdp-jwt',
       exp: Math.floor(Date.now() / 1000) + 600,
@@ -274,29 +470,32 @@ describe('fetchAccessToken — Vercel 429 self-heal via CDP fallback', () => {
         statusCode: 429,
         body: '<html>Vercel security checkpoint</html>'
       }),
-      cdpImpl
+      cdpImpl,
+      enableEgoFallback: false
     });
     assert.equal(result.token, 'cdp-jwt');
   });
 
-  it('falls back to CDP when got-scraping returns 401', async () => {
+  it('falls back to CDP when got-scraping returns 401 (ego disabled)', async () => {
     const cdpImpl = async () => ({ token: 'cdp-jwt', exp: 9999, perm: {} });
     const result = await fetchAccessToken({
       authFile,
       gotScrapingImpl: async () => ({ statusCode: 401, body: '{"error":"Unauthorized"}' }),
-      cdpImpl
+      cdpImpl,
+      enableEgoFallback: false
     });
     assert.equal(result.token, 'cdp-jwt');
   });
 
-  it('falls back to CDP when got-scraping throws a network error', async () => {
+  it('falls back to CDP when got-scraping throws a network error (ego disabled)', async () => {
     const cdpImpl = async () => ({ token: 'cdp-jwt', exp: 9999, perm: {} });
     const result = await fetchAccessToken({
       authFile,
       gotScrapingImpl: async () => {
         throw new Error('ECONNRESET');
       },
-      cdpImpl
+      cdpImpl,
+      enableEgoFallback: false
     });
     assert.equal(result.token, 'cdp-jwt');
   });
@@ -401,7 +600,7 @@ describe('fetchAccessToken — Vercel 429 self-heal via CDP fallback', () => {
     assert.equal(cdpCalled, false);
   });
 
-  it('got-scraping is called exactly once before falling back to CDP', async () => {
+  it('got-scraping is called exactly once before falling back to CDP (ego disabled)', async () => {
     let gotCalls = 0;
     const cdpImpl = async () => ({ token: 'cdp-jwt', exp: 9999, perm: {} });
     const result = await fetchAccessToken({
@@ -410,10 +609,85 @@ describe('fetchAccessToken — Vercel 429 self-heal via CDP fallback', () => {
         gotCalls += 1;
         return { statusCode: 429, body: 'vercel wall' };
       },
-      cdpImpl
+      cdpImpl,
+      enableEgoFallback: false
     });
     assert.equal(result.token, 'cdp-jwt');
     assert.equal(gotCalls, 1, 'got-scraping should be called exactly once before falling back');
+  });
+
+  it('tries ego before CDP: ego success short-circuits CDP (got 429)', async () => {
+    const order = [];
+    const result = await fetchAccessToken({
+      authFile,
+      gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
+      egoImpl: async () => {
+        order.push('ego');
+        return { token: 'ego-jwt', exp: Math.floor(Date.now() / 1000) + 600, perm: {} };
+      },
+      cdpImpl: async () => {
+        order.push('cdp');
+        return { token: 'cdp-jwt', exp: 9999, perm: {} };
+      }
+    });
+    assert.equal(result.token, 'ego-jwt');
+    assert.deepEqual(order, ['ego'], 'ego must be tried first and CDP must not be invoked when ego succeeds');
+  });
+
+  it('tries ego before CDP: ego fails then CDP succeeds (got 429)', async () => {
+    const order = [];
+    const result = await fetchAccessToken({
+      authFile,
+      gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
+      egoImpl: async () => {
+        order.push('ego');
+        throw new Error('ego: task space pp-token-refresh is busy');
+      },
+      cdpImpl: async () => {
+        order.push('cdp');
+        return { token: 'cdp-jwt', exp: 9999, perm: { sportsbook: true } };
+      }
+    });
+    assert.equal(result.token, 'cdp-jwt');
+    assert.deepEqual(order, ['ego', 'cdp'], 'CDP must be tried only after ego fails');
+  });
+
+  it('tries ego before CDP: ego fails then CDP succeeds (got 401)', async () => {
+    const order = [];
+    const result = await fetchAccessToken({
+      authFile,
+      gotScrapingImpl: async () => ({ statusCode: 401, body: '{"error":"Unauthorized"}' }),
+      egoImpl: async () => {
+        order.push('ego');
+        throw new Error('ego: no ego-browser binary');
+      },
+      cdpImpl: async () => {
+        order.push('cdp');
+        return { token: 'cdp-jwt', exp: 9999, perm: {} };
+      }
+    });
+    assert.equal(result.token, 'cdp-jwt');
+    assert.deepEqual(order, ['ego', 'cdp']);
+  });
+
+  it('tries ego before CDP: ego fails then CDP succeeds (got network error)', async () => {
+    const order = [];
+    const result = await fetchAccessToken({
+      authFile,
+      gotScrapingImpl: async () => {
+        throw new Error('ECONNRESET');
+      },
+      egoImpl: async () => {
+        order.push('ego');
+        throw new Error('ego: timed out');
+      },
+      cdpImpl: async () => {
+        order.push('cdp');
+        return { token: 'cdp-jwt', exp: 9999, perm: {} };
+      }
+    });
+    assert.equal(result.token, 'cdp-jwt');
+    assert.deepEqual(order, ['ego', 'cdp']);
   });
 });
 
@@ -474,7 +748,14 @@ describe('fetchAccessTokenViaEgo', () => {
     assert.deepEqual(calls[0].args, ['nodejs']);
     assert.ok(calls[0].options.stdio, 'should pipe stdio (no shell)');
     const script = calls[0].child.stdin.written;
-    assert.ok(script.includes('useOrCreateTaskSpace(7)'), 'should reuse task space 7 by default');
+    assert.ok(
+      script.includes('useOrCreateTaskSpace("pp-token-refresh")'),
+      'should use the named default task space (ego creates it on first use)'
+    );
+    assert.ok(
+      script.includes("openOrReuseTab('https://app.propprofessor.com/'"),
+      'should open/reuse a same-origin tab before browserFetch'
+    );
     assert.ok(
       script.includes('"https://app.propprofessor.com/api/access-token"'),
       'should embed the JSON-escaped access-token URL'
@@ -506,6 +787,38 @@ describe('fetchAccessTokenViaEgo', () => {
     }
   });
 
+  it('uses an explicitly passed taskSpaceId option', async () => {
+    const { FakeEgoSpawn, calls } = makeFakeEgoSpawn({
+      stdout: JSON.stringify({ ok: true, token: EGO_FAKE_JWT, exp: 1, perm: {} }) + '\n'
+    });
+    const result = await fetchAccessTokenViaEgo({ taskSpaceId: 42, spawnImpl: FakeEgoSpawn });
+    assert.equal(result.token, EGO_FAKE_JWT);
+    assert.ok(calls[0].child.stdin.written.includes('useOrCreateTaskSpace(42)'));
+  });
+
+  it('rejects invalid explicit taskSpaceId values', async () => {
+    for (const bad of [0, -3, 7.5, 'abc']) {
+      await assert.rejects(
+        fetchAccessTokenViaEgo({ taskSpaceId: bad, spawnImpl: makeFakeEgoSpawn().FakeEgoSpawn }),
+        /Invalid ego task space id/
+      );
+    }
+  });
+
+  it('rejects invalid PROPPROFESSOR_EGO_TASK_SPACE values', async () => {
+    const previous = process.env.PROPPROFESSOR_EGO_TASK_SPACE;
+    try {
+      process.env.PROPPROFESSOR_EGO_TASK_SPACE = 'abc';
+      await assert.rejects(
+        fetchAccessTokenViaEgo({ spawnImpl: makeFakeEgoSpawn().FakeEgoSpawn }),
+        /Invalid PROPPROFESSOR_EGO_TASK_SPACE value/
+      );
+    } finally {
+      if (previous === undefined) delete process.env.PROPPROFESSOR_EGO_TASK_SPACE;
+      else process.env.PROPPROFESSOR_EGO_TASK_SPACE = previous;
+    }
+  });
+
   it('rejects when the JSON line has no token', async () => {
     const { FakeEgoSpawn } = makeFakeEgoSpawn({
       stdout: JSON.stringify({ ok: true, exp: 9999 }) + '\n'
@@ -531,9 +844,9 @@ describe('fetchAccessTokenViaEgo', () => {
 
   it('rejects with the ego-side error when the JSON line reports ok:false', async () => {
     const { FakeEgoSpawn } = makeFakeEgoSpawn({
-      stdout: JSON.stringify({ ok: false, error: 'task space 7 not found' }) + '\n'
+      stdout: JSON.stringify({ ok: false, error: 'task space pp-token-refresh is busy' }) + '\n'
     });
-    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn }), /task space 7 not found/);
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn }), /task space pp-token-refresh is busy/);
   });
 
   it('rejects with a clear error when the captured output contains no JSON line (malformed output)', async () => {
@@ -571,38 +884,26 @@ describe('fetchAccessTokenViaEgo', () => {
   });
 });
 
-// ===== fetchAccessToken — ego fallback (third path) =====
+// ===== fetchAccessToken — ego-browser first, then CDP =====
 
-describe('fetchAccessToken — ego fallback (third path)', () => {
-  it('falls back to ego when CDP fails', async () => {
+describe('fetchAccessToken — ego-browser is the first browser fallback (before CDP)', () => {
+  it('does NOT call CDP when ego succeeds', async () => {
+    let cdpCalled = false;
     const result = await fetchAccessToken({
       authFile,
       gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
-      cdpImpl: async () => {
-        throw new Error('CDP: no Chrome running');
-      },
       egoImpl: async () => ({
         token: 'ego-jwt',
         exp: Math.floor(Date.now() / 1000) + 600,
         perm: { sportsbook: true }
-      })
-    });
-    assert.equal(result.token, 'ego-jwt');
-  });
-
-  it('does NOT call ego when CDP succeeds', async () => {
-    let egoCalled = false;
-    const result = await fetchAccessToken({
-      authFile,
-      gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
-      cdpImpl: async () => ({ token: 'cdp-jwt', exp: 9999, perm: {} }),
-      egoImpl: async () => {
-        egoCalled = true;
-        return { token: 'x', exp: 1, perm: {} };
+      }),
+      cdpImpl: async () => {
+        cdpCalled = true;
+        return { token: 'should-not-be-used', exp: 1, perm: {} };
       }
     });
-    assert.equal(result.token, 'cdp-jwt');
-    assert.equal(egoCalled, false, 'ego should not be called when CDP succeeds');
+    assert.equal(result.token, 'ego-jwt');
+    assert.equal(cdpCalled, false, 'CDP should not be called when ego succeeds');
   });
 
   it('does NOT call ego when got-scraping succeeds', async () => {
@@ -644,6 +945,7 @@ describe('fetchAccessToken — ego fallback (third path)', () => {
         assert.match(err.message, /HTTP 429/);
         assert.match(err.message, /no Chrome running/);
         assert.match(err.message, /ego: task space busy/);
+        assert.ok(err.message.indexOf('ego:') < err.message.indexOf('CDP:'), 'combined error should list ego before CDP');
         assert.ok(!err.message.includes(FAKE_JWT), 'combined error must not expose token values');
         assert.ok(err.cause && err.cause.gotErr && err.cause.cdpErr && err.cause.egoErr);
         return true;
@@ -654,6 +956,7 @@ describe('fetchAccessToken — ego fallback (third path)', () => {
   it('skips ego when PP_NO_EGO_FALLBACK=1', async () => {
     const previous = process.env.PP_NO_EGO_FALLBACK;
     let egoCalled = false;
+    let cdpCalled = false;
     try {
       process.env.PP_NO_EGO_FALLBACK = '1';
       await assert.rejects(
@@ -661,6 +964,7 @@ describe('fetchAccessToken — ego fallback (third path)', () => {
           authFile,
           gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
           cdpImpl: async () => {
+            cdpCalled = true;
             throw new Error('CDP: no Chrome running');
           },
           egoImpl: async () => {
@@ -675,15 +979,18 @@ describe('fetchAccessToken — ego fallback (third path)', () => {
       else process.env.PP_NO_EGO_FALLBACK = previous;
     }
     assert.equal(egoCalled, false, 'ego should not be called when PP_NO_EGO_FALLBACK=1');
+    assert.equal(cdpCalled, true, 'CDP should still be attempted when ego is disabled');
   });
 
   it('skips ego when enableEgoFallback is false', async () => {
     let egoCalled = false;
+    let cdpCalled = false;
     await assert.rejects(
       fetchAccessToken({
         authFile,
         gotScrapingImpl: async () => ({ statusCode: 429, body: 'vercel wall' }),
         cdpImpl: async () => {
+          cdpCalled = true;
           throw new Error('CDP: no Chrome running');
         },
         egoImpl: async () => {
@@ -695,5 +1002,6 @@ describe('fetchAccessToken — ego fallback (third path)', () => {
       /Both token refresh paths failed/
     );
     assert.equal(egoCalled, false);
+    assert.equal(cdpCalled, true, 'CDP should still be attempted when ego is disabled');
   });
 });

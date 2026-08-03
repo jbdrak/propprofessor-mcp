@@ -44,10 +44,25 @@ const { execFileSync } = require('child_process');
 
 const HOME = os.homedir();
 const TOKEN_CACHE = path.join(HOME, '.propprofessor', 'token-cache.json');
-const CHROME_TABS_URL = 'http://127.0.0.1:9222/json/list';
+const DEFAULT_CDP_VERSION_URL = 'http://127.0.0.1:9222/json/version';
+const DEFAULT_CHROME_TABS_URL = 'http://127.0.0.1:9222/json/list';
 const ACCESS_TOKEN_URL = 'https://app.propprofessor.com/api/access-token';
 const FRESH_THRESHOLD_SEC = 120; // refresh if < 2 min left
 const FORCE = process.argv.includes('--force');
+
+// Resolve the CDP endpoints, honoring the same PROPPROFESSOR_CDP_VERSION_URL
+// env var used by lib/propprofessor-auth.js. When set, the /json/list URL is
+// derived from the configured version endpoint so this script never retains a
+// separate hardcoded port. Falls back to the historical 9222 defaults.
+function resolveCdpEndpoints() {
+  const envUrl = String(process.env.PROPPROFESSOR_CDP_VERSION_URL || '').trim();
+  if (!envUrl) return { versionUrl: DEFAULT_CDP_VERSION_URL, tabsUrl: DEFAULT_CHROME_TABS_URL };
+  const base = envUrl.replace(/\/json\/version$/, '');
+  return { versionUrl: envUrl, tabsUrl: `${base}/json/list` };
+}
+
+const CDP = resolveCdpEndpoints();
+const CHROME_TABS_URL = CDP.tabsUrl;
 
 function log(msg) {
   process.stderr.write(`[pp-token-watchdog] ${msg}\n`);
@@ -96,7 +111,7 @@ async function fetchTokenViaBrowser() {
   // Browser-context fetch via Chrome DevTools Protocol (CDP).
   // This is the path that solves Vercel's TLS-fingerprint challenge.
   // Node 22+ has built-in WebSocket; no 'ws' package needed.
-  const versionRes = await fetch('http://127.0.0.1:9222/json/version');
+  const versionRes = await fetch(CDP.versionUrl);
   const { webSocketDebuggerUrl } = await versionRes.json();
 
   const ws = new WebSocket(webSocketDebuggerUrl);

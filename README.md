@@ -305,6 +305,8 @@ Set the `PROPPROFESSOR_COOKIES` env var with your PropProfessor cookies exported
 }
 ```
 
+**Auth refresh fallbacks (optional).** When the server-to-server token fetch is gated by Vercel (HTTP 429), the server self-heals via a logged-in browser. Fallback order is `got-scraping` → **ego-browser** → **CDP**: the ego-browser fallback (named task space `pp-token-refresh`, created on first use, unless `PROPPROFESSOR_EGO_TASK_SPACE` is set to a positive integer task-space id) is tried first; the CDP fallback runs only if ego-browser fails. The CDP endpoint defaults to `http://127.0.0.1:9222/json/version`; set `PROPPROFESSOR_CDP_VERSION_URL` (e.g. `http://127.0.0.1:9333/json/version`) to use a different Chrome-for-Testing listener. Both fallbacks are on-demand only — no polling.
+
 ### Hermes Agent
 
 If you use [Hermes Agent](https://github.com/NousResearch/hermes-agent):
