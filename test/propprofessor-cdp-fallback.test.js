@@ -393,7 +393,10 @@ describe('fetchAccessTokenViaCDP', () => {
     const settledPollSentIdx = sent.findIndex(
       (m) => m.method === 'Runtime.evaluate' && m.params.expression.includes('location.href')
     );
-    assert.ok(fetchSentIdx > settledPollSentIdx, 'fetch eval must be sent after the poll that observed the settled state');
+    assert.ok(
+      fetchSentIdx > settledPollSentIdx,
+      'fetch eval must be sent after the poll that observed the settled state'
+    );
   });
 
   it('throws a clear bounded error when a created target never settles on the app origin', async () => {
@@ -945,7 +948,10 @@ describe('fetchAccessToken — ego-browser is the first browser fallback (before
         assert.match(err.message, /HTTP 429/);
         assert.match(err.message, /no Chrome running/);
         assert.match(err.message, /ego: task space busy/);
-        assert.ok(err.message.indexOf('ego:') < err.message.indexOf('CDP:'), 'combined error should list ego before CDP');
+        assert.ok(
+          err.message.indexOf('ego:') < err.message.indexOf('CDP:'),
+          'combined error should list ego before CDP'
+        );
         assert.ok(!err.message.includes(FAKE_JWT), 'combined error must not expose token values');
         assert.ok(err.cause && err.cause.gotErr && err.cause.cdpErr && err.cause.egoErr);
         return true;

@@ -23,7 +23,24 @@ const CACHE_PATH = path.join(CACHE_DIR, 'flashscore-cache.json');
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
 const dateIdx = args.indexOf('--date');
-const targetDate = dateIdx >= 0 ? args[dateIdx + 1] : new Date().toISOString().slice(0, 10);
+
+/**
+ * Default scrape date: the current America/Chicago (Austin) calendar date as
+ * YYYY-MM-DD. The UTC date can roll over to the next day after 7 PM CDT, so
+ * it must not be used for the local calendar date.
+ * @param {Date|number} [now] - instant to evaluate (defaults to now)
+ * @returns {string} YYYY-MM-DD in the America/Chicago timezone
+ */
+function defaultScrapeDate(now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(now);
+}
+
+const targetDate = dateIdx >= 0 ? args[dateIdx + 1] : defaultScrapeDate();
 
 function main() {
   process.stderr.write(`[flashscore] Scraping Flashscore tennis for ${targetDate}...\n`);
@@ -90,4 +107,8 @@ function main() {
   process.stderr.write(`[flashscore] Wrote cache to ${CACHE_PATH}\n`);
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { defaultScrapeDate };
