@@ -511,6 +511,111 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     assert.equal(res.data.totalCount, 1, 'totalCount should reflect only BET rows');
   });
 
+  it('-B excludes a fallback row labeled BET when movement evidence is absent', async () => {
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const original = { ...SAMPLE_TENNIS_PLAY };
+    Object.assign(SAMPLE_TENNIS_PLAY, { verdict: 'BET', movementDisposition: null, movement: null, clvProxyPct: null });
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis', '-B'], { B: true }, {});
+    } finally {
+      Object.assign(SAMPLE_TENNIS_PLAY, original);
+      restoreConsole(orig);
+    }
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.equal(tennisGroup, undefined, 'unvalidated fallback BET must not survive -B');
+  });
+
+  it('-B excludes a row with zero or malformed CLV even when movement looks supportive', async () => {
+    // A numeric zero (flat) or malformed clvProxyPct is not CLV evidence —
+    // a supportive-looking label alone must not promote the row to BET.
+    for (const clvProxyPct of [0, '0', '', 'abc', false, null, undefined]) {
+      const res = {
+        data: {
+          results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+          totalCount: 1
+        }
+      };
+      const original = { ...SAMPLE_TENNIS_PLAY };
+      Object.assign(SAMPLE_TENNIS_PLAY, {
+        verdict: 'BET',
+        movementDisposition: 'supportive_clean',
+        movement: null,
+        clvProxyPct
+      });
+      const handlers = { quick_screen: async () => res };
+      const orig = suppressConsole();
+      try {
+        await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis', '-B'], { B: true }, {});
+      } finally {
+        Object.assign(SAMPLE_TENNIS_PLAY, original);
+        restoreConsole(orig);
+      }
+      const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+      assert.equal(tennisGroup, undefined, `clvProxyPct=${JSON.stringify(clvProxyPct)} must not count as CLV evidence`);
+    }
+  });
+
+  it('without -B, zero/malformed CLV rows are downgraded to CONSIDER, not BET', async () => {
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const original = { ...SAMPLE_TENNIS_PLAY };
+    Object.assign(SAMPLE_TENNIS_PLAY, {
+      verdict: 'BET',
+      movementDisposition: 'supportive_clean',
+      movement: null,
+      clvProxyPct: 0
+    });
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], {}, {});
+    } finally {
+      Object.assign(SAMPLE_TENNIS_PLAY, original);
+      restoreConsole(orig);
+    }
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis group should exist without -B');
+    assert.ok(tennisGroup.plays.length > 0, 'rows stay visible without -B');
+    assert.ok(
+      tennisGroup.plays.every((play) => play.verdict === 'CONSIDER'),
+      'zero-CLV rows must not surface as BET'
+    );
+  });
+
+  it('without -B, insufficient fallback rows remain discovery-only CONSIDER output', async () => {
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const original = { ...SAMPLE_TENNIS_PLAY };
+    Object.assign(SAMPLE_TENNIS_PLAY, { verdict: 'BET', movementDisposition: 'insufficient', clvProxyPct: null });
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], {}, {});
+    } finally {
+      Object.assign(SAMPLE_TENNIS_PLAY, original);
+      restoreConsole(orig);
+    }
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.equal(tennisGroup.plays.length, 2);
+    assert.ok(tennisGroup.plays.every((play) => play.verdict === 'CONSIDER'));
+    assert.ok(tennisGroup.plays.some((play) => play.movementDisposition === 'insufficient'));
+  });
+
   it('without -B, all tennis fallback rows (BET + CONSIDER) are included', async () => {
     const res = {
       data: {

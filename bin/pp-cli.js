@@ -883,12 +883,26 @@ async function cmdScan(handlers, positional, flags, client) {
           console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
           const tennisPlays = await recoverTennisFromScreen({ book, client, markets: marketList });
           if (tennisPlays.length) {
-            // Apply onlyBets filtering to injected fallback plays.
-            // Tennis fallback plays carry `verdict` (not `finalVerdict`)
-            // because they bypass the validation pipeline in quick_screen.
-            const filteredPlays = onlyBets
-              ? tennisPlays.filter((p) => (p.verdict || p.finalVerdict || p.kaiCall) === 'BET')
-              : tennisPlays;
+            const normalizedFallbackPlays = tennisPlays.map((play) => {
+              const movementDisposition = play.movementDisposition || play.movement || 'insufficient';
+              // CLV evidence requires a real, non-zero finite number. A
+              // numeric zero (flat), null/undefined, or malformed values
+              // ('', '0', false, NaN) must never count as evidence.
+              const hasClvEvidence =
+                typeof play.clvProxyPct === 'number' && Number.isFinite(play.clvProxyPct) && play.clvProxyPct !== 0;
+              const supportive =
+                movementDisposition === 'supportive_clean' || movementDisposition === 'supportive_bouncy';
+              return {
+                ...play,
+                movementDisposition,
+                verdict: supportive && hasClvEvidence ? 'BET' : 'CONSIDER'
+              };
+            });
+            const movementMatches = (play) =>
+              !resolvedMovement || resolvedMovement.includes(play.movementDisposition || play.movement);
+            const filteredPlays = normalizedFallbackPlays.filter(
+              (play) => movementMatches(play) && (!onlyBets || play.verdict === 'BET')
+            );
             if (filteredPlays.length) {
               const filtered = resultsArr.filter((r) => !isTennisLeague(r.league));
               filtered.push({

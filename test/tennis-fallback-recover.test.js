@@ -155,9 +155,10 @@ const MARKET_FIXTURES = {
   }
 };
 
-// History keyed by selectionId
+// History keyed by selectionId. Each side is queried independently — CLV
+// is never copied or inverted from the opposite side.
 // Djokovic ML: -150 → -175 = IP 60% → 63.64% = +3.64% CLV → supportive_clean
-// Alcaraz ML: CLV inverted → adverse_full
+// Alcaraz ML: no history entry → insufficient
 // GH -1.5: -110 → -130 = IP 52.38% → 56.52% = +4.14% CLV → supportive_clean
 // GH -2.5: -105 → -120 = IP 51.22% → 54.55% = +3.33% CLV → supportive_clean
 // GH -4.5: would be filtered
@@ -219,8 +220,8 @@ describe('recoverTennisFromScreen — opposite sides', () => {
       `Djokovic movement should be supportive, got ${djokovic.movementDisposition}`
     );
 
-    // Alcaraz is opposite side: CLV inverted from Djokovic's positive → negative
-    assert.equal(alcaraz.verdict, 'CONSIDER', 'Alcaraz (inverted adverse) should be CONSIDER');
+    // Alcaraz has no odds history of its own → insufficient signal
+    assert.equal(alcaraz.verdict, 'CONSIDER', 'Alcaraz (no movement evidence) should be CONSIDER');
   });
 });
 
@@ -290,6 +291,279 @@ describe('recoverTennisFromScreen — Total Games', () => {
     const plays = await recoverTennisFromScreen({ client, book: 'Pinnacle', skipTimeCorrection: true });
     const tgPlays = plays.filter((p) => p.market === 'Total Games');
     assert.equal(tgPlays.length, 2, 'Total Games should be preserved (both sides)');
+  });
+
+  it('keeps all standard Total Games lines (23.5 and 25.5) from the full selection matrix', async () => {
+    const history = {
+      'Total_Games:Over_23.5': supportiveHistory(-110, -125),
+      'Total_Games:Under_23.5': supportiveHistory(-110, -115),
+      'Total_Games:Over_25.5': supportiveHistory(-110, -150),
+      'Total_Games:Under_25.5': supportiveHistory(-110, -105)
+    };
+    const client = {
+      calls: { screen: [], history: [] },
+      queryScreenOdds({ market }) {
+        this.calls.screen.push(market);
+        if (market !== 'Total Games') return Promise.resolve({ game_data: [] });
+        return Promise.resolve({
+          game_data: [
+            {
+              gameId: 'tennis-primary-total',
+              awayTeam: 'Tsitsipas',
+              homeTeam: 'Fonseca',
+              selections: {
+                primary: {
+                  line1: 23.5,
+                  line2: 23.5,
+                  selection1: 'Over 23.5',
+                  selection1Id: 'Total_Games:Over_23.5',
+                  selection2: 'Under 23.5',
+                  selection2Id: 'Total_Games:Under_23.5',
+                  odds: {
+                    Pinnacle: { odds1: -110, odds2: -110 },
+                    NoVigApp: { odds1: -110, odds2: -110 }
+                  }
+                },
+                alternate: {
+                  line1: 25.5,
+                  line2: 25.5,
+                  selection1: 'Over 25.5',
+                  selection1Id: 'Total_Games:Over_25.5',
+                  selection2: 'Under 25.5',
+                  selection2Id: 'Total_Games:Under_25.5',
+                  odds: { Pinnacle: { odds1: -110, odds2: -110 } }
+                }
+              }
+            }
+          ]
+        });
+      },
+      queryOddsHistory({ selectionId }) {
+        this.calls.history.push(selectionId);
+        return Promise.resolve(history[selectionId] || {});
+      }
+    };
+
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: 'Total Games',
+      skipTimeCorrection: true
+    });
+
+    assert.deepEqual(
+      plays.map((play) => play.selection).sort(),
+      ['Over 23.5', 'Over 25.5', 'Under 23.5', 'Under 25.5'],
+      'all standard totals should be recovered (Total Games never has alternates)'
+    );
+    assert.deepEqual(
+      client.calls.history.sort(),
+      ['Total_Games:Over_23.5', 'Total_Games:Over_25.5', 'Total_Games:Under_23.5', 'Total_Games:Under_25.5'],
+      'history must be queried for every standard side'
+    );
+  });
+
+  it('keeps standard totals even when distinct lines have tied book coverage', async () => {
+    const client = {
+      queryScreenOdds() {
+        return Promise.resolve({
+          game_data: [
+            {
+              gameId: 'tennis-tied-total',
+              awayTeam: 'A',
+              homeTeam: 'B',
+              selections: {
+                first: {
+                  line1: 22.5,
+                  line2: 22.5,
+                  selection1: 'Over 22.5',
+                  selection2: 'Under 22.5',
+                  odds: { Pinnacle: { odds1: -110, odds2: -110 } }
+                },
+                second: {
+                  line1: 24.5,
+                  line2: 24.5,
+                  selection1: 'Over 24.5',
+                  selection2: 'Under 24.5',
+                  odds: { Pinnacle: { odds1: -110, odds2: -110 } }
+                }
+              }
+            }
+          ]
+        });
+      },
+      queryOddsHistory() {
+        return Promise.resolve({});
+      }
+    };
+
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: 'Total Games',
+      skipTimeCorrection: true
+    });
+
+    assert.deepEqual(
+      plays.map((play) => play.selection).sort(),
+      ['Over 22.5', 'Over 24.5', 'Under 22.5', 'Under 24.5'],
+      'standard totals are kept regardless of book-coverage ties'
+    );
+  });
+
+  it('tolerates unusable odds objects without dropping standard totals', async () => {
+    const client = {
+      queryScreenOdds() {
+        return Promise.resolve({
+          game_data: [
+            {
+              gameId: 'tennis-invalid-total-coverage',
+              awayTeam: 'A',
+              homeTeam: 'B',
+              selections: {
+                apparentPrimary: {
+                  line1: 22.5,
+                  line2: 22.5,
+                  selection1: 'Over 22.5',
+                  selection2: 'Under 22.5',
+                  odds: {
+                    Pinnacle: { odds1: -110, odds2: -110 },
+                    Circa: {},
+                    DraftKings: { odds1: null, odds2: 'not-odds' }
+                  }
+                },
+                alternate: {
+                  line1: 24.5,
+                  line2: 24.5,
+                  selection1: 'Over 24.5',
+                  selection2: 'Under 24.5',
+                  odds: {
+                    Pinnacle: { odds1: -110, odds2: -110 },
+                    Circa: { odds1: -105, odds2: -115 }
+                  }
+                }
+              }
+            }
+          ]
+        });
+      },
+      queryOddsHistory() {
+        return Promise.resolve({});
+      }
+    };
+
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: 'Total Games',
+      skipTimeCorrection: true
+    });
+
+    assert.deepEqual(
+      plays.map((play) => play.selection).sort(),
+      ['Over 22.5', 'Over 24.5', 'Under 22.5', 'Under 24.5'],
+      'unusable odds objects are ignored but never cause standard totals to be dropped'
+    );
+  });
+
+  it('keeps standard Game Handicap ±1.5 and ±2.5 from the full selection matrix', async () => {
+    const client = {
+      calls: { history: [] },
+      queryScreenOdds() {
+        return Promise.resolve({
+          game_data: [
+            {
+              gameId: 'tennis-primary-handicap',
+              awayTeam: 'Norrie',
+              homeTeam: 'Buse',
+              selections: {
+                primary: {
+                  line1: -1.5,
+                  line2: 1.5,
+                  selection1: 'Norrie -1.5',
+                  selection1Id: 'Game_Handicap:Norrie_-1.5',
+                  selection2: 'Buse +1.5',
+                  selection2Id: 'Game_Handicap:Buse_+1.5',
+                  odds: {
+                    Pinnacle: { odds1: -110, odds2: -110 },
+                    NoVigApp: { odds1: -110, odds2: -110 }
+                  }
+                },
+                alternate: {
+                  line1: -2.5,
+                  line2: 2.5,
+                  selection1: 'Norrie -2.5',
+                  selection1Id: 'Game_Handicap:Norrie_-2.5',
+                  selection2: 'Buse +2.5',
+                  selection2Id: 'Game_Handicap:Buse_+2.5',
+                  odds: { Pinnacle: { odds1: -110, odds2: -110 } }
+                }
+              }
+            }
+          ]
+        });
+      },
+      queryOddsHistory({ selectionId }) {
+        this.calls.history.push(selectionId);
+        return Promise.resolve({});
+      }
+    };
+
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: 'Game Handicap',
+      skipTimeCorrection: true
+    });
+
+    assert.deepEqual(
+      plays.map((play) => play.selection).sort(),
+      ['Buse +1.5', 'Buse +2.5', 'Norrie -1.5', 'Norrie -2.5'],
+      'both standard GH lines (±1.5 and ±2.5) should be recovered'
+    );
+    assert.deepEqual(
+      client.calls.history.sort(),
+      ['Game_Handicap:Buse_+1.5', 'Game_Handicap:Buse_+2.5', 'Game_Handicap:Norrie_-1.5', 'Game_Handicap:Norrie_-2.5'],
+      'history must be queried for every standard side'
+    );
+  });
+
+  it('does not promote a row with missing movement evidence to BET', async () => {
+    const client = {
+      queryScreenOdds() {
+        return Promise.resolve({
+          game_data: [
+            {
+              gameId: 'tennis-no-history',
+              awayTeam: 'A',
+              homeTeam: 'B',
+              selections: {
+                primary: {
+                  primary: true,
+                  selection1: 'A',
+                  selection1Id: 'Moneyline:A',
+                  selection2: 'B',
+                  selection2Id: 'Moneyline:B',
+                  odds: { Pinnacle: { odds1: 200, odds2: -250 } }
+                }
+              }
+            }
+          ]
+        });
+      },
+      queryOddsHistory() {
+        return Promise.resolve({});
+      }
+    };
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: 'Moneyline',
+      skipTimeCorrection: true
+    });
+    assert.ok(plays.length > 0);
+    assert.ok(plays.every((play) => play.movementDisposition === 'insufficient'));
+    assert.ok(plays.every((play) => play.verdict === 'CONSIDER'));
   });
 });
 
