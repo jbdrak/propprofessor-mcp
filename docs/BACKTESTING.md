@@ -148,15 +148,29 @@ writes a JSONL ledger (`data/snapshots.jsonl`) of every recommended play, then
 attaches settled results so `computeBacktestMetrics` can score an ever-growing
 history.
 
-### 1. Capture a daily snapshot
+> **Manual-only.** Snapshot capture calls live PropProfessor endpoints, so it
+> requires an explicit `--live` acknowledgment and must never run unattended.
+> There is **no snapshot cron**: the dedicated `scripts/backtest-daily-snapshot.js`
+> wrapper was removed, and no cron, scheduled workflow, watcher, or launch
+> agent may call PropProfessor on a schedule. Public-only operations that
+> never call PropProfessor — ESPN settlement (`resolve-outcomes.js --espn`)
+> and Flashscore/tennis-circuit cache refresh (`scripts/refresh-tennis-circuit.js`)
+> — are a separate, allowed category and may be scheduled.
+
+### 1. Capture a daily snapshot (manual — `--live` required)
 
 ```bash
-# Default provider = live handlers.recommended_bets, writes data/snapshots.jsonl
-node scripts/daily-snapshot.js
+# Default provider = live handlers.quick_screen (recommended), writes data/snapshots.jsonl
+node scripts/daily-snapshot.js --live
 
 # Limit leagues / write to a custom file (also accepts --market)
-node scripts/daily-snapshot.js --leagues NBA,MLB --out /tmp/snap.jsonl
+node scripts/daily-snapshot.js --live --leagues NBA,MLB --out /tmp/snap.jsonl
 ```
+
+Without `--live` the command refuses to run (exit 1, "manual-only" message)
+before touching the ledger or any endpoint. The library path stays
+deterministic: `takeDailySnapshot({ getPlays })` with an injected play source
+needs no `--live` and no network.
 
 Each line captures: `playId` (stable sha256 of gameId+selection+market+book),
 `gameId`, `selection`, `market`, `league`, `book`, `odds`, `tier`, `kaiCall`,

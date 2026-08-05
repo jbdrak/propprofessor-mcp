@@ -174,6 +174,59 @@ pp-backtest --days 30
 
 The runner reads from `~/.propprofessor/picks.json` — the same file used by `pp log` and `pp picks`. It shows total picks, settled records, win rate, P&L, and breakdowns by tier and league. It never fabricates ROI. If no settled picks exist in the range, it says so honestly.
 
+## 📒 Record Keeping — legacy tracker migration
+
+The local record ledger (`PP_RECORD_LEDGER`, default `~/.propprofessor/tracker/ledger.json`) is the v2 source of truth for official bets. To import the old Python tracker's settled bets (`~/.propprofessor/tracker/bets.json`) into the v2 ledger:
+
+```bash
+# Preview what would be imported (dry-run is the default — writes nothing)
+node scripts/migrate-tracker.js
+
+# Machine-readable preview
+node scripts/migrate-tracker.js --json
+
+# Actually migrate (backs up the destination ledger first)
+node scripts/migrate-tracker.js --apply
+```
+
+Safety properties:
+
+- **Dry-run by default** — `--apply` is required to write anything; `--dry-run` is explicit and conflicts with `--apply`.
+- **`bets.json` is never overwritten** — it is read-only input, and the script refuses to run when the source and ledger paths resolve to the same file.
+- **Timestamped backup** — before `--apply` writes, the existing destination ledger is copied to `ledger.json.bak-<timestamp>` (no backup is needed on first migration).
+- **Idempotent** — legacy IDs are preserved, so re-running never double-counts.
+- **No guessed dates** — legacy records carry no event date (only `loggedAt`/`settledAt`), so migrated bets get `eventDate: "unknown"` and can never appear in strict date-filtered reviews. The complete original record is preserved verbatim in each bet's `legacy` metadata, along with the legacy id, status, and P&L (`plUnits`).
+
+### Active workflow — record, review, settle
+
+The day-to-day recordkeeping loop is manual and local-only; nothing polls PropProfessor in the background:
+
+```bash
+# 1. Record the scan — snapshots the scan + normalized candidates into the ledger
+pp scan --record-scan
+
+# 2. Promote reviewed decision cards (BET → official bet; LEAN/PASS update the candidate only)
+pp record-card card.json
+pp record-card --json '<payload>'          # inline card JSON (single card or array)
+
+# 3. Review the ledger (local, read-only)
+pp record stats    --date 2026-08-04 --json
+pp record review   --date 2026-08-04
+pp record pending  --date 2026-08-04
+
+# 4. Settle official bets against supplied authoritative results
+node scripts/settle-record.js --results results.json --date 2026-08-04 --dry-run
+```
+
+Key properties:
+
+- **`--record-scan` is manual only** — it records whenever you run `pp scan --record-scan`; there is no cron job or background poller hitting PropProfessor on a schedule.
+- **Only BET promotes** — `pp record-card` turns explicit `BET` cards into official bet records; `LEAN`/`PASS` update the candidate without creating a bet. Re-importing an already-recorded card is a no-op (idempotent).
+- **`pp record` is local and read-only** — `stats`, `review`, and `pending` modes read the ledger with no network and no writes; `--date` filters by the America/Chicago calendar day of scheduled start, `--json` emits machine-readable output.
+- **Settlement never calls PropProfessor** — `scripts/settle-record.js` (and `lib/record-settlement`) contain no network code. You fetch results yourself (e.g. an ESPN scoreboard dump) and hand them over as a local JSON file; the script matches bets to final scores, computes P&L, and writes the ledger atomically. `--dry-run` reports without writing anything; `--force` re-settles bets that already have a settled status.
+- **Results file provenance is required** — the results file must be an object with non-empty top-level `provider` and `sourceUrl` plus an `events` array; bare event arrays are no longer accepted. A same-ID event never settles on its ID alone: it must also match the bet's participants and fall inside the scheduled date window, and event-specific source URLs are kept only when the top-level provenance is valid. Missing provenance is a CLI usage error (the ledger is never touched), and library callers receive pending records with a precise reason instead of a settlement.
+- **`PP_RECORD_LEDGER` overrides the ledger path** — every command above reads/writes `$PP_RECORD_LEDGER` when set, otherwise the default `~/.propprofessor/tracker/ledger.json`.
+
 ## 🏛 Architecture
 
 PropProfessor MCP follows a layered data pipeline:
@@ -584,33 +637,34 @@ No paid tier. No upsell. The whole codebase is open and the priority is making i
 ## 🔧 For Maintainers
 
 ```bash
-npm test              # 1977 tests, 0 failures
+npm test              # full deterministic suite passes (no exact count — see check:claims)
 npm run test:coverage # ~82% statements
 npm run lint          # clean
 npm run format:check  # clean (npm run format to fix)
 npm run check:version # verifies package.json ↔ CHANGELOG
 ```
 
-Release: push a `v*` tag → CI runs lint + tests on Node 20 + 22 → auto-creates the GitHub release.
+Release: push a `v*` tag → CI runs lint + tests on Node 20 + 22 → publishes to npm → creates the GitHub release.
 
 ## 📚 Docs Index
 
-| Doc                                                                  | What it covers                                                     |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [README](README.md)                                                  | Quick start, auth, CLI reference, tool list, tuning, architecture  |
-| [CONFIG.md](CONFIG.md)                                               | Environment variables, book config, token compression              |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                                   | How to add a tool, testing, PRs                                    |
-| [MAINTAINERS.md](MAINTAINERS.md)                                     | Release process, smoke tests                                       |
-| [docs/METHODOLOGY.md](docs/METHODOLOGY.md)                           | Full ranking math: movement grade → risk score → tier + hysteresis |
-| [docs/BACKTESTING.md](docs/BACKTESTING.md)                           | Synthetic & real-outcome backtest methodology                      |
-| [docs/AGENT_PROMPT.md](docs/AGENT_PROMPT.md)                         | Full system prompt for AI agents using PropProfessor               |
-| [docs/agent-guide.md](docs/agent-guide.md)                           | 5 patterns every AI agent needs (cheat-sheet)                      |
-| [docs/RESPONSE_SHAPES.md](docs/RESPONSE_SHAPES.md)                   | JSON response shapes for all tools                                 |
-| [docs/HERMES_SKILL.md](docs/HERMES_SKILL.md)                         | Hermes Agent integration skill                                     |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                           | Response size, latency benchmarks, token usage                     |
-| [docs/MARKET-BOOK-AVAILABILITY.md](docs/MARKET-BOOK-AVAILABILITY.md) | Which markets each book supports, per league                       |
-| [docs/RELEASES.md](docs/RELEASES.md)                                 | Full release history                                               |
-| [llms.txt](llms.txt)                                                 | AI agent discovery file (compact overview for LLMs)                |
+| Doc                                                                  | What it covers                                                                  |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [README](README.md)                                                  | Quick start, auth, CLI reference, tool list, tuning, architecture               |
+| [CONFIG.md](CONFIG.md)                                               | Environment variables, book config, token compression                           |
+| [INSTALL.md](INSTALL.md)                                             | Install, first-run setup, MCP client wiring                                     |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                   | How to add a tool, testing, PRs                                                 |
+| [MAINTAINERS.md](MAINTAINERS.md)                                     | Release process, smoke tests                                                    |
+| [docs/METHODOLOGY.md](docs/METHODOLOGY.md)                           | Full ranking math: movement grade → risk score → tier + hysteresis              |
+| [docs/BACKTESTING.md](docs/BACKTESTING.md)                           | Synthetic & real-outcome backtest methodology                                   |
+| [docs/AGENT_PROMPT.md](docs/AGENT_PROMPT.md)                         | Full system prompt for AI agents using PropProfessor                            |
+| [docs/agent-guide.md](docs/agent-guide.md)                           | 5 patterns every AI agent needs (cheat-sheet)                                   |
+| [docs/RESPONSE_SHAPES.md](docs/RESPONSE_SHAPES.md)                   | JSON response shapes for all tools                                              |
+| [docs/HERMES_SKILL.md](docs/HERMES_SKILL.md)                         | Hermes Agent integration skill                                                  |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                           | Response size, latency benchmarks, token usage                                  |
+| [docs/MARKET-BOOK-AVAILABILITY.md](docs/MARKET-BOOK-AVAILABILITY.md) | Which markets each book supports, per league                                    |
+| [docs/RELEASES.md](docs/RELEASES.md)                                 | Curated "what's new" notes; [CHANGELOG.md](CHANGELOG.md) is the version history |
+| [llms.txt](llms.txt)                                                 | AI agent discovery file (compact overview for LLMs)                             |
 
 ## 📝 License
 

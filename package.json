@@ -38,7 +38,8 @@
     "CONFIG.md",
     "MAINTAINERS.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "docs/"
   ],
   "repository": {
     "type": "git",
@@ -74,6 +75,8 @@
     "export-screen": "node scripts/export-ranked-screen.js",
     "exe": "node scripts/prop-professor.exe.js",
     "check:version": "node scripts/check-version-consistency.js",
+    "check:package": "node scripts/check-package-contents.js",
+    "check:publish-tree": "node scripts/check-publish-tree.js",
     "check:claims": "node scripts/check-claims.js",
     "check:claims:quick": "node scripts/check-claims.js --quick",
     "check:secrets": "node scripts/check-no-secrets.js",
@@ -88,7 +91,8 @@
     "test:timings": "node test/timings.js",
     "test:ci": "node --test --test-concurrency=1 test/*.test.js",
     "test:coverage": "c8 --reporter=text-summary --reporter=lcov node --test --test-concurrency=1 test/*.test.js",
-    "install:verify": "node --test \"test/quick-screen-cache.test.js\" \"test/ask-routes.test.js\" \"test/propprofessor-tool-definitions.test.js\" \"test/place-bet.test.js\" \"test/today.test.js\" \"test/pipeline.test.js\" \"test/propprofessor-verbosity-param.test.js\" \"test/propprofessor-mcp-server-meta.test.js\" \"test/propprofessor-mcp-server-stderr.test.js\""
+    "install:verify": "node --test \"test/quick-screen-cache.test.js\" \"test/ask-routes.test.js\" \"test/propprofessor-tool-definitions.test.js\" \"test/place-bet.test.js\" \"test/today.test.js\" \"test/pipeline.test.js\" \"test/propprofessor-verbosity-param.test.js\" \"test/propprofessor-mcp-server-meta.test.js\" \"test/propprofessor-mcp-server-stderr.test.js\"",
+    "prepublishOnly": "npm run check:package && npm run check:publish-tree"
   },
   "dependencies": {
     "got-scraping": "^4.2.1"

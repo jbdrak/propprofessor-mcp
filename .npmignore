@@ -1,18 +1,46 @@
+# tests & fixtures — never ship
 test/
-docs/
+*.test.js
+*.test.py
+scripts/test_install*.py
+
+# local data / auth / caches — never ship
+data/
+backtest-data/
+coverage/
+auth.json
+token-cache.json
+*.cookies.json
+ranked-screen-rows.json
+circuit-cache.json
+lib/tennis-schedule-data/flashscore-cache.json
+.propprofessor/
+
+# scratch / dev-time scripts — never ship
+scripts/scan-*
+scripts/_scan-*
+scripts/novig-scan.js
+scripts/check-*
+
+# local audit/plan artifacts — never ship
+docs/plans/
+docs/cron-prompts/
+
+# repo tooling & meta
 hermes/
 .hermes/
-coverage/
-*.test.js
-backtest-data/
 .github/
 .git/
 .gitignore
 .eslintrc*
+.eslintignore
 .prettierrc*
+.prettierignore
 tsconfig.json
 madge*
+Makefile
+llms.txt
+CLEANUP_PLAN.md
 SECURITY.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
-MAINTAINERS.md

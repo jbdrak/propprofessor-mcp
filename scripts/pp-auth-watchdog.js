@@ -2,21 +2,17 @@
 'use strict';
 
 /**
- * PropProfessor Auth Watchdog
+ * PropProfessor Auth Watchdog — MANUAL DIAGNOSTIC
  *
- * Designed for Hermes cron (no_agent: true). Checks cookie session expiry.
+ * Checks cookie session expiry. PropProfessor is manual-only: run this on
+ * demand when you want a session-health readout. There is no supported
+ * cron, scheduled workflow, or unattended schedule for this script.
  * - Silent when session is healthy (>7 days remaining) — no notification sent.
  * - Outputs a warning when session is expiring (≤7 days) or expired.
  * - Exit 0 always (watchdog pattern — non-zero would trigger error alerts).
  *
  * Usage:
  *   node scripts/pp-auth-watchdog.js
- *
- * Cron setup (Hermes):
- *   schedule: "0 9 * * *"  (daily at 9 AM)
- *   no_agent: true
- *   script: "scripts/pp-auth-watchdog.js"
- *   deliver: "origin"
  */
 
 const { resolveAuthFile, readAuthState, getCookieExpiryInfo } = require('../lib/propprofessor-api');
@@ -31,7 +27,7 @@ try {
     process.exit(0);
   }
 
-  // Output warning for cron delivery
+  // Output the warning readout
   const emoji = info.status === 'expired' ? '🔴' : info.status === 'critical' ? '🟡' : '🟠';
   const lines = [
     `${emoji} PropProfessor Auth: ${info.status.toUpperCase()}`,

@@ -17,6 +17,13 @@ import sys
 import json
 import argparse
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+LOCAL_TZ = ZoneInfo("America/Chicago")
+
+
+def local_date_string():
+    return datetime.now(LOCAL_TZ).strftime("%Y-%m-%d")
 
 try:
     from playwright.sync_api import sync_playwright
@@ -25,65 +32,61 @@ except ImportError:
     sys.exit(1)
 
 EXTRACT_JS = """() => {
-    // Find the largest sportName.tennis container
-    const containers = document.querySelectorAll('.sportName.tennis');
-    let container = null;
-    let maxChildren = 0;
-    containers.forEach(c => {
-        if (c.children.length > maxChildren) {
-            maxChildren = c.children.length;
-            container = c;
-        }
-    });
-    if (!container) return { error: "no container found" };
+    // Flashscore splits ATP/WTA and Challenger/ITF into separate containers.
+    // Scrape every container; selecting only the largest one drops the main tour.
+    const containers = Array.from(document.querySelectorAll('.sportName.tennis'));
+    if (!containers.length) return { error: "no container found" };
 
-    const children = Array.from(container.children);
     const results = [];
-    let currentTournament = "";
-    let currentCategory = "";
-    let currentSurface = "";
 
-    for (const el of children) {
-        const cls = typeof el.className === "string" ? el.className : "";
+    for (const container of containers) {
+        const children = Array.from(container.children);
+        let currentTournament = "";
+        let currentCategory = "";
+        let currentSurface = "";
 
-        if (cls.includes("headerLeague")) {
-            const text = el.textContent.trim();
+        for (const el of children) {
+            const cls = typeof el.className === "string" ? el.className : "";
 
-            const catMatch = text.match(
-                /(ATP\\s*-\\s*SINGLES|WTA\\s*-\\s*SINGLES|ATP\\s*-\\s*DOUBLES|WTA\\s*-\\s*DOUBLES|CHALLENGER\\s+MEN\\s*-\\s*SINGLES|CHALLENGER\\s+WOMEN\\s*-\\s*SINGLES|CHALLENGER\\s+MEN\\s*-\\s*DOUBLES|CHALLENGER\\s+WOMEN\\s*-\\s*DOUBLES|ITF\\s+MEN\\s*-\\s*SINGLES|ITF\\s+WOMEN\\s*-\\s*SINGLES|ITF\\s+MEN\\s*-\\s*DOUBLES|ITF\\s+WOMEN\\s*-\\s*DOUBLES)/i
-            );
-            currentCategory = catMatch ? catMatch[1] : "";
+            if (cls.includes("headerLeague")) {
+                const text = el.textContent.trim();
 
-            const catIdx = text.indexOf(currentCategory);
-            if (catIdx > 0) {
-                let raw = text.substring(0, catIdx).trim();
-                currentTournament = raw.replace(/,\\s*(hard|clay|grass|carpet)\\s*$/i, "").trim();
-            } else {
-                currentTournament = text.substring(0, 60);
-            }
+                const catMatch = text.match(
+                    /(ATP\\s*-\\s*SINGLES|WTA\\s*-\\s*SINGLES|ATP\\s*-\\s*DOUBLES|WTA\\s*-\\s*DOUBLES|CHALLENGER\\s+MEN\\s*-\\s*SINGLES|CHALLENGER\\s+WOMEN\\s*-\\s*SINGLES|CHALLENGER\\s+MEN\\s*-\\s*DOUBLES|CHALLENGER\\s+WOMEN\\s*-\\s*DOUBLES|ITF\\s+MEN\\s*-\\s*SINGLES|ITF\\s+WOMEN\\s*-\\s*SINGLES|ITF\\s+MEN\\s*-\\s*DOUBLES|ITF\\s+WOMEN\\s*-\\s*DOUBLES)/i
+                );
+                currentCategory = catMatch ? catMatch[1] : "";
 
-            const surfMatch = text.match(/,\\s*(hard|clay|grass|carpet)\\b/i);
-            currentSurface = surfMatch ? surfMatch[1].toLowerCase() : "";
+                const catIdx = text.indexOf(currentCategory);
+                if (catIdx > 0) {
+                    let raw = text.substring(0, catIdx).trim();
+                    currentTournament = raw.replace(/,\\s*(hard|clay|grass|carpet)\\s*$/i, "").trim();
+                } else {
+                    currentTournament = text.substring(0, 60);
+                }
 
-        } else if (cls.includes("event__match")) {
-            const timeEl = el.querySelector('[class*="event__time"]');
-            const home = el.querySelector('[class*="event__participant--home"]')?.textContent?.trim();
-            const away = el.querySelector('[class*="event__participant--away"]')?.textContent?.trim();
-            const id = el.id?.replace(/^g_\\d+_/, "");
-            const isScheduled = cls.includes("scheduled");
-            const isLive = cls.includes("live");
+                const surfMatch = text.match(/,\\s*(hard|clay|grass|carpet)\\b/i);
+                currentSurface = surfMatch ? surfMatch[1].toLowerCase() : "";
 
-            if (home) {
-                results.push({
-                    id,
-                    time: isScheduled ? (timeEl?.textContent?.trim() || null) : null,
-                    status: isLive ? "live" : isScheduled ? "scheduled" : "finished",
-                    home,
-                    away,
-                    tournament: currentTournament,
-                    category: currentCategory,
-                    surface: currentSurface
-                });
+            } else if (cls.includes("event__match")) {
+                const timeEl = el.querySelector('[class*="event__time"]');
+                const home = el.querySelector('[class*="event__participant--home"]')?.textContent?.trim();
+                const away = el.querySelector('[class*="event__participant--away"]')?.textContent?.trim();
+                const id = el.id?.replace(/^g_\\d+_/, "");
+                const isScheduled = cls.includes("scheduled");
+                const isLive = cls.includes("live");
+
+                if (home) {
+                    results.push({
+                        id,
+                        time: isScheduled ? (timeEl?.textContent?.trim() || null) : null,
+                        status: isLive ? "live" : isScheduled ? "scheduled" : "finished",
+                        home,
+                        away,
+                        tournament: currentTournament,
+                        category: currentCategory,
+                        surface: currentSurface
+                    });
+                }
             }
         }
     }
@@ -138,12 +141,12 @@ def merge_matches(all_matches):
 
 def main():
     parser = argparse.ArgumentParser(description="Scrape Flashscore tennis schedule (3-day window)")
-    parser.add_argument("--date", default=datetime.now().strftime("%Y-%m-%d"),
+    parser.add_argument("--date", default=local_date_string(),
                         help="Center date to scrape (YYYY-MM-DD). Also scrapes +/- 1 day.")
     args = parser.parse_args()
 
     center = datetime.strptime(args.date, "%Y-%m-%d")
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = args.date
     dates = [
         (center - timedelta(days=1)).strftime("%Y-%m-%d"),
         today_str,

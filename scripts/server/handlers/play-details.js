@@ -25,6 +25,7 @@ function createPlayDetailsHandlers(_client, _ctx) {
     const rawGameIds = Array.isArray(args.gameIds) ? args.gameIds : [];
     const gameIds = Array.from(new Set(rawGameIds.map((id) => String(id == null ? '' : id).trim()).filter(Boolean)));
     if (!league || !gameIds.length) {
+      /** @type {Error & {code?: string, category?: string, status?: number}} */
       const error = new Error('league and gameIds are required.');
       error.code = 'MISSING_PARAMS';
       error.category = 'validation';
@@ -110,15 +111,17 @@ function createPlayDetailsHandlers(_client, _ctx) {
         args: { ...args, compact: false, skipHistory: false, historySportsbooks: augmentedBooksExcluded },
         league,
         focusBook,
-        rankRows: (hydratedRows, { debug } = {}) =>
-          rankLeagueScreenRows(hydratedRows, {
+        rankRows: (hydratedRows, options = {}) => {
+          const debug = Boolean(/** @type {any} */ (options).debug);
+          return rankLeagueScreenRows(hydratedRows, {
             league,
             market,
             limit: gameIds.length * 4,
             books: augmentedBooks,
             includeAll: true,
             debug
-          })
+          });
+        }
       });
     } catch (err) {
       return {

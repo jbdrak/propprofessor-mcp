@@ -9,9 +9,10 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         node-version: [20, 22]
     steps:
@@ -25,7 +26,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # --include=dev ensures devDependencies are installed even when
+        # npm's global config has omit=dev set (can happen in some CI
+        # environments or when the user's npm config leaks in).
+        run: npm ci --include=dev
 
       - name: Check version consistency
         run: npm run check:version
@@ -36,17 +40,14 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      - name: Check JSDoc types
+        run: npm run check:types
+
       - name: Run tests
         run: npm test
 
-      - name: Create GitHub release
-        if: matrix.node-version == 20
-        uses: softprops/action-gh-release@v3
-        with:
-          generate_release_notes: true
-
   publish:
-    needs: release
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -56,12 +57,30 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 20
+          cache: npm
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=dev
+
+      - name: Check version consistency
+        run: npm run check:version
+
+      - name: Check package content
+        run: npm run check:package
+
+      - name: Check publish tree
+        run: npm run check:publish-tree
 
       - name: Publish to npm
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release
+        # Only after npm publish succeeds, so a failed publish never
+        # leaves an orphan GitHub release. softprops/action-gh-release
+        # is idempotent for re-running this step.
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true

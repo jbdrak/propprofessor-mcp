@@ -176,6 +176,22 @@ test('resolveMarketName Handicap alias', async (t) => {
   });
 });
 
+test('resolveMarketName keeps Tennis Set Handicap distinct from Game Handicap', () => {
+  assert.deepStrictEqual(resolveMarketName('Set Handicap', 'Tennis'), {
+    resolved: 'Set Handicap',
+    wasAliased: true,
+    original: 'Set Handicap',
+    aliasKey: 'set_handicap'
+  });
+  assert.deepStrictEqual(resolveMarketName('set_handicap', 'Tennis'), {
+    resolved: 'Set Handicap',
+    wasAliased: true,
+    original: 'set_handicap',
+    aliasKey: 'set_handicap'
+  });
+  assert.equal(resolveMarketName('handicap', 'Tennis').resolved, 'Game Handicap');
+});
+
 test('resolveMarketName case/whitespace/shorthand', async (t) => {
   await t.test('whitespace trimmed + Total -> "Total Goals"', () => {
     assert.deepStrictEqual(resolveMarketName('  total  ', 'NHL'), {

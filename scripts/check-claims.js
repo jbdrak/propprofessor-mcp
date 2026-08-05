@@ -11,7 +11,10 @@
  * Checks:
  *   1. Tool count consistency: lib/propprofessor-tool-definitions.js vs docs/openapi.json vs README's "N tools" claim
  *   2. Tool name validation: every tool name in README's "All N tools" section exists in tool definitions
- *   3. Test count: README's "M tests passing" matches npm test output
+ *   3. Test count: only verified when README carries an exact test-count claim (then it must match npm test
+ *      output). Absence of a claim is VALID — the README deliberately uses non-volatile wording
+ *      ("full deterministic suite passes") so suite growth doesn't churn docs. When no claim exists,
+ *      npm test is not run at all.
  *   4. TIER 4 ≤ TIER 2 inversion: the claim that TIER 4 risk flags are directionally correct
  *      (README: "TIER 4 > TIER 2 inversion | Fixed in v1.5.1")
  *
@@ -142,32 +145,36 @@ const skipTests = process.argv.includes('--skip-tests') || process.argv.includes
 console.log(`\nTest count:${skipTests ? ' (skipped via --skip-tests or --quick)' : ''}`);
 
 if (!skipTests) {
-  try {
-    const testOutput = execSync('npm test', {
-      encoding: 'utf8',
-      cwd: repoRoot,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-    // node --test emits the summary in one of two formats depending on Node
-    // version: older versions used `# pass N`, newer versions use `ℹ pass N`
-    // (with the info glyph). Match either so the script works on both.
-    const passMatch = testOutput.match(/^[#\s]*[ℹ#]\s*pass\s+(\d+)/m);
-    if (!passMatch) {
-      warn(`Could not parse test count from npm test output`);
-    } else {
-      const testCount = parseInt(passMatch[1], 10);
-      // Find any test-count claim in README. Matches three forms:
-      //   - "966 passing" / "966 tests passing" (prose)
-      //   - "# 966 tests, 0 failures" / "full suite (966 tests)" (maintainers prose)
-      //   - badge URL "tests-966%20passing" (URL-encoded whitespace)
-      const testClaimMatches = [
-        ...readme.matchAll(/(\d+)\s+(?:tests?\s+)?passing/gi),
-        ...readme.matchAll(/[#(\s](\d+)\s+tests\b/gi),
-        ...readme.matchAll(/tests-(\d+)%20passing/gi)
-      ];
-      if (testClaimMatches.length === 0) {
-        warn(`No test count claim found in README to verify against actual ${testCount}`);
+  // Find any test-count claim in README. Matches three forms:
+  //   - "966 passing" / "966 tests passing" (prose)
+  //   - "# 966 tests, 0 failures" / "full suite (966 tests)" (maintainers prose)
+  //   - badge URL "tests-966%20passing" (URL-encoded whitespace)
+  const testClaimMatches = [
+    ...readme.matchAll(/(\d+)\s+(?:tests?\s+)?passing/gi),
+    ...readme.matchAll(/[#(\s](\d+)\s+tests\b/gi),
+    ...readme.matchAll(/tests-(\d+)%20passing/gi)
+  ];
+
+  if (testClaimMatches.length === 0) {
+    // No exact test-count claim is the EXPECTED state: README deliberately uses
+    // non-volatile wording ("full deterministic suite passes") so suite growth
+    // doesn't churn docs. Nothing to verify — and no reason to run npm test.
+    ok('No exact test-count claim in README — non-volatile "full suite passes" wording is in effect, nothing to verify');
+  } else {
+    try {
+      const testOutput = execSync('npm test', {
+        encoding: 'utf8',
+        cwd: repoRoot,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      // node --test emits the summary in one of two formats depending on Node
+      // version: older versions used `# pass N`, newer versions use `ℹ pass N`
+      // (with the info glyph). Match either so the script works on both.
+      const passMatch = testOutput.match(/^[#\s]*[ℹ#]\s*pass\s+(\d+)/m);
+      if (!passMatch) {
+        warn(`Could not parse test count from npm test output`);
       } else {
+        const testCount = parseInt(passMatch[1], 10);
         // All test count claims should agree with each other and with the actual count
         const claimedCounts = [...new Set(testClaimMatches.map((m) => parseInt(m[1], 10)))];
         const claimMismatch = claimedCounts.find((c) => c !== testCount);
@@ -179,22 +186,22 @@ if (!skipTests) {
           ok(`Test count (${testCount}) matches all ${testClaimMatches.length} claim(s) in README`);
         }
       }
-    }
-  } catch (err) {
-    // npm test can fail if there are real test failures — surface them but don't
-    // mask the claim check. Exit code 1 from npm test shows real failures.
-    if (err.status && err.stdout) {
-      const passMatch = err.stdout.match(/^[#\s]*[ℹ#]\s*pass\s+(\d+)/m);
-      if (passMatch) {
-        const testCount = parseInt(passMatch[1], 10);
-        fail(
-          `npm test exited with code ${err.status}. Actual test count: ${testCount}. Fix the failing test(s) before re-running check:claims.`
-        );
+    } catch (err) {
+      // npm test can fail if there are real test failures — surface them but don't
+      // mask the claim check. Exit code 1 from npm test shows real failures.
+      if (err.status && err.stdout) {
+        const passMatch = err.stdout.match(/^[#\s]*[ℹ#]\s*pass\s+(\d+)/m);
+        if (passMatch) {
+          const testCount = parseInt(passMatch[1], 10);
+          fail(
+            `npm test exited with code ${err.status}. Actual test count: ${testCount}. Fix the failing test(s) before re-running check:claims.`
+          );
+        } else {
+          fail(`npm test failed with exit code ${err.status}. Run \`npm test\` to see the failure.`);
+        }
       } else {
-        fail(`npm test failed with exit code ${err.status}. Run \`npm test\` to see the failure.`);
+        fail(`npm test failed to run: ${err.message.slice(0, 200)}`);
       }
-    } else {
-      fail(`npm test failed to run: ${err.message.slice(0, 200)}`);
     }
   }
 }

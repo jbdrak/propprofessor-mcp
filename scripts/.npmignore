@@ -1,0 +1,9 @@
+# scratch / dev-time scripts — never ship (see also root .npmignore)
+# The root .npmignore cannot exclude files under a `files[]`-whitelisted
+# directory, so each whitelisted dir needs its own .npmignore.
+_scan-*
+scan-*
+check-*
+novig-scan.js
+test_install*.py
+*.test.py

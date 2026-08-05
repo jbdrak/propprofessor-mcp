@@ -15,8 +15,9 @@
  *   node scripts/pp-token-watchdog.js          # silent if token is fresh
  *   node scripts/pp-token-watchdog.js --force  # always refresh
  *
- * The script does NOT need to be scheduled via cron in v2.1.5+. If you
- * previously had a `slash-5 18-23 * * *` cron driving this, you can remove it.
+ * This script is manual-only: no cron, scheduled workflow, or unattended
+ * schedule drives it. PropProfessor is manual-only — run it when you want
+ * a forced refresh, not on a timer.
  *
  * Why it still exists:
  * - Manual diagnostics: confirm the CDP path works without going through

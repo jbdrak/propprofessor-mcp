@@ -1,0 +1,2 @@
+# local runtime cache — never ship (regenerated per environment)
+flashscore-cache.json

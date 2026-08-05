@@ -1,0 +1,3 @@
+# local audit/plan artifacts — never ship
+plans/
+cron-prompts/

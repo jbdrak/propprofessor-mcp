@@ -178,4 +178,31 @@ describe('daily snapshot + outcome-resolution pipeline', () => {
     assert.equal(res.resolved, 1);
     assert.equal(res.unresolved, 1);
   });
+
+  it('refuses the default live provider without --live (manual-only gate)', async () => {
+    const refusedFile = path.join(tmpDir, 'refused.jsonl');
+    await assert.rejects(
+      () => takeDailySnapshot({ outFile: refusedFile }),
+      /manual-only/,
+      'default (live) provider must require an explicit --live acknowledgment'
+    );
+    // Refusal must be side-effect free: nothing written, no data dir created.
+    assert.ok(!fs.existsSync(refusedFile), 'refusal must not write the ledger');
+  });
+
+  it('accepts --live acknowledgment and still works with an injected provider', async () => {
+    const file = path.join(tmpDir, 'live-ack.jsonl');
+    const result = await takeDailySnapshot({ live: true, getPlays: async () => FAKE_PLAYS, outFile: file });
+    assert.equal(result.written, 2, 'injected-provider path stays deterministic with --live');
+  });
+
+  it('CLI refuses to run without --live and touches no network', () => {
+    const { spawnSync } = require('node:child_process');
+    const res = spawnSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'daily-snapshot.js')], {
+      encoding: 'utf8',
+      timeout: 20000
+    });
+    assert.equal(res.status, 1, `CLI should exit 1 without --live (got status ${res.status})`);
+    assert.match(res.stderr, /manual-only/, 'CLI should explain the manual-only refusal');
+  });
 });

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { backtest, parseArgs, resolveSnapshot } = require('../scripts/backtest');
+const { backtest, parseArgs, resolveSnapshot, takeSnapshot } = require('../scripts/backtest');
 
 const DATA_DIR = path.join(__dirname, '..', 'backtest-data');
 
@@ -51,6 +51,17 @@ describe('backtest CLI', () => {
       assert.equal(opts.wins, 5);
       assert.equal(opts.losses, 2);
       assert.equal(opts.pushes, 1);
+    });
+
+    it('parses --live acknowledgment flag', () => {
+      const opts = parseArgs(['node', 'backtest.js', '--snapshot', '--live']);
+      assert.equal(opts.snapshot, true);
+      assert.equal(opts.live, true);
+    });
+
+    it('--live is absent by default', () => {
+      const opts = parseArgs(['node', 'backtest.js', '--snapshot']);
+      assert.equal(opts.live, false);
     });
   });
 
@@ -123,6 +134,35 @@ describe('backtest CLI', () => {
         // If it throws, that's also acceptable — the test just ensures no silent crash
         assert.ok(e.message);
       }
+    });
+
+    it('takeSnapshot refuses to call PropProfessor without --live (manual-only gate)', async () => {
+      await assert.rejects(
+        () => takeSnapshot({ league: 'MLB', market: 'Moneyline', live: false }),
+        /manual-only/,
+        'snapshot capture must require an explicit --live acknowledgment'
+      );
+    });
+
+    it('forwards --live through the main snapshot path without touching the network', async () => {
+      let received;
+      const result = await backtest(
+        { snapshot: 'MLB', market: 'Moneyline', tag: 'manual', live: true },
+        {
+          takeSnapshot: async (options) => {
+            received = options;
+            return { ok: true };
+          }
+        }
+      );
+
+      assert.equal(result.ok, true);
+      assert.deepEqual(received, {
+        league: 'MLB',
+        market: 'Moneyline',
+        tag: 'manual',
+        live: true
+      });
     });
   });
 });

@@ -9,9 +9,11 @@
 // The PropProfessor API doesn't serve historical resolved results, so this
 // script takes a snapshot-based approach:
 //
-//   1. `backtest --snapshot [league] [market]` — fetches current screen
-//      data, classifies each row by confidence tier, and saves to
-//      backtest-data/YYYY-MM-DD-league-market.json
+//   1. `backtest --snapshot [league] [market] --live` — fetches current
+//      screen data, classifies each row by confidence tier, and saves to
+//      backtest-data/YYYY-MM-DD-league-market.json. The `--live` flag is
+//      required: PropProfessor is manual-only, and snapshot capture calls
+//      live PropProfessor endpoints. There is no scheduled/unattended path.
 //
 //   2. `backtest [league] [market] [days]` — loads saved snapshots from
 //      the last N days and reports aggregate tier distribution (no outcome
@@ -30,10 +32,10 @@ const { getConfidenceTier } = require('../lib/propprofessor-risk-score');
 const { DEFAULT_LEAGUES } = require('../lib/propprofessor-shared-utils');
 const { computeBacktestMetrics } = require('../lib/propprofessor-backtest-metrics');
 
-// Defense-in-depth league guard. The cron wrapper
-// (scripts/backtest-daily-snapshot.js) validates, but anyone calling
-// takeSnapshot() directly — e.g. via `pp-query backtest` or as a library
-// — would otherwise pollute backtest-data/ with garbage filenames.
+// Defense-in-depth league guard. PropProfessor is manual-only — snapshot
+// capture requires an explicit `--live` acknowledgment (see takeSnapshot)
+// and must never run unattended. Anyone calling takeSnapshot() directly —
+// e.g. via `pp-query backtest` or as a library — hits the same gates.
 // Keep this in sync with DEFAULT_LEAGUES (single source of truth).
 const SUPPORTED_LEAGUES = new Set(DEFAULT_LEAGUES.map((l) => l.toUpperCase()));
 
@@ -67,7 +69,19 @@ function parseArgs(argv) {
   for (let i = 0; i < args.length; i++) {
     if (args[i].startsWith('--')) {
       const [k, v] = args[i].split(/=(.+)/);
-      flags[k.replace('--', '')] = v || args[++i] || true;
+      if (v !== undefined) {
+        flags[k.replace('--', '')] = v;
+      } else {
+        // Bare boolean flag: consume the next token ONLY if it is a value
+        // (not another flag), so `--snapshot --live` parses both flags.
+        const next = args[i + 1];
+        if (next !== undefined && !next.startsWith('--')) {
+          flags[k.replace('--', '')] = next;
+          i += 1;
+        } else {
+          flags[k.replace('--', '')] = true;
+        }
+      }
     } else {
       positional.push(args[i]);
     }
@@ -83,7 +97,8 @@ function parseArgs(argv) {
     metrics: flags.metrics || null,
     wins: parseInt(flags.wins, 10) || 0,
     losses: parseInt(flags.losses, 10) || 0,
-    pushes: parseInt(flags.pushes, 10) || 0
+    pushes: parseInt(flags.pushes, 10) || 0,
+    live: flags.live !== undefined
   };
 }
 
@@ -91,9 +106,18 @@ function parseArgs(argv) {
 // Core: fetch + classify + save snapshot
 // ---------------------------------------------------------------------------
 
-async function takeSnapshot({ league, market, tag }) {
+async function takeSnapshot({ league, market, tag, live }) {
   if (!SUPPORTED_LEAGUES.has(String(league || '').toUpperCase())) {
     throw new Error(`Unsupported league: "${league}". Supported: ${[...SUPPORTED_LEAGUES].sort().join(', ')}`);
+  }
+  // Manual-only gate: snapshot capture always calls live PropProfessor
+  // endpoints (createPropProfessorClient → queryScreenOdds). Require an
+  // explicit --live acknowledgment on every invocation; there is no
+  // unattended/scheduled path.
+  if (!live) {
+    throw new Error(
+      'manual-only: PropProfessor is manual-only — pass --live to acknowledge this snapshot calls live PropProfessor endpoints'
+    );
   }
   ensureDataDir();
   const client = createPropProfessorClient();
@@ -274,7 +298,7 @@ function reportMetrics(file) {
 // Entry point
 // ---------------------------------------------------------------------------
 
-async function main(opts) {
+async function main(opts, deps = {}) {
   if (opts.metrics) {
     return reportMetrics(opts.metrics);
   }
@@ -284,7 +308,8 @@ async function main(opts) {
   if (opts.snapshot) {
     const leagueOpt = typeof opts.snapshot === 'string' ? opts.snapshot : opts.league;
     const marketOpt = opts.market;
-    return takeSnapshot({ league: leagueOpt, market: marketOpt, tag: opts.tag });
+    const snapshot = deps.takeSnapshot || takeSnapshot;
+    return snapshot({ league: leagueOpt, market: marketOpt, tag: opts.tag, live: opts.live });
   }
   return aggregate({ league: opts.league, market: opts.market, days: opts.days });
 }

@@ -215,6 +215,11 @@ describe('flashscoreTimeToISO', () => {
     assert.ok(iso.includes('T04:00'), `expected 23:00 CDT -> 04:00 UTC: ${iso}`);
   });
 
+  it('uses CST for winter dates', () => {
+    const iso = flashscoreTimeToISO('10:00', '2026-01-15');
+    assert.equal(iso, '2026-01-15T16:00:00.000Z');
+  });
+
   it('returns null for invalid time', () => {
     assert.equal(flashscoreTimeToISO(null, '2026-07-29'), null);
     assert.equal(flashscoreTimeToISO('22:10', null), null);

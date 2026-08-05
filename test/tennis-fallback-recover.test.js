@@ -33,8 +33,9 @@ function supportiveHistory(baseOdds, targetOdds) {
 /**
  * Market-specific screen data builders.
  * RecoverTennisFromScreen iterates [Moneyline, Game Handicap, Total Games]
- * and calls queryScreenOdds once per market — so we need to return only
- * the selections relevant to the requested market.
+ * by default (Set Handicap is explicit-only) and calls queryScreenOdds once
+ * per market — so we need to return only the selections relevant to the
+ * requested market.
  */
 
 const MARKET_FIXTURES = {
@@ -106,6 +107,29 @@ const MARKET_FIXTURES = {
       }
     ]
   },
+  'Set Handicap': {
+    game_data: [
+      {
+        gameId: 'tennis-20260730-djokovic-alcaraz',
+        awayTeam: 'Novak Djokovic',
+        homeTeam: 'Carlos Alcaraz',
+        start: '2026-07-30T18:00:00Z',
+        selections: {
+          sh_standard: {
+            selection1: 'Novak Djokovic -1.5',
+            selection1Id: 'Set_Handicap:Novak_Djokovic_-1.5',
+            participant1: 'Novak Djokovic',
+            selection2: 'Carlos Alcaraz +1.5',
+            selection2Id: 'Set_Handicap:Carlos_Alcaraz_+1.5',
+            participant2: 'Carlos Alcaraz',
+            odds: {
+              Pinnacle: { odds1: -105, odds2: -115 }
+            }
+          }
+        }
+      }
+    ]
+  },
   'Total Games': {
     game_data: [
       {
@@ -143,6 +167,7 @@ const TENNIS_HISTORY = {
   'Game_Handicap:Novak_Djokovic_-1.5': supportiveHistory(-110, -130),
   'Game_Handicap:Novak_Djokovic_-2.5': supportiveHistory(-105, -120),
   'Game_Handicap:Novak_Djokovic_-4.5': supportiveHistory(-110, -130),
+  'Set_Handicap:Novak_Djokovic_-1.5': supportiveHistory(-105, -125),
   'Total_Games:Over_22.5': supportiveHistory(-110, -125)
 };
 
@@ -234,7 +259,10 @@ describe('recoverTennisFromScreen — alternate line filtering', () => {
 
   it('keeps standard Game Handicap ±1.5', async () => {
     const plays = await recoverTennisFromScreen({ client, book: 'Pinnacle', skipTimeCorrection: true });
-    const gh15 = plays.filter((p) => p.selection === 'Novak Djokovic -1.5' || p.selection === 'Carlos Alcaraz +1.5');
+    const gh15 = plays.filter(
+      (p) =>
+        p.market === 'Game Handicap' && (p.selection === 'Novak Djokovic -1.5' || p.selection === 'Carlos Alcaraz +1.5')
+    );
     assert.equal(gh15.length, 2, 'standard GH ±1.5 should be kept');
   });
 
@@ -265,6 +293,53 @@ describe('recoverTennisFromScreen — Total Games', () => {
   });
 });
 
+describe('recoverTennisFromScreen — Set Handicap', () => {
+  it('queries and preserves Set Handicap as its own standard market', async () => {
+    const client = createMockClient();
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: 'Set Handicap',
+      skipTimeCorrection: true
+    });
+    const setPlays = plays;
+    assert.equal(setPlays.length, 2, 'both Set Handicap sides should be present');
+    assert.deepEqual(
+      client.calls.screen.map((call) => call.market),
+      ['Set Handicap']
+    );
+    assert.ok(
+      client.calls.history.some((call) => call.selectionId?.startsWith('Set_Handicap:')),
+      'Set Handicap selection IDs should be sent to odds history'
+    );
+  });
+
+  it('normalizes CLI-style aliases before querying the backend', async () => {
+    const client = createMockClient();
+    await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: ['ml', 'handicap', 'set handicap'],
+      skipTimeCorrection: true
+    });
+
+    assert.deepEqual(
+      client.calls.screen.map((call) => call.market),
+      ['Moneyline', 'Game Handicap', 'Set Handicap']
+    );
+  });
+
+  it('falls back to the standard markets when the explicit list is empty', async () => {
+    const client = createMockClient();
+    await recoverTennisFromScreen({ client, book: 'Pinnacle', markets: [], skipTimeCorrection: true });
+
+    assert.deepEqual(
+      client.calls.screen.map((call) => call.market),
+      ['Moneyline', 'Game Handicap', 'Total Games']
+    );
+  });
+});
+
 describe('recoverTennisFromScreen — market completeness', () => {
   let client;
   let plays;
@@ -274,11 +349,22 @@ describe('recoverTennisFromScreen — market completeness', () => {
     plays = await recoverTennisFromScreen({ client, book: 'Pinnacle', skipTimeCorrection: true });
   });
 
-  it('returns plays across all three standard markets', () => {
+  it('returns plays across the three standard markets and excludes Set Handicap', () => {
     const markets = new Set(plays.map((p) => p.market));
     assert.ok(markets.has('Moneyline'), 'Moneyline should be present');
     assert.ok(markets.has('Game Handicap'), 'Game Handicap should be present');
     assert.ok(markets.has('Total Games'), 'Total Games should be present');
+    assert.ok(!markets.has('Set Handicap'), 'Set Handicap must not appear in default recovery');
+  });
+
+  it('does not query Set Handicap by default', () => {
+    const queried = new Set(client.calls.screen.map((call) => call.market));
+    assert.ok(!queried.has('Set Handicap'), 'default recovery must not issue Set Handicap screen queries');
+    assert.deepEqual(
+      [...queried].sort(),
+      ['Game Handicap', 'Moneyline', 'Total Games'],
+      'only the three standard markets should be queried'
+    );
   });
 
   it('every play has required fields', () => {

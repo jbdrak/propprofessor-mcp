@@ -18,11 +18,16 @@
  * Mock-friendly: the play source is injectable via `getPlays`, so the script
  * is fully testable without network access or a live API client. When no
  * `getPlays` is supplied, the default provider calls the real MCP handlers
- * (recommended_bets) through a live PropProfessor client.
+ * (quick_screen mode='recommended') through a live PropProfessor client —
+ * which is why the CLI requires the `--live` acknowledgment.
  *
  * Usage (CLI):
- *   node scripts/daily-snapshot.js                 # default provider, data/snapshots.jsonl
- *   node scripts/daily-snapshot.js --out /tmp/x.jsonl --leagues NBA,MLB
+ *   node scripts/daily-snapshot.js --live           # default provider, data/snapshots.jsonl
+ *   node scripts/daily-snapshot.js --live --out /tmp/x.jsonl --leagues NBA,MLB
+ *
+ * The CLI always uses the live PropProfessor provider, so `--live` is
+ * required as a manual-only acknowledgment. The library path stays
+ * deterministic: `takeDailySnapshot({ getPlays })` needs no `--live`.
  *
  * Library:
  *   const { takeDailySnapshot } = require('./daily-snapshot');
@@ -127,14 +132,27 @@ async function defaultGetPlays({ leagues, market } = {}) {
 /**
  * Take a daily snapshot.
  *
+ * Manual-only: the default provider (used when no `getPlays` is supplied)
+ * calls live PropProfessor endpoints, so it requires `opts.live` as an
+ * explicit acknowledgment. Injected/fixture providers are deterministic
+ * and need no `--live`.
+ *
  * @param {Object} [opts]
  * @param {Function} [opts.getPlays] - async ()=>Array<normalized|raw play> source
+ * @param {boolean}  [opts.live]     - required acknowledgment when using the default (live) provider
  * @param {string}   [opts.outFile]  - jsonl path (default data/snapshots.jsonl)
  * @param {string[]} [opts.leagues]  - leagues for default provider
  * @param {string}   [opts.market]   - market for default provider
  * @returns {Promise<{written:number, skipped:number, totalPlays:number, outFile:string}>}
  */
 async function takeDailySnapshot(opts = {}) {
+  // Manual-only gate: refuse the default (live) provider without an
+  // explicit acknowledgment, BEFORE any side effects (no ledger, no dirs).
+  if (!opts.getPlays && !opts.live) {
+    throw new Error(
+      'manual-only: PropProfessor is manual-only — pass --live to acknowledge this command calls live PropProfessor endpoints'
+    );
+  }
   const outFile = opts.outFile || SNAPSHOT_FILE;
   const dir = path.dirname(outFile);
   fs.mkdirSync(dir, { recursive: true });
@@ -208,7 +226,8 @@ async function main() {
   const result = await takeDailySnapshot({
     outFile: flags.out || undefined,
     leagues,
-    market: typeof flags.market === 'string' ? flags.market : undefined
+    market: typeof flags.market === 'string' ? flags.market : undefined,
+    live: flags.live !== undefined
   });
   console.log(
     `daily-snapshot: wrote ${result.written} new play(s), skipped ${result.skipped} ` +

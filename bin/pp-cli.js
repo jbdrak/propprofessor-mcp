@@ -8,6 +8,7 @@
  */
 
 const PROJECT = __dirname.replace(/\/bin$/, '');
+const fs = require('node:fs');
 const { createPropProfessorClient } = require(PROJECT + '/lib/propprofessor-api');
 const { createMcpHandlers } = require(PROJECT + '/scripts/server/handlers');
 const { getLocalTimezone } = require(PROJECT + '/lib/mcp-runtime-config');
@@ -20,6 +21,10 @@ const {
   buildSnapshotFromResults,
   mergeSnapshotEntries
 } = require(PROJECT + '/lib/pp-scan-snapshot-store');
+const { loadLedger, saveLedger, addRecord, defaultLedgerPath } = require(PROJECT + '/lib/record-ledger');
+const { normalizeScanCandidates } = require(PROJECT + '/lib/record-candidates');
+const { promoteCards } = require(PROJECT + '/lib/record-card');
+const reviewRecord = require(PROJECT + '/scripts/review-record');
 
 // ── color support ───────────────────────────────────────────────
 
@@ -133,6 +138,8 @@ Commands:
   today      Today's slate + pending picks
   picks      Recent pick history
   log        Log a pick
+  record     Review official bets + P&L from the tracker ledger (stats/review/pending)
+  record-card  Record a reviewed decision card into the tracker ledger
   player     Player context + injury/risk flags
   prices     Compare prices across books
   rank       Ranked plays for a league
@@ -161,6 +168,7 @@ Flags:
   --validate-all            Full validation on all candidates (slow)
   --tz <IANA>                Timezone for display (default: America/Chicago). Overrides LOCALTIMEZONE env var.
   --no-tennis-fallback       Disable fallback recovery when tennis scan returns 0 plays
+  --record-scan              Record scan + normalized candidates to the tracker ledger (PP_RECORD_LEDGER, default ~/.propprofessor/tracker/ledger.json)
 
 Examples:
   pp scan tennis wnba
@@ -221,6 +229,59 @@ Flags:
   -t, --tier <name>         Confidence tier (TIER 1, TIER 2)
   -n, --notes <text>        Optional notes
   -j, --json                Raw JSON output
+`,
+    'record-card': `pp record-card <card.json> [flags]
+
+Record a reviewed decision card into the tracker ledger (PP_RECORD_LEDGER,
+default ~/.propprofessor/tracker/ledger.json). Promotes explicit BET cards
+into official bet records; LEAN/PASS update the candidate without creating
+a bet. Idempotent — re-importing an already recorded card is a no-op.
+
+Input (one required, not both):
+  <card.json>               Path to a card JSON file (single card or array)
+  --json '<payload>'        Inline card JSON (single card or array)
+
+Card fields:
+  candidateId           required — candidate id from a recorded scan
+  decision              required — BET | LEAN | PASS
+  odds                  required for BET — price at decision time
+  stake                 required for BET — positive stake amount
+  researchSummary       required for BET
+  decisionSource        required — who/what produced the decision
+  scheduleVerification  required for BET — event time/identity resolved
+  lineVerification      required for BET — line/price confirmed
+  notes                 optional
+
+Flags:
+  -j, --json            Machine-readable JSON result on stdout (bare --json;
+                        a string value is the inline card payload)
+
+Exit status:
+  0 — all cards recorded (duplicates count as success)
+  1 — malformed/missing input or any rejected card; ledger not modified
+`,
+    record: `pp record <stats|review|pending> [flags]
+
+Review official bets, P&L, and raw candidates from the tracker ledger
+(PP_RECORD_LEDGER, default ~/.propprofessor/tracker/ledger.json). Local and
+read-only — no network, no ledger writes.
+
+Modes:
+  stats    Official W-L-P-V record, American-odds P&L with stake-weighted
+           ROI, splits by sport/market/tier/movement/decisionSource,
+           candidate counts, unresolved/delayed/retirement counts, and
+           settlement source URLs.
+  review   stats plus one line per official bet in scope.
+  pending  Unresolved/delayed/retirement bets with settlement evidence.
+
+Flags:
+  --date YYYY-MM-DD   America/Chicago calendar day of scheduled start
+  -j, --json          Machine-readable JSON on stdout
+
+Exit status:
+  0 — success (including no-data)
+  1 — ledger read errors
+  2 — usage errors (unknown mode, malformed --date)
 `,
     player: `pp player <name> [flags]
 
@@ -475,6 +536,233 @@ function formatError(err, context) {
   return 'Error: ' + msg;
 }
 
+// ── scan recording (--record-scan) ─────────────────────────────
+
+/**
+ * Persist a scan run and its normalized candidates to the tracker ledger.
+ *
+ * Idempotent by construction: lib/record-ledger.addRecord derives the scan id
+ * from the scan record's content (id/createdAt excluded from the hash), so
+ * re-recording an identical scan returns duplicate:true instead of appending.
+ * Candidate ids embed the scan id, so a re-run re-uses the same candidate ids
+ * and the candidate collection also stays stable.
+ *
+ * Recording status is reported on stderr only — nothing is written to stdout,
+ * so `--json` output remains valid JSON.
+ *
+ * @param {Array} results - assembled scan results (league/market blocks)
+ * @param {Object} [context] - scan inputs used for the scan record
+ * @returns {{ok: boolean, duplicate?: boolean, scanId?: string, ledgerPath?: string, added?: number, duplicates?: number, candidates?: number, error?: string}}
+ */
+function recordScanResults(results, context = {}) {
+  const ledgerPath = process.env.PP_RECORD_LEDGER || defaultLedgerPath();
+  const loaded = loadLedger();
+  if (!loaded.ok) {
+    console.error('record-scan: ' + loaded.error);
+    return { ok: false, error: loaded.error };
+  }
+  const ledger = loaded.ledger;
+  const playCount = Array.isArray(results)
+    ? results.reduce((sum, r) => sum + (Array.isArray(r && r.plays) ? r.plays.length : 0), 0)
+    : 0;
+  const scanRecord = {
+    source: 'pp-cli',
+    command: 'scan',
+    leagues: context.leagues || null,
+    markets: context.markets || null,
+    book: context.book || null,
+    tiers: context.tiers || null,
+    cardWindow: context.cardWindow || null,
+    limit: context.limit || null,
+    playCount
+  };
+  const scan = addRecord(ledger, 'scans', scanRecord);
+  if (!scan.ok) {
+    console.error('record-scan: ' + scan.error);
+    return { ok: false, error: scan.error };
+  }
+  const candidates = normalizeScanCandidates(results, { scanId: scan.id });
+  let added = 0;
+  let duplicates = 0;
+  for (const candidate of candidates) {
+    const result = addRecord(ledger, 'candidates', candidate);
+    if (result.ok && result.duplicate) duplicates += 1;
+    else if (result.ok) added += 1;
+  }
+  const saved = saveLedger(ledger);
+  if (!saved.ok) {
+    console.error('record-scan: ' + saved.error);
+    return { ok: false, error: saved.error };
+  }
+  const status = scan.duplicate ? 'unchanged (duplicate scan)' : 'recorded';
+  console.error(
+    `record-scan: ${status} scan ${scan.id} with ${candidates.length} candidate(s) (${added} new, ${duplicates} duplicate) → ${ledgerPath}`
+  );
+  return {
+    ok: true,
+    duplicate: scan.duplicate,
+    scanId: scan.id,
+    ledgerPath,
+    added,
+    duplicates,
+    candidates: candidates.length
+  };
+}
+
+// ── record-card ────────────────────────────────────────────────
+
+/**
+ * Resolve the reviewed-card input for `pp record-card`.
+ *
+ * Two mutually exclusive input forms:
+ *   - positional file: `pp record-card <card.json>`
+ *   - inline payload:  `pp record-card --json '<card json>'`
+ *
+ * A string-valued --json flag is the inline card payload; a bare --json
+ * (value true) is the machine-readable output flag, matching every other
+ * command's -j/--json behavior.
+ *
+ * Throws on missing/ambiguous input or malformed JSON — never returns a
+ * partially usable card list.
+ */
+function parseCardInput(positional, flags) {
+  const file = positional[1];
+  const inline = typeof flags.json === 'string' ? flags.json : null;
+  const jsonOut = flags.j === true || flags.json === true;
+  if (positional.length > 2) {
+    throw new Error('record-card: too many arguments (expected a single card file)');
+  }
+  if (file && inline !== null) {
+    throw new Error('record-card: provide either a card JSON file or --json payload, not both');
+  }
+  if (!file && inline === null) {
+    throw new Error("record-card: no card input — pass a card JSON file or --json '<payload>'");
+  }
+
+  let raw;
+  let source;
+  if (inline !== null) {
+    raw = inline;
+    source = '--json payload';
+  } else {
+    source = file;
+    try {
+      raw = fs.readFileSync(file, 'utf8');
+    } catch (error) {
+      throw new Error(
+        'record-card: cannot read card file ' + file + ': ' + (error && error.code ? error.code : error.message),
+        { cause: error }
+      );
+    }
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error('record-card: invalid JSON in ' + source + ': ' + error.message, { cause: error });
+  }
+  const cards = Array.isArray(parsed) ? parsed : [parsed];
+  if (cards.length === 0) {
+    throw new Error('record-card: no cards found in input');
+  }
+  for (const card of cards) {
+    if (!card || typeof card !== 'object' || Array.isArray(card)) {
+      throw new Error('record-card: card input must be a JSON object or an array of card objects');
+    }
+  }
+  return { cards, jsonOut };
+}
+
+/**
+ * `pp record-card <card.json>` / `pp record-card --json '<payload>'`
+ *
+ * Loads the tracker ledger (PP_RECORD_LEDGER), promotes explicit BET cards
+ * into official bet records via lib/record-card, and records LEAN/PASS
+ * decisions without creating bets. Idempotent: re-importing an already
+ * promoted card is a duplicate no-op.
+ *
+ * Atomic by construction: the ledger is saved only when every card is valid.
+ * Any malformed/missing card rejects the whole batch with a thrown error and
+ * leaves the ledger untouched (in-memory promotion is discarded without a
+ * save). Human status goes to stderr; stdout stays empty unless --json (or
+ * -j) requests machine-readable output.
+ */
+async function cmdRecordCard(positional, flags) {
+  const { cards, jsonOut } = parseCardInput(positional, flags);
+  const loaded = loadLedger();
+  if (!loaded.ok) throw new Error('record-card: ' + loaded.error);
+  const ledger = loaded.ledger;
+
+  const result = promoteCards(ledger, cards);
+  const rejected = result.results.filter((r) => !r.ok);
+  if (rejected.length) {
+    const details = rejected.map((r) => '  - ' + (r.candidateId || '<unknown>') + ': ' + r.error).join('\n');
+    throw new Error('record-card: rejected ' + rejected.length + ' card(s); ledger not modified\n' + details);
+  }
+
+  const saved = saveLedger(ledger);
+  if (!saved.ok) throw new Error('record-card: ' + saved.error);
+
+  for (const r of result.results) {
+    if (r.duplicate) {
+      console.error('record-card: duplicate ' + r.decision + ' ' + r.candidateId + ' (already recorded)');
+    } else if (r.bet) {
+      console.error(
+        'record-card: BET ' +
+          r.candidateId +
+          ' → bet ' +
+          r.bet.id +
+          ' @ ' +
+          r.bet.oddsAtDecision +
+          ' (stake ' +
+          r.bet.stake +
+          ')'
+      );
+    } else {
+      console.error('record-card: ' + r.decision + ' ' + r.candidateId + ' → candidate status ' + r.status);
+    }
+  }
+  const summary = result.summary;
+  const parts = [];
+  if (summary.promoted) parts.push(summary.promoted + ' promoted');
+  if (summary.recorded) parts.push(summary.recorded + ' recorded');
+  if (summary.duplicates) parts.push(summary.duplicates + ' duplicate(s)');
+  console.error('record-card: ' + (parts.join(', ') || 'no changes') + ' → ' + loaded.path);
+
+  if (jsonOut) {
+    console.log(JSON.stringify({ ok: true, ledgerPath: loaded.path, summary, results: result.results }, null, 2));
+  }
+  return { ok: true, summary, results: result.results, ledgerPath: loaded.path };
+}
+
+// ── record ──────────────────────────────────────────────────────
+
+/**
+ * `pp record <stats|review|pending> [--date YYYY-MM-DD] [--json]`
+ *
+ * Local, read-only review of the tracker ledger. Delegates to
+ * scripts/review-record.js (Task 6): official W-L-P-V, American-odds P&L
+ * with stake-weighted ROI, splits, raw candidate counts, and settlement
+ * source URLs. No network and no ledger writes — a missing ledger is an
+ * empty no-data report, never an error.
+ */
+async function cmdRecord(positional, flags) {
+  const mode = positional[1] || 'stats';
+  const date = typeof flags.date === 'string' ? flags.date : undefined;
+  const jsonOut = flags.j === true || flags.json === true;
+  const result = reviewRecord.runReviewRecord({ mode, date });
+
+  if (jsonOut) {
+    console.log(JSON.stringify(result));
+  } else if (!result.ok) {
+    console.error('record: ' + result.error);
+  } else {
+    console.log(reviewRecord.formatHuman(result));
+  }
+  if (!result.ok) process.exitCode = result.exitCode || 1;
+  return result;
+}
+
 // ── scan ────────────────────────────────────────────────────────
 
 async function cmdScan(handlers, positional, flags, client) {
@@ -593,7 +881,7 @@ async function cmdScan(handlers, positional, flags, client) {
         const tennisPlaysCount = tennisResult ? (tennisResult.plays || []).length : 0;
         if (tennisPlaysCount === 0) {
           console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
-          const tennisPlays = await recoverTennisFromScreen({ book, client });
+          const tennisPlays = await recoverTennisFromScreen({ book, client, markets: marketList });
           if (tennisPlays.length) {
             // Apply onlyBets filtering to injected fallback plays.
             // Tennis fallback plays carry `verdict` (not `finalVerdict`)
@@ -631,6 +919,24 @@ async function cmdScan(handlers, positional, flags, client) {
     const results = res.data?.results || res.results || [];
     const previousSnapshot = loadSnapshot();
     annotateResultsWithPreviousSnapshot(results, previousSnapshot);
+
+    // --record-scan: persist this scan + normalized candidates to the tracker
+    // ledger. Status goes to stderr; a recording failure must never break the
+    // scan output (stdout stays valid JSON under --json).
+    if (flags['record-scan'] || flags.recordScan) {
+      try {
+        recordScanResults(results, {
+          leagues,
+          markets: marketList,
+          book,
+          tiers: targetTiers,
+          cardWindow,
+          limit
+        });
+      } catch (e) {
+        console.error('record-scan: ' + (e && e.message ? e.message : String(e)));
+      }
+    }
     // Build the date-range header line using actual candidate start times
     const allStarts = [];
     for (const r of results) {
@@ -1149,6 +1455,12 @@ async function main() {
     case 'log':
       await cmdLog(handlers, positional, flags);
       break;
+    case 'record-card':
+      await cmdRecordCard(positional, flags);
+      break;
+    case 'record':
+      await cmdRecord(positional, flags);
+      break;
     case 'player':
       await cmdPlayer(handlers, positional, flags);
       break;
@@ -1185,6 +1497,10 @@ module.exports = {
   main,
   formatError,
   cmdScan,
+  recordScanResults,
+  cmdRecordCard,
+  cmdRecord,
+  parseCardInput,
   formatScan,
   momentumLabel,
   openerContextLabel,

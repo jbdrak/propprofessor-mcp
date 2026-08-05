@@ -2,7 +2,15 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { rankTennisScreenRows } = require('../lib/screen-tennis');
+const { normalizeTennisMarketQuery, rankTennisScreenRows } = require('../lib/screen-tennis');
+
+describe('normalizeTennisMarketQuery', () => {
+  it('keeps Set Handicap distinct from Game Handicap', () => {
+    assert.deepEqual(normalizeTennisMarketQuery('Set Handicap'), ['Set Handicap']);
+    assert.deepEqual(normalizeTennisMarketQuery('set_handicap'), ['Set Handicap']);
+    assert.deepEqual(normalizeTennisMarketQuery('handicap'), ['Game Handicap']);
+  });
+});
 
 // Helper to build a tennis moneyline row for a given book, matchup, side, and odds.
 // Shape mirrors what the upstream /screen endpoint produces: allBookOdds is

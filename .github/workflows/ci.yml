@@ -31,9 +31,12 @@ jobs:
         run: npm run check:version
 
       - name: Check README claim drift
-        # Fails the build if README's "N tools" / "M tests passing" claim
-        # drifts from the actual codebase. Catches the silent-rot class
-        # of bugs (phantom tools, stale test counts) before they ship.
+        # Fails the build if README's "N tools" / tool-name / OpenAPI claims
+        # drift from the actual codebase, and if README carries an exact
+        # test-count claim that doesn't match the suite. README deliberately
+        # avoids exact test counts (non-volatile wording), so suite growth
+        # doesn't churn docs. Catches the silent-rot class of bugs (phantom
+        # tools, stale counts) before they ship.
         run: npm run check:claims:quick
 
       - name: Check for credential leaks
@@ -88,7 +91,31 @@ jobs:
         run: npm ci --include=dev
 
       - name: Run tests (shard ${{ matrix.shard }}/3)
-        # Sharding the 1868 tests across 3 runners keeps the slowest shard
-        # around five minutes. fail-fast: false on the matrix
+        # Sharding the full suite across 3 runners keeps the slowest shard
+        # comfortably inside the job timeout. fail-fast: false on the matrix
         # means one flaky shard won't cancel the others.
         run: node --test --test-concurrency=1 --test-shard=${{ matrix.shard }}/3 test/*.test.js
+
+  python-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright + Chromium
+        # Only playwright is needed: the test imports EXTRACT_JS from
+        # scripts/flashscore_tennis.py and runs it against inline static HTML
+        # (page.set_content) — no network, no live Flashscore.
+        run: |
+          pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Run Flashscore extractor test
+        run: python -m unittest test/flashscore-extractor.test.py

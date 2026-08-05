@@ -18,7 +18,8 @@ circuit-cache.json
 scripts/_scan-*
 scripts/scan-*
 scripts/check-*
-scripts/fetch-sofascore.py
+!scripts/check-package-contents.js
+!scripts/check-publish-tree.js
 scripts/novig-scan.js
 .commandcode/
 data/snapshots.jsonl

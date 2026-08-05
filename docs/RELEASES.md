@@ -1,6 +1,6 @@
 # Release History
 
-Detailed release notes for PropProfessor MCP. See [CHANGELOG.md](../CHANGELOG.md) for the version changelog.
+Curated "what's new" highlights for PropProfessor MCP releases. The authoritative version-by-version release history lives in [CHANGELOG.md](../CHANGELOG.md).
 
 ---
 
