@@ -103,7 +103,7 @@
     "postcss": "8.5.18"
   },
   "optionalDependencies": {
-    "playwright": "^1.52.0"
+    "playwright": "^1.62.1"
   },
   "c8": {
     "all": true,
