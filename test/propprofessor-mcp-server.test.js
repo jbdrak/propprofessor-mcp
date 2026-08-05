@@ -1346,7 +1346,7 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.equal(typeof result.verdict, 'string');
     assert.ok(['BET', 'CONSIDER', 'PASS'].includes(result.verdict));
     assert.equal(typeof result.lookupStatus, 'string');
-    assert.ok(['resolved', 'lookup_failed', 'stale_snapshot'].includes(result.lookupStatus));
+    assert.ok(['resolved', 'lookup_failed', 'stale_snapshot', 'gameId_changed'].includes(result.lookupStatus));
     assert.equal(typeof result.reasonType, 'string');
     assert.ok(Array.isArray(result.reasons));
     // Verdict summary

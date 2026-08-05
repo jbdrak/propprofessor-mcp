@@ -7,7 +7,7 @@
  */
 
 const { normalizeBookList } = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { findBestMatch } = require('../../../lib/selection-matcher');
+const { findBestMatch, findBestMatchGameIdChanged, parseGameIdIdentity } = require('../../../lib/selection-matcher');
 const { findMlbGamePk, getMlbGameContext } = require('../../../lib/propprofessor-mlb-game-context');
 const { getGameContext } = require('../../../lib/propprofessor-game-context');
 const { computeMovementDisposition } = require('../../../lib/propprofessor-movement-disposition');
@@ -144,7 +144,50 @@ function createValidatePlayHandlers(client, ctx) {
     const gameContextError = gameContextOutcome?.ok ? null : gameContextOutcome?.error || null;
 
     const detailRows = Array.isArray(detailResult?.result) ? detailResult.result : [];
-    const matchingRow = findBestMatch(detailRows, selection, requestedPlayId, books[0] || '');
+    let matchingRow = findBestMatch(detailRows, selection, requestedPlayId, books[0] || '');
+    let matchedViaGameIdChange = false;
+    let fallbackNote = null;
+    if (!matchingRow && !detailError) {
+      // Backend gameIds embed a Unix start timestamp, and the same matchup can
+      // surface under a NEW timestamp (e.g. Cubs-Dodgers 1785946800 →
+      // 1785954000, a 2-hour shift) while the exact old ID returns no rows.
+      // Re-query by participants (narrow scan) and reconcile by identity +
+      // market + selection + same scheduled calendar date, failing closed when
+      // ambiguous or date-mismatched.
+      const gameIdIdentity = parseGameIdIdentity(gameId);
+      if (gameIdIdentity) {
+        try {
+          const relaxed = await ctx.handlers.runGetPlayDetailsImpl(client, {
+            league,
+            market,
+            gameIds: [gameId],
+            participants: gameIdIdentity.participants,
+            books: books.length ? books : undefined,
+            lookbackHours,
+            relaxedGameIdMatch: true
+          });
+          const relaxedRows = Array.isArray(relaxed?.result) ? relaxed.result : [];
+          const fallbackRow = findBestMatchGameIdChanged(relaxedRows, {
+            league,
+            market,
+            selection,
+            gameId,
+            playId: requestedPlayId,
+            requestedBook: books[0] || ''
+          });
+          if (fallbackRow) {
+            matchingRow = fallbackRow;
+            matchedViaGameIdChange = true;
+          } else {
+            fallbackNote = relaxedRows.length
+              ? 'no unambiguous matchup match on the scheduled date'
+              : 'matchup not found on the current screen';
+          }
+        } catch {
+          fallbackNote = 'relaxed lookup failed';
+        }
+      }
+    }
 
     let research = researchOutcome?.ok ? researchOutcome.value : null;
     const researchError = researchOutcome?.ok ? null : researchOutcome?.error || null;
@@ -195,6 +238,13 @@ function createValidatePlayHandlers(client, ctx) {
     }
 
     if (matchingRow) {
+      if (matchedViaGameIdChange) {
+        lookupStatus = 'gameId_changed';
+        reasonType = 'gameId_changed';
+        reasons.push(
+          `gameId changed (${gameId} → ${matchingRow.gameId}); matched by league/market/selection/date`
+        );
+      }
       if (tier === 'TIER 1') {
         verdict = 'BET';
       } else if (tier === 'TIER 2' || tier === 'TIER 3') {
@@ -232,7 +282,9 @@ function createValidatePlayHandlers(client, ctx) {
       reasons.push(
         detailError
           ? `screen lookup failed: ${detailError}`
-          : `no row matched selection "${selection}" on gameId ${gameId}`
+          : `no row matched selection "${selection}" on gameId ${gameId}${
+              fallbackNote ? ` (fallback: ${fallbackNote})` : ''
+            }`
       );
     }
 
@@ -408,7 +460,7 @@ function createValidatePlayHandlers(client, ctx) {
             screenScore: matchingRow.screenScore,
             screenUrl:
               `https://app.propprofessor.com/screen?market=${encodeURIComponent(market)}` +
-              `&game=${encodeURIComponent(gameId)}` +
+              `&game=${encodeURIComponent(matchingRow.gameId || gameId)}` +
               `&league=${encodeURIComponent(league)}` +
               `&participant=${encodeURIComponent(selection)}`
           }

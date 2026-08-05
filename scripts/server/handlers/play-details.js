@@ -81,13 +81,34 @@ function createPlayDetailsHandlers(_client, _ctx) {
       excludeSet.size ? list.filter((b) => !excludeSet.has(String(b).toLowerCase())) : list;
     const augmentedBooksExcluded = applyExcludes(augmentedBooks);
 
+    // Relaxed gameId mode (internal, used by validate_play's timestamp-drift
+    // fallback): the requested gameId embeds a Unix start timestamp and the same
+    // matchup can surface under a NEW timestamp. Instead of filtering by the
+    // stale gameId, query by participants (narrow scan) and return every row so
+    // the caller can reconcile by identity + date. Fail closed when no
+    // participants are supplied — never run a full league+market scan here.
+    const relaxedGameIdMatch = args.relaxedGameIdMatch === true;
+    const relaxedParticipants = Array.isArray(args.participants) ? args.participants : [];
+    if (relaxedGameIdMatch && !relaxedParticipants.length) {
+      return {
+        ok: true,
+        result: [],
+        resultMeta: {
+          queryGameIds: gameIds,
+          matchedRows: 0,
+          error: 'relaxedGameIdMatch requires participants',
+          errorCode: 'RELAXED_MATCH_REQUIRES_PARTICIPANTS'
+        }
+      };
+    }
+
     let payload;
     try {
       payload = await client.queryScreenOddsBestComps({
         market,
         league,
-        games: gameIds,
-        participants: Array.isArray(args.participants) ? args.participants : [],
+        games: relaxedGameIdMatch ? [] : gameIds,
+        participants: relaxedParticipants,
         books: augmentedBooksExcluded,
         is_live: Boolean(args.live || args.is_live)
       });
@@ -150,12 +171,14 @@ function createPlayDetailsHandlers(_client, _ctx) {
     const normalizedRequested = gameIds.map(normalizeGameId);
     const gameIdSet = new Set(normalizedRequested);
     const safeResult = Array.isArray(response.result) ? response.result : [];
-    const filtered = safeResult.filter((row) => gameIdSet.has(normalizeGameId(row && row.gameId)));
+    const filtered = relaxedGameIdMatch
+      ? safeResult
+      : safeResult.filter((row) => gameIdSet.has(normalizeGameId(row && row.gameId)));
 
     const fallbackRows = Array.isArray(response.focusBookMissingRows) ? response.focusBookMissingRows : [];
     const merged = [...filtered];
     for (const fbRow of fallbackRows) {
-      if (gameIdSet.has(normalizeGameId(fbRow && fbRow.gameId))) {
+      if (relaxedGameIdMatch || gameIdSet.has(normalizeGameId(fbRow && fbRow.gameId))) {
         merged.push({ ...fbRow, __focusBookMissing: true });
       }
     }
@@ -200,7 +223,8 @@ function createPlayDetailsHandlers(_client, _ctx) {
     response.resultMeta = {
       ...response.resultMeta,
       queryGameIds: gameIds,
-      matchedRows: merged.length
+      matchedRows: merged.length,
+      ...(relaxedGameIdMatch ? { relaxedGameIdMatch: true } : {})
     };
     const verbosity = String(args.verbosity || 'full').toLowerCase();
     if (verbosity === 'minimal') return formatGetPlayDetailsMinimal(response);
