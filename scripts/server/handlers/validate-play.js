@@ -241,7 +241,9 @@ function createValidatePlayHandlers(client, ctx) {
       if (matchedViaGameIdChange) {
         lookupStatus = 'gameId_changed';
         reasonType = 'gameId_changed';
-        reasons.push(`gameId changed (${gameId} → ${matchingRow.gameId}); matched by league/market/selection/date`);
+        reasons.push(
+          `gameId changed (${gameId} → ${matchingRow.gameId}); matched by league/market/selection/date`
+        );
       }
       if (tier === 'TIER 1') {
         verdict = 'BET';

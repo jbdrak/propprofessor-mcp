@@ -118,4 +118,4 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: Run Flashscore extractor test
-        run: python test/flashscore-extractor.test.py
+        run: python -m unittest test/flashscore-extractor.test.py
