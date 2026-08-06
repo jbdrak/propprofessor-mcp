@@ -1048,8 +1048,9 @@ function createMcpHandlers({
         const validationResults = await mapWithConcurrency(validationPromises, async (p) => p, { concurrency: 5 });
 
         for (const vr of validationResults) {
-          if (!vr.result || !vr.result.ok || !vr.result.verdictSummary) continue;
-          applyValidatedFields(vr.candidate, vr.result);
+          const validation = vr.result?.data?.verdictSummary ? vr.result.data : vr.result;
+          if (!validation || !validation.ok || !validation.verdictSummary) continue;
+          applyValidatedFields(vr.candidate, validation);
           vr.candidate._validated = true;
           applyFinalVerdict(vr.candidate);
           // Promote the authoritative validated call into the agent-facing
@@ -1584,8 +1585,9 @@ function createMcpHandlers({
         const validationResults = await mapWithConcurrency(validationPromises, async (p) => p, { concurrency: 5 });
 
         for (const vr of validationResults) {
-          if (!vr.result || !vr.result.ok || !vr.result.verdictSummary) continue;
-          applyValidatedFields(vr.play, vr.result);
+          const validation = vr.result?.data?.verdictSummary ? vr.result.data : vr.result;
+          if (!validation || !validation.ok || !validation.verdictSummary) continue;
+          applyValidatedFields(vr.play, validation);
           vr.play._validated = true;
           applyFinalVerdict(vr.play);
           promoteFinalVerdictToDisplay(vr.play);

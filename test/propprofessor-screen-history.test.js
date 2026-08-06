@@ -277,8 +277,34 @@ describe('hydrateScreenRowsWithHistory', () => {
       makeRow({ gameId: 'game-ser-3', selectionId: 'sel-ser-3' })
     ];
 
-    await hydrateScreenRowsWithHistory(rows, { client, concurrency: 1 });
+    await hydrateScreenRowsWithHistory(rows, { client, concurrency: 1, minIntervalMs: 0 });
     assert.deepEqual(order, ['game-ser-1', 'game-ser-2', 'game-ser-3']);
+  });
+
+  it('stops the shared history queue after the first throttle', async () => {
+    let callCount = 0;
+    const client = makeClient(async () => {
+      callCount += 1;
+      const error = new Error('rate limited');
+      error.status = 429;
+      error.code = 'PROPPROFESSOR_BACKEND_ERROR';
+      error.retryable = true;
+      throw error;
+    });
+    const rows = Array.from({ length: 10 }, (_, i) =>
+      makeRow({ gameId: `game-throttle-${i}`, selectionId: `sel-throttle-${i}` })
+    );
+
+    const results = await hydrateScreenRowsWithHistory(rows, {
+      client,
+      concurrency: 3,
+      minIntervalMs: 10,
+      throttleCooldownMs: 1000
+    });
+
+    assert.equal(callCount, 1, 'a throttle must halt queued history requests');
+    assert.equal(results.length, rows.length);
+    assert.ok(results.every((row) => row.historyErrorStatus === 429));
   });
 
   it('preserves original row properties in hydrated results', async () => {
@@ -493,10 +519,9 @@ describe('hydrateScreenRowsWithHistory — throttle/circuit fail-soft', () => {
     const results = await hydrateScreenRowsWithHistory(lineShapeRows(), { client });
     stderr.restore();
 
-    // One exact query per row (2 rows) and no adjacent line variants on top:
-    // without the fail-soft guard each line-shaped row also re-queries its
-    // ±0.5 variants, turning this into 4 upstream calls during an outage.
-    assert.equal(callCount, 2, 'no adjacent line variants queried after a 429');
+    // The first throttle halts the shared queue. No other row or adjacent
+    // line variant should hit the upstream during the outage.
+    assert.equal(callCount, 1, 'a 429 must halt the shared history queue');
     assert.ok(results.every((row) => row.lineHistoryAvailable === false));
     const [result] = results;
     assert.equal(result.historyErrorStatus, 429);
@@ -516,8 +541,8 @@ describe('hydrateScreenRowsWithHistory — throttle/circuit fail-soft', () => {
     const results = await hydrateScreenRowsWithHistory(lineShapeRows(), { client });
     stderr.restore();
 
-    // Same invariant: one exact query per row, zero variant queries.
-    assert.equal(callCount, 2, 'no adjacent line variants queried after circuit-open');
+    // Same invariant: the open breaker must halt the shared queue.
+    assert.equal(callCount, 1, 'circuit-open must halt the shared history queue');
     assert.ok(results.every((row) => row.lineHistoryAvailable === false));
     const [result] = results;
     assert.equal(result.historyErrorCode, 'CIRCUIT_BREAKER_OPEN');

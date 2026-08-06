@@ -25,10 +25,9 @@ function createHandlers(overrides = {}, handlerOptions = {}) {
   const { client } = createMockClient(overrides);
   const handlers = createMcpHandlers({
     client,
-    // Keep the per-market stall guard tiny in fixtures — no test here wants
-    // to wait on (or leave pending) the real 25s production timeout. The
-    // production default itself is asserted in recommended-bets-resilience.
-    recommendedBetsScreenTimeoutMs: 25,
+    // Keep the per-market stall guard bounded in fixtures. The production
+    // default itself is asserted in recommended-bets-resilience.
+    recommendedBetsScreenTimeoutMs: 5000,
     ...handlerOptions
   });
   // Stub player_context so research doesn't hit Nitter/network and hang.

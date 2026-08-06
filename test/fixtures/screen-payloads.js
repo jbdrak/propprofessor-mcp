@@ -7,6 +7,7 @@
  */
 
 const NOW = Date.now();
+const FIXTURE_START = new Date(NOW + 2 * 60 * 60 * 1000).toISOString();
 
 function isoAgo(ms) {
   return new Date(NOW - ms).toISOString();
@@ -19,6 +20,7 @@ const GAME_LAKERS_CELTICS = {
   league: 'NBA',
   market: 'Moneyline',
   updatedAt: isoAgo(30_000),
+  start: FIXTURE_START,
   homeTeam: 'Los Angeles Lakers',
   awayTeam: 'Boston Celtics',
   selections: {
@@ -49,6 +51,7 @@ const GAME_WARRIORS_NUGGETS = {
   league: 'NBA',
   market: 'Moneyline',
   updatedAt: isoAgo(15_000),
+  start: FIXTURE_START,
   homeTeam: 'Golden State Warriors',
   awayTeam: 'Denver Nuggets',
   selections: {
@@ -79,6 +82,7 @@ const GAME_BUCKS_HEAT = {
   league: 'NBA',
   market: 'Moneyline',
   updatedAt: isoAgo(45_000),
+  start: FIXTURE_START,
   homeTeam: 'Milwaukee Bucks',
   awayTeam: 'Miami Heat',
   selections: {
@@ -112,6 +116,7 @@ const NBA_SPREAD_PAYLOAD = {
       league: 'NBA',
       market: 'Spread',
       updatedAt: isoAgo(30_000),
+      start: FIXTURE_START,
       homeTeam: 'Los Angeles Lakers',
       awayTeam: 'Boston Celtics',
       selections: {
@@ -144,6 +149,7 @@ const NBA_TOTAL_PAYLOAD = {
       league: 'NBA',
       market: 'Total',
       updatedAt: isoAgo(30_000),
+      start: FIXTURE_START,
       homeTeam: 'Los Angeles Lakers',
       awayTeam: 'Boston Celtics',
       selections: {
@@ -181,6 +187,7 @@ const MLB_MONEYLINE_PAYLOAD = {
       league: 'MLB',
       market: 'Moneyline',
       updatedAt: isoAgo(60_000),
+      start: FIXTURE_START,
       homeTeam: 'New York Yankees',
       awayTeam: 'Boston Red Sox',
       selections: {
