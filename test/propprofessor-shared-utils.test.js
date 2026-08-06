@@ -63,6 +63,13 @@ test('prop market aliases resolve to canonical names', () => {
   assert.strictEqual(resolveMarketName('PRA', 'NBA').resolved, 'Player PRA');
 });
 
+test('verified MLB prop aliases resolve to canonical names', () => {
+  assert.strictEqual(resolveMarketName('Home Runs', 'MLB').resolved, 'Player Home Runs');
+  assert.strictEqual(resolveMarketName('Runs', 'MLB').resolved, 'Player Runs');
+  assert.strictEqual(resolveMarketName('RBIs', 'MLB').resolved, 'Player RBIs');
+  assert.strictEqual(resolveMarketName('Hits Allowed', 'MLB').resolved, 'Pitcher Hits Allowed');
+});
+
 describe('DEFAULT_LEAGUES', () => {
   const { DEFAULT_LEAGUES } = require('../lib/propprofessor-shared-utils');
 
