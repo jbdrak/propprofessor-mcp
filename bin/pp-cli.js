@@ -188,13 +188,19 @@ Flags:
   -b, --book <name>         Book (default: NoVigApp)
   -j, --json                Raw JSON output
 `,
-    game: `pp game <gameId> [flags]
+    game: `pp game <gameId|playId> [flags]
 
 Fetch play details for a game/market combination.
+
+Accepts a bare gameId (broad ranked recheck) or a full playId
+"<gameId>::<market>::<selection>" for an exact-line recheck — only the row
+matching the exact selection is returned (nested selections preserved).
+Use --selection to pin the exact line on a bare gameId.
 
 Flags:
   -l, --league <name>       League (default: MLB)
   -m, --market <name>       Market (default: Total Runs)
+  -s, --selection <name>    Exact selection/line filter (e.g. "Over 22.5")
   -b, --book <name>         Book (default: NoVigApp)
   -j, --json                Raw JSON output
 `,
@@ -1041,29 +1047,43 @@ async function cmdValidate(handlers, positional, flags) {
 // ── game ────────────────────────────────────────────────────────
 
 async function cmdGame(handlers, positional, flags) {
-  const gameId = positional[1];
-  if (!gameId) die('Usage: pp game <gameId> [--league] [--market] [--book]');
+  const playId = positional[1];
+  if (!playId) die('Usage: pp game <gameId|playId> [--league] [--market] [--selection] [--book]');
 
-  // Derive league/market from the gameId unless overridden with flags.
-  const derived = deriveFromPlayId(gameId, {
+  // Derive league/market/selection from the gameId/playId unless overridden
+  // with flags. A full playId "<gameId>::Total Games::over 22.5" yields all
+  // three; a bare gameId yields just the league so the handler defaults the
+  // rest (preserving the broad recheck behavior).
+  const derived = deriveFromPlayId(playId, {
     league: flags.l || flags.league,
-    market: flags.m || flags.market
+    market: flags.m || flags.market,
+    selection: flags.s || flags.selection
   });
   const league = derived.league || 'MLB';
   const market = derived.market || flags.m || flags.market || 'Total Runs';
+  const selection = derived.selection || '';
   const book = flags.b || flags.book || 'NoVigApp';
   const jsonOut = flags.j || flags.json || false;
+  // Strip any "::market::selection" suffix so the handler queries the bare
+  // gameId (the backend rows carry the bare gameId on each row).
+  const gameId = (flags.g || flags['game-id'] || playId).replace(/::.*$/, '').replace(/:$/, '');
 
-  console.error('Fetching ' + gameId + '...');
+  console.error('Fetching ' + gameId + (selection ? ' [' + selection + ']' : '') + '...');
 
-  const res = await handlers.get_play_details({ league, market, gameIds: [gameId], books: [book] });
+  const args = { league, market, gameIds: [gameId], books: [book] };
+  if (selection) args.selection = selection;
+  const res = await handlers.get_play_details(args);
 
   if (jsonOut) {
     console.log(JSON.stringify(res, null, 2));
   } else {
     const rows = res.result || res.data || [];
     if (!rows.length) {
-      console.log('No data.');
+      if (selection && res.resultMeta?.selectionNotFound) {
+        console.log('No exact match for selection "' + selection + '" in ' + gameId + '.');
+      } else {
+        console.log('No data.');
+      }
       return;
     }
     const r = rows[0];
@@ -1077,6 +1097,9 @@ async function cmdGame(handlers, positional, flags) {
         '  |  disposition: ' +
         movementColor(r.movementDisposition)
     );
+    if (selection) {
+      console.log('selection: ' + (r.selection || r.pick || '') + '  [' + (r.selectionId || '') + ']');
+    }
     if (r.selections) {
       console.log('\n' + B + 'Lines:' + R);
       for (const [key, sel] of Object.entries(r.selections)) {

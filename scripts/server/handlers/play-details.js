@@ -15,6 +15,92 @@ const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { normalizeTennisMarketQuery } = require('../../../lib/screen-tennis');
 const { formatGetPlayDetailsMinimal, formatGetPlayDetailsStandard } = require('../../../lib/propprofessor-formatter');
 
+/**
+ * Normalize a selection label for exact (case-insensitive) matching.
+ * Collapses whitespace and underscores; trims. Hyphens are left intact
+ * because they are meaningful in some player/team names.
+ * @param {*} value
+ * @returns {string}
+ */
+function normalizeSelectionText(value) {
+  return String(value == null ? '' : value)
+    .toLowerCase()
+    .replace(/[\s_]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Strip the market prefix from a selectionId ("Total Games:Over_22.5" → "Over_22.5").
+ * @param {*} id
+ * @returns {string}
+ */
+function stripSelectionMarketPrefix(id) {
+  const s = String(id == null ? '' : id);
+  const idx = s.lastIndexOf(':');
+  return idx === -1 ? s : s.slice(idx + 1);
+}
+
+/**
+ * Collect normalized candidate labels for a row's OWN selection (top-level
+ * fields plus the composed label+line).
+ * @param {Object} row
+ * @returns {string[]}
+ */
+function collectRowSelectionCandidates(row) {
+  const out = [];
+  const push = (v) => {
+    const n = normalizeSelectionText(v);
+    if (n) out.push(n);
+  };
+  push(row.selection);
+  push(row.pick);
+  push(row.participant);
+  push(stripSelectionMarketPrefix(row.selectionId));
+  // Composed "Over" + 22.5 → "over 22.5" (totals/spread rows split label/line).
+  const label = row.selection || row.pick || row.participant || '';
+  if (row.line != null && label) push(`${label} ${row.line}`);
+  return out;
+}
+
+/**
+ * Collect normalized candidate labels from a row's nested selections map
+ * (selection1/selection2 labels, their ids, and composed label+line pairs).
+ * @param {Object} row
+ * @returns {string[]}
+ */
+function collectNestedSelectionCandidates(row) {
+  const out = [];
+  const push = (v) => {
+    const n = normalizeSelectionText(v);
+    if (n) out.push(n);
+  };
+  const selections = row?.selections && typeof row.selections === 'object' ? row.selections : {};
+  for (const sel of Object.values(selections)) {
+    if (!sel || typeof sel !== 'object') continue;
+    push(sel.selection1);
+    push(sel.selection2);
+    push(stripSelectionMarketPrefix(sel.selection1Id));
+    push(stripSelectionMarketPrefix(sel.selection2Id));
+    if (sel.line1 != null && (sel.selection1 || '').trim()) push(`${sel.selection1} ${sel.line1}`);
+    if (sel.line2 != null && (sel.selection2 || '').trim()) push(`${sel.selection2} ${sel.line2}`);
+  }
+  return out;
+}
+
+/**
+ * True when the requested selection text matches the row's OWN selection
+ * (top-level label/selectionId, or composed label+line). Nested selections
+ * are NOT consulted here: every expanded row of a game shares the same
+ * nested odds map, so consulting it would match every row of the game and
+ * defeat "return only the matching top-level row".
+ * @param {Object} row
+ * @param {string} needle - Normalized requested selection text.
+ * @returns {boolean}
+ */
+function rowMatchesSelectionFilter(row, needle) {
+  return collectRowSelectionCandidates(row).includes(needle);
+}
+
 function createPlayDetailsHandlers(_client, _ctx) {
   function getDefaultMarketsForLeague(league, _targetBooks) {
     return require('../../../lib/propprofessor-market-registry').getMarketsForSport(league, _targetBooks);
@@ -184,6 +270,62 @@ function createPlayDetailsHandlers(_client, _ctx) {
     }
     response.result = merged;
 
+    // Optional exact-selection filter. When args.selection is supplied
+    // (e.g. derived from a full playId "<gameId>::Total Games::over 22.5"
+    // or passed via --selection), return ONLY the top-level row(s) whose
+    // own selection matches the requested text, preserving their nested
+    // selections. This fixes the recheck bug where `pp game <gameId>
+    // -m 'Total Games'` surfaced a top-ranked row for a DIFFERENT line
+    // than the scan candidate even though the exact line existed in the
+    // response's nested selections. Fail closed (matchedRows 0 + explicit
+    // metadata) when nothing matches — never silently return a different
+    // line than the caller asked to recheck.
+    let matchedRowCount = merged.length;
+    const selectionFilter = String(args.selection || '').trim();
+    if (selectionFilter) {
+      const needle = normalizeSelectionText(selectionFilter);
+      const exactRows = merged.filter((row) => rowMatchesSelectionFilter(row, needle));
+      let finalRows = exactRows;
+      let selectionMatchedNested = false;
+      if (!finalRows.length) {
+        // The exact line may live inside a row's nested selections map even
+        // when no top-level row carries it (ranking can drop individual
+        // lines). Return one row per game that contains the line, preserving
+        // its nested selections.
+        const seenGames = new Set();
+        finalRows = merged.filter((row) => {
+          if (seenGames.has(row.gameId)) return false;
+          if (!collectNestedSelectionCandidates(row).includes(needle)) return false;
+          seenGames.add(row.gameId);
+          return true;
+        });
+        selectionMatchedNested = finalRows.length > 0;
+      }
+      if (!finalRows.length) {
+        response.result = [];
+        response.resultMeta = {
+          ...response.resultMeta,
+          queryGameIds: gameIds,
+          matchedRows: 0,
+          selectionFilter,
+          selectionNotFound: true,
+          error: `No row matched selection "${selectionFilter}" for the requested game(s).`,
+          errorCode: 'SELECTION_NOT_FOUND'
+        };
+        const verbosityEarly = String(args.verbosity || 'full').toLowerCase();
+        if (verbosityEarly === 'minimal') return formatGetPlayDetailsMinimal(response);
+        if (verbosityEarly === 'standard') return formatGetPlayDetailsStandard(response);
+        return response;
+      }
+      response.result = finalRows;
+      matchedRowCount = finalRows.length;
+      response.resultMeta = {
+        ...response.resultMeta,
+        selectionFilter,
+        ...(selectionMatchedNested ? { selectionMatchedNested: true } : {})
+      };
+    }
+
     for (const row of response.result) {
       const matrix = {};
       const sb = Array.isArray(row?.sportsbookData) ? row.sportsbookData : [];
@@ -223,7 +365,7 @@ function createPlayDetailsHandlers(_client, _ctx) {
     response.resultMeta = {
       ...response.resultMeta,
       queryGameIds: gameIds,
-      matchedRows: merged.length,
+      matchedRows: matchedRowCount,
       ...(relaxedGameIdMatch ? { relaxedGameIdMatch: true } : {})
     };
     const verbosity = String(args.verbosity || 'full').toLowerCase();
