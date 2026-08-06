@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { DEFAULT_LEAGUES, resolveMarketName } = require('../lib/propprofessor-shared-utils');
-const { MARKET_REGISTRY, getMarketsForSport } = require('../lib/propprofessor-market-registry');
+const { MARKET_REGISTRY, getMarketsForSport, getPropMarketsForSport } = require('../lib/propprofessor-market-registry');
 
 // Intentional exceptions to the "every default league has a registry entry"
 // invariant. Document WHY each league is exceptional so future maintainers
@@ -69,4 +69,19 @@ test('registry exception list is documented and matches reality', () => {
   for (const league of documented) {
     assert.ok(!MARKET_REGISTRY[league], `${league} is documented as an exception but now has a registry entry`);
   }
+});
+
+test('prop markets exist for major leagues', () => {
+  assert.ok(getPropMarketsForSport('NBA').includes('Player Points'));
+  assert.ok(getPropMarketsForSport('NBA').includes('Player Rebounds'));
+  assert.ok(getPropMarketsForSport('MLB').includes('Player Strikeouts'));
+  assert.ok(getPropMarketsForSport('NFL').includes('Player Passing Yards'));
+});
+
+test('prop markets default to empty for unknown leagues', () => {
+  assert.deepEqual(getPropMarketsForSport('Curling'), []);
+});
+
+test('main-line defaults unchanged after adding props', () => {
+  assert.deepEqual(getMarketsForSport('NBA'), ['Moneyline', 'Point Spread', 'Total Points']);
 });
