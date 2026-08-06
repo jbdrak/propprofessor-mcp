@@ -1,9 +1,9 @@
 'use strict';
 
-const { describe, it } = require('node:test');
+const { describe, it, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { compactRow } = require('../lib/propprofessor-shared-utils');
+const { compactRow, resolveMarketName } = require('../lib/propprofessor-shared-utils');
 
 describe('compactRow', () => {
   it('strips null and empty-string fields by default', () => {
@@ -53,6 +53,14 @@ describe('compactRow', () => {
     const out = compactRow(input);
     assert.notEqual(out, input);
   });
+});
+
+test('prop market aliases resolve to canonical names', () => {
+  assert.strictEqual(resolveMarketName('Points', 'NBA').resolved, 'Player Points');
+  assert.strictEqual(resolveMarketName('Rebounds', 'WNBA').resolved, 'Player Rebounds');
+  assert.strictEqual(resolveMarketName('Strikeouts', 'MLB').resolved, 'Player Strikeouts');
+  assert.strictEqual(resolveMarketName('Passing Yards', 'NFL').resolved, 'Player Passing Yards');
+  assert.strictEqual(resolveMarketName('PRA', 'NBA').resolved, 'Player PRA');
 });
 
 describe('DEFAULT_LEAGUES', () => {
