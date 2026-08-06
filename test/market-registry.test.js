@@ -30,8 +30,8 @@ test('MLS resolves generic market aliases to soccer-style markets', () => {
   assert.deepEqual(resolveMarketName('Total Goals', 'MLS').resolved, 'Total Goals');
 });
 
-test('Tennis registry defaults exclude Set Handicap (explicit-only market)', () => {
-  assert.deepEqual(getMarketsForSport('Tennis'), ['Moneyline', 'Game Handicap', 'Total Games']);
+test('Tennis registry defaults prefer Set Handicap over Game Handicap', () => {
+  assert.deepEqual(getMarketsForSport('Tennis'), ['Moneyline', 'Total Games', 'Set Handicap']);
 });
 
 test('every default league has a non-empty market definition', () => {

@@ -32,8 +32,8 @@ function supportiveHistory(baseOdds, targetOdds) {
 
 /**
  * Market-specific screen data builders.
- * RecoverTennisFromScreen iterates [Moneyline, Game Handicap, Total Games]
- * by default (Set Handicap is explicit-only) and calls queryScreenOdds once
+ * RecoverTennisFromScreen iterates [Moneyline, Total Games, Set Handicap]
+ * by default and calls queryScreenOdds once
  * per market — so we need to return only the selections relevant to the
  * requested market.
  */
@@ -259,7 +259,12 @@ describe('recoverTennisFromScreen — alternate line filtering', () => {
   });
 
   it('keeps standard Game Handicap ±1.5', async () => {
-    const plays = await recoverTennisFromScreen({ client, book: 'Pinnacle', skipTimeCorrection: true });
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: ['Game Handicap'],
+      skipTimeCorrection: true
+    });
     const gh15 = plays.filter(
       (p) =>
         p.market === 'Game Handicap' && (p.selection === 'Novak Djokovic -1.5' || p.selection === 'Carlos Alcaraz +1.5')
@@ -268,13 +273,23 @@ describe('recoverTennisFromScreen — alternate line filtering', () => {
   });
 
   it('keeps standard Game Handicap ±2.5', async () => {
-    const plays = await recoverTennisFromScreen({ client, book: 'Pinnacle', skipTimeCorrection: true });
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: ['Game Handicap'],
+      skipTimeCorrection: true
+    });
     const gh25 = plays.filter((p) => p.selection === 'Novak Djokovic -2.5' || p.selection === 'Carlos Alcaraz +2.5');
     assert.equal(gh25.length, 2, 'standard GH ±2.5 should be kept');
   });
 
   it('filters out expanded Game Handicap ±4.5 (alternate)', async () => {
-    const plays = await recoverTennisFromScreen({ client, book: 'Pinnacle', skipTimeCorrection: true });
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Pinnacle',
+      markets: ['Game Handicap'],
+      skipTimeCorrection: true
+    });
     const gh45 = plays.filter((p) => p.selection === 'Novak Djokovic -4.5' || p.selection === 'Carlos Alcaraz +4.5');
     assert.equal(gh45.length, 0, 'expanded GH ±4.5 should be filtered as alternate');
   });
@@ -609,7 +624,7 @@ describe('recoverTennisFromScreen — Set Handicap', () => {
 
     assert.deepEqual(
       client.calls.screen.map((call) => call.market),
-      ['Moneyline', 'Game Handicap', 'Total Games']
+      ['Moneyline', 'Total Games', 'Set Handicap']
     );
   });
 });
@@ -623,21 +638,20 @@ describe('recoverTennisFromScreen — market completeness', () => {
     plays = await recoverTennisFromScreen({ client, book: 'Pinnacle', skipTimeCorrection: true });
   });
 
-  it('returns plays across the three standard markets and excludes Set Handicap', () => {
+  it('returns plays across the three preferred markets and excludes Game Handicap', () => {
     const markets = new Set(plays.map((p) => p.market));
     assert.ok(markets.has('Moneyline'), 'Moneyline should be present');
-    assert.ok(markets.has('Game Handicap'), 'Game Handicap should be present');
+    assert.ok(markets.has('Set Handicap'), 'Set Handicap should be present');
     assert.ok(markets.has('Total Games'), 'Total Games should be present');
-    assert.ok(!markets.has('Set Handicap'), 'Set Handicap must not appear in default recovery');
+    assert.ok(!markets.has('Game Handicap'), 'Game Handicap must not appear in default recovery');
   });
 
-  it('does not query Set Handicap by default', () => {
+  it('queries Set Handicap by default', () => {
     const queried = new Set(client.calls.screen.map((call) => call.market));
-    assert.ok(!queried.has('Set Handicap'), 'default recovery must not issue Set Handicap screen queries');
     assert.deepEqual(
       [...queried].sort(),
-      ['Game Handicap', 'Moneyline', 'Total Games'],
-      'only the three standard markets should be queried'
+      ['Moneyline', 'Set Handicap', 'Total Games'],
+      'default recovery should query preferred tennis markets'
     );
   });
 

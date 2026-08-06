@@ -14,7 +14,10 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
-const { findBestMatchGameIdChanged, parseGameIdIdentity } = require('../lib/selection-matcher.js');
+const {
+  findBestMatchGameIdChanged,
+  parseGameIdIdentity
+} = require('../lib/selection-matcher.js');
 
 const OLD_GAME_ID = 'MLB:PREMATCH:Chicago_Cubs:Los_Angeles_Dodgers:1785946800';
 const NEW_GAME_ID = 'MLB:PREMATCH:Chicago_Cubs:Los_Angeles_Dodgers:1785954000';
@@ -247,26 +250,8 @@ describe('selection-matcher gameId-change primitives', () => {
 
   it('matches by identity+date+selection and rejects ambiguity and date drift', () => {
     const rows = [
-      {
-        league: 'MLB',
-        market: 'Moneyline',
-        gameId: NEW_GAME_ID,
-        start: NEW_START,
-        homeTeam: CUBS,
-        awayTeam: DODGERS,
-        selection: CUBS,
-        selectionKey: 'chicago cubs'
-      },
-      {
-        league: 'MLB',
-        market: 'Moneyline',
-        gameId: NEW_GAME_ID,
-        start: NEW_START,
-        homeTeam: CUBS,
-        awayTeam: DODGERS,
-        selection: DODGERS,
-        selectionKey: 'los angeles dodgers'
-      }
+      { league: 'MLB', market: 'Moneyline', gameId: NEW_GAME_ID, start: NEW_START, homeTeam: CUBS, awayTeam: DODGERS, selection: CUBS, selectionKey: 'chicago cubs' },
+      { league: 'MLB', market: 'Moneyline', gameId: NEW_GAME_ID, start: NEW_START, homeTeam: CUBS, awayTeam: DODGERS, selection: DODGERS, selectionKey: 'los angeles dodgers' }
     ];
     const opts = { league: 'MLB', market: 'Moneyline', gameId: OLD_GAME_ID };
 
@@ -277,11 +262,17 @@ describe('selection-matcher gameId-change primitives', () => {
     // Wrong league / wrong date / different matchup / ambiguity all fail closed.
     assert.equal(findBestMatchGameIdChanged(rows, { ...opts, selection: DODGERS, league: 'NBA' }), null);
     assert.equal(
-      findBestMatchGameIdChanged([{ ...rows[0], start: '2026-08-06T18:20:00.000Z' }], { ...opts, selection: CUBS }),
+      findBestMatchGameIdChanged(
+        [{ ...rows[0], start: '2026-08-06T18:20:00.000Z' }],
+        { ...opts, selection: CUBS }
+      ),
       null
     );
     assert.equal(
-      findBestMatchGameIdChanged([{ ...rows[0], awayTeam: 'Boston Red Sox' }], { ...opts, selection: CUBS }),
+      findBestMatchGameIdChanged(
+        [{ ...rows[0], awayTeam: 'Boston Red Sox' }],
+        { ...opts, selection: CUBS }
+      ),
       null
     );
     // Ambiguity: two distinct gameIds, same matchup + date.
