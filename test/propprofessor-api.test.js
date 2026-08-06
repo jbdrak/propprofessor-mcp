@@ -14,7 +14,8 @@ const {
   isAbortLikeError,
   normalizeSelectionId,
   parseRetryAfterDelayMs,
-  readAuthState
+  readAuthState,
+  __getOddsHistoryGateStateForTests
 } = require('../lib/propprofessor-api');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 const { getLookbackHours, DEFAULT_ODDS_HISTORY_LOOKBACK_HOURS } = require('../lib/propprofessor-mcp-ranked-screen');
@@ -507,6 +508,141 @@ describe('createPropProfessorClient', () => {
     }
   });
 
+  it('stops before exceeding the per-account odds-history request budget', async () => {
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt-history-budget', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        return { ok: true, status: 200, json: async () => ({ NoVigApp: [] }) };
+      },
+      retryDelaysMs: [0]
+    });
+
+    try {
+      const results = await Promise.allSettled(
+        Array.from({ length: 76 }, (_, index) =>
+          client.queryOddsHistory({
+            gameId: `game-budget-${index}`,
+            selectionId: `Moneyline:Side_${index}`,
+            sportsbooks: ['NoVigApp'],
+            startTimestamp: 123000
+          })
+        )
+      );
+      assert.equal(fetchAttempts, 75);
+      assert.equal(results.filter((result) => result.status === 'fulfilled').length, 75);
+      const rejected = results.find((result) => result.status === 'rejected');
+      assert.equal(rejected?.reason?.code, 'ODDS_HISTORY_BUDGET_EXHAUSTED');
+      const gateState = __getOddsHistoryGateStateForTests(file);
+      assert.equal(gateState?.requestsStarted, 75);
+      assert.equal(gateState?.haltedError, null, 'local budget exhaustion must not persist a stale halt error');
+      assert.equal(gateState?.haltedUntil, 0, 'local budget exhaustion must rely on the real window rollover');
+      await assert.rejects(
+        client.queryOddsHistory({
+          gameId: 'game-budget-follow-on',
+          selectionId: 'Moneyline:Follow_On',
+          sportsbooks: ['NoVigApp'],
+          startTimestamp: 123000
+        }),
+        (error) => error?.code === 'ODDS_HISTORY_BUDGET_EXHAUSTED'
+      );
+      assert.equal(fetchAttempts, 75, 'follow-on calls must fail fast without bypassing the real 75-call window');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('deduplicates concurrent odds-history requests across clients', async () => {
+    const { getOddsHistoryCache } = require('../lib/mcp-runtime-config');
+    getOddsHistoryCache().clear();
+    const auth = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    let fetchAttempts = 0;
+    const fetchImpl = async () => {
+      fetchAttempts += 1;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { ok: true, status: 200, json: async () => ({ NoVigApp: [{ odds: -110, start_ts: 1 }] }) };
+    };
+    const clientOptions = {
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt-shared-history-cache', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl,
+      retryDelaysMs: [0]
+    };
+    const clientA = createPropProfessorClient({ ...clientOptions, authFile: auth.file });
+    const clientB = createPropProfessorClient({ ...clientOptions, authFile: auth.file });
+    const params = {
+      gameId: 'game-shared-cache',
+      selectionId: 'Moneyline:Shared',
+      sportsbooks: ['NoVigApp'],
+      startTimestamp: 123000
+    };
+
+    try {
+      const [first, second] = await Promise.all([clientA.queryOddsHistory(params), clientB.queryOddsHistory(params)]);
+      assert.deepEqual(first, second);
+      assert.equal(fetchAttempts, 1);
+    } finally {
+      getOddsHistoryCache().clear();
+      fs.rmSync(auth.dir, { recursive: true, force: true });
+    }
+  });
+
+  it('shares odds-history throttle state across clients for the same account', async () => {
+    const auth = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    let fetchAttempts = 0;
+    const fetchImpl = async () => {
+      fetchAttempts += 1;
+      return { ok: false, status: 429, text: async () => 'rate limited' };
+    };
+    const clientOptions = {
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt-shared-history-429', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl,
+      retryDelaysMs: [0]
+    };
+    const clientA = createPropProfessorClient({ ...clientOptions, authFile: auth.file });
+    const clientB = createPropProfessorClient({ ...clientOptions, authFile: auth.file });
+
+    try {
+      await assert.rejects(
+        clientA.queryOddsHistory({ gameId: 'game-a', selectionId: 'Moneyline:Side_A' }),
+        (error) => error?.status === 429
+      );
+      await assert.rejects(
+        clientB.queryOddsHistory({ gameId: 'game-b', selectionId: 'Moneyline:Side_B' }),
+        (error) => error?.status === 429
+      );
+      assert.equal(fetchAttempts, 1, 'the second client must honor the process-wide history cooldown');
+      const gateState = __getOddsHistoryGateStateForTests(auth.file);
+      const remainingCooldown = Number(gateState?.haltedUntil || 0) - Date.now();
+      assert.ok(
+        remainingCooldown > 0 && remainingCooldown <= 30_000,
+        `expected bounded 429 cooldown, got ${remainingCooldown}`
+      );
+    } finally {
+      fs.rmSync(auth.dir, { recursive: true, force: true });
+    }
+  });
+
   it('does not retry odds-history 429 responses without Retry-After', async () => {
     const { dir, file } = makeTempAuthState({
       cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
@@ -547,7 +683,7 @@ describe('createPropProfessorClient', () => {
     }
   });
 
-  it('preserves the original odds-history 429 when the breaker opens', async () => {
+  it('preserves the original odds-history 429 throughout the shared cooldown', async () => {
     const { resetAllBreakers } = require('../lib/propprofessor-circuit-breaker');
     const { dir, file } = makeTempAuthState({
       cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
@@ -584,7 +720,52 @@ describe('createPropProfessorClient', () => {
           }
         );
       }
-      assert.equal(fetchAttempts, 5);
+      assert.equal(fetchAttempts, 1, 'follow-on history calls must fail fast during cooldown');
+    } finally {
+      resetAllBreakers();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not add a five-minute gate halt when the odds-history circuit is already open', async () => {
+    const { getOrCreateBreaker, resetAllBreakers } = require('../lib/propprofessor-circuit-breaker');
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    resetAllBreakers();
+    const breaker = getOrCreateBreaker('https://backend.propprofessor.com/odds_history_new');
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        breaker.recordFailure();
+      } catch {
+        // Expected when the fifth failure opens the circuit.
+      }
+    }
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt-open-history-circuit', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        return { ok: true, status: 200, json: async () => ({ NoVigApp: [] }) };
+      },
+      retryDelaysMs: [0]
+    });
+
+    try {
+      await assert.rejects(
+        client.queryOddsHistory({ gameId: 'game-open-circuit', selectionId: 'Moneyline:Side' }),
+        (error) => error?.code === 'CIRCUIT_BREAKER_OPEN'
+      );
+      assert.equal(fetchAttempts, 0, 'open circuit must fail before network');
+      const gateState = __getOddsHistoryGateStateForTests(file);
+      assert.equal(gateState?.haltedError, null);
+      assert.equal(gateState?.haltedUntil, 0, 'circuit timing must be owned by the breaker, not a second gate halt');
+      assert.equal(gateState?.requestsStarted, 0, 'non-network circuit rejection must refund the local budget slot');
     } finally {
       resetAllBreakers();
       fs.rmSync(dir, { recursive: true, force: true });

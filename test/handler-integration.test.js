@@ -361,6 +361,26 @@ describe('handler integration: quick_screen', () => {
     assert.ok(!result._meta || !result._meta.validation, '_meta.validation should be absent when validate:false');
   });
 
+  it('applies validateTop globally across league-market buckets', async () => {
+    const handlers = createHandlers();
+    const result = await handlers.quick_screen({
+      leagues: ['NBA'],
+      markets: ['Moneyline', 'Point Spread'],
+      limit: 10,
+      validateTop: 1,
+      includeResearch: false
+    });
+    assert.equal(result.ok, true);
+    const candidates = (result.results || []).flatMap((entry) => entry.candidates || []);
+    assert.ok(candidates.length > 1, 'fixture must expose candidates across the aggregate scan');
+    assert.equal(
+      candidates.filter((candidate) => candidate._validated === true).length,
+      1,
+      'validateTop:1 must validate one candidate globally, not one per bucket'
+    );
+    assert.equal(result._meta.validation.completedCount, 1);
+  });
+
   it('finalVerdict resolves to validation when screen and validation disagree', async () => {
     const handlers = createHandlers();
     const result = await handlers.quick_screen({

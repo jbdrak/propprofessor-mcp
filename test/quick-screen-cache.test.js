@@ -10,7 +10,29 @@ function makeHandlers() {
   // quick_screen fans out through sharp_plays internally
   handlers.sharp_plays = async () => {
     sharpPlaysCalls++;
-    return { ok: true, results: [{ league: 'WNBA', market: 'Moneyline', candidates: [] }] };
+    return {
+      ok: true,
+      result: [
+        {
+          league: 'WNBA',
+          market: 'Moneyline',
+          candidates: [
+            {
+              gameId: 'g1',
+              selection: 'Team A',
+              screenScore: 80,
+              confidenceTier: 'TIER 1',
+              kaiCall: 'BET',
+              odds: -110,
+              consensusEdge: 1.5,
+              movementDisposition: 'supportive_clean',
+              riskScore: 1,
+              research: []
+            }
+          ]
+        }
+      ]
+    };
   };
   // stub downstream helpers so the handler doesn't crash
   handlers.screen_ranked = async () => ({

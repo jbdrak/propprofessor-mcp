@@ -434,6 +434,24 @@ describe('hydrateScreenRowsWithHistory — line-key fallback', () => {
     assert.ok(callLog.length >= 2);
   });
 
+  it('can disable adjacent-line fallback for aggregate budget accounting', async () => {
+    let callCount = 0;
+    const client = makeClient(async () => {
+      callCount += 1;
+      return [];
+    });
+    const sourceRows = [
+      makeRow({ gameId: 'g1', selectionId: 'sel-95', pick: 'Over 9.5', book: 'Pinnacle' }),
+      makeRow({ gameId: 'g1', selectionId: 'sel-90', pick: 'Over 9', book: 'BetOnline' })
+    ];
+    const [result] = await hydrateScreenRowsWithHistory(sourceRows, {
+      client,
+      enableLineFallback: false
+    });
+    assert.equal(result.lineHistoryAvailable, false);
+    assert.equal(callCount, sourceRows.length, 'aggregate hydration must spend one call per shortlisted side');
+  });
+
   it('skips variant fallback when exact line already has history', async () => {
     let callCount = 0;
     const client = makeClient(async () => {

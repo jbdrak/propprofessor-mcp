@@ -890,7 +890,29 @@ async function cmdScan(handlers, positional, flags, client) {
         const tennisPlaysCount = tennisResult ? (tennisResult.plays || []).length : 0;
         if (tennisPlaysCount === 0) {
           console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
-          const tennisPlays = await recoverTennisFromScreen({ book, client, markets: marketList });
+          // Size the fallback's history spend to the shared 75-call
+          // odds-history window. Mixed-sport scans already spent most of the
+          // window on the other leagues — take a conservative slice and
+          // reserve headroom. Tennis-only scans may use the larger safe
+          // default (the fallback still clamps to the remaining window).
+          const tennisFallbackRemaining =
+            typeof client.oddsHistoryBudgetRemaining === 'function' ? Number(client.oddsHistoryBudgetRemaining()) : 75;
+          const mixedSportScan = leagues.some((leagueName) => !isTennisLeague(leagueName));
+          const maxHistorySelections = mixedSportScan
+            ? Math.max(2, Math.min(20, tennisFallbackRemaining - 10))
+            : undefined;
+          const tennisPlays = await recoverTennisFromScreen({
+            book,
+            client,
+            markets: marketList,
+            ...(maxHistorySelections !== undefined ? { maxHistorySelections } : {})
+          });
+          const fallbackMeta = tennisPlays.fallbackMeta;
+          if (fallbackMeta) {
+            console.error(
+              `[tennis-fallback] candidates=${fallbackMeta.totalCandidates} hydratedSides=${fallbackMeta.historyCalls} skipped=${fallbackMeta.skippedEntries} effectiveMax=${fallbackMeta.effectiveMaxHistorySelections} budgetRemaining=${tennisFallbackRemaining}${maxHistorySelections !== undefined ? ` requestedMax=${maxHistorySelections}` : ''}`
+            );
+          }
           if (tennisPlays.length) {
             const normalizedFallbackPlays = tennisPlays.map((play) => {
               const movementDisposition = play.movementDisposition || play.movement || 'insufficient';
@@ -924,7 +946,19 @@ async function cmdScan(handlers, positional, flags, client) {
                   if (!Number.isFinite(aMs)) return 1;
                   if (!Number.isFinite(bMs)) return -1;
                   return aMs - bMs;
-                })
+                }),
+                // Honesty metadata: how many raw candidates the fallback saw
+                // and how many it actually hydrated under the history budget.
+                ...(fallbackMeta
+                  ? {
+                      fallback: {
+                        totalCandidates: fallbackMeta.totalCandidates,
+                        hydratedSides: fallbackMeta.historyCalls,
+                        skippedEntries: fallbackMeta.skippedEntries,
+                        effectiveMaxHistorySelections: fallbackMeta.effectiveMaxHistorySelections
+                      }
+                    }
+                  : {})
               });
               // Write back — match where we read from (res.data preferred)
               if (res.data) {

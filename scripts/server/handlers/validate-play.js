@@ -44,7 +44,21 @@ function createValidatePlayHandlers(client, ctx) {
             market,
             gameIds: [gameId],
             books: books.length ? books : undefined,
-            lookbackHours
+            lookbackHours,
+            // Bundled validation (quick_screen validateTop) forwards the exact
+            // selection so the detail re-fetch hydrates ONLY the requested
+            // line. Adjacent-line amplification is disabled the same way —
+            // one validation is one line check, not three history calls.
+            // Direct validate_play calls do NOT forward selection: their
+            // playId/selection matching must see the full row set (a stale
+            // display selection must never filter out the authoritative row).
+            ...(args.exactSelectionOnly === true && selection
+              ? {
+                  selection,
+                  exactSelectionOnly: true,
+                  enableHistoryLineFallback: false
+                }
+              : {})
           })
         };
       } catch (err) {

@@ -307,6 +307,188 @@ describe('buildRankedScreenResponse', () => {
   });
 });
 
+describe('buildRankedScreenResponse — bounded pre-history shortlist', () => {
+  function makeScreenRow(gameId, edge = 0.5, market = 'Moneyline', league = 'NBA') {
+    return {
+      gameId,
+      league,
+      market,
+      selection1: `Home ${gameId}`,
+      participant1: `Home ${gameId}`,
+      selection1Id: `${market}:Home_${gameId}`,
+      selection2: `Away ${gameId}`,
+      participant2: `Away ${gameId}`,
+      selection2Id: `${market}:Away_${gameId}`,
+      odds: {
+        NoVigApp: { odds1: edge > 1 ? 105 : -100, odds2: 100 },
+        Pinnacle: { odds1: -120, odds2: -120 }
+      },
+      timestamp: Date.now()
+    };
+  }
+
+  it('hydrates only a bounded current-market shortlist and keeps a late strong candidate', async () => {
+    const historyCalls = [];
+    const strongGame = 'game-late-strong';
+    const payload = {
+      rows: [
+        ...Array.from({ length: 20 }, (_, index) => makeScreenRow(`game-weak-${index}`)),
+        makeScreenRow(strongGame, 2.5)
+      ]
+    };
+    const client = {
+      queryOddsHistory: async (params) => {
+        historyCalls.push(params);
+        if (params.gameId !== strongGame) return [];
+        return [
+          { odds: -110, line: null, start_ts: 1 },
+          { odds: -130, line: null, start_ts: 2 }
+        ];
+      }
+    };
+    const rankRows = (rows) =>
+      rows.map((row) => ({
+        ...row,
+        ...(row.gameId === strongGame
+          ? {
+              movementGrade: 'green',
+              movementLabel: 'supportive',
+              recentSharpMoveDirection: 'supportive',
+              fullWindowSharpMoveDirection: 'supportive',
+              clvProxyPct: 1
+            }
+          : {})
+      }));
+
+    const result = await buildRankedScreenResponse({
+      client,
+      payloads: [payload],
+      args: { limit: 1, preHistoryShortlist: true, historySportsbooks: ['Pinnacle'] },
+      focusBook: 'NoVigApp',
+      rankRows
+    });
+
+    assert.ok(historyCalls.length > 0);
+    assert.ok(historyCalls.length <= 4, `expected bounded history calls, got ${historyCalls.length}`);
+    assert.ok(historyCalls.some((call) => call.gameId === strongGame));
+    const strongRows = result.result.filter((row) => row.gameId === strongGame);
+    assert.ok(strongRows.length > 0, 'late strong candidate should reach ranking');
+    assert.equal(strongRows[0].movementDisposition, 'supportive_clean');
+    assert.ok(result.resultMeta.preHistoryShortlist, 'shortlist metadata should be surfaced');
+    assert.equal(result.resultMeta.preHistoryShortlist.enabled, true);
+  });
+
+  it('does not treat absent history as supportive and preserves adverse movement as pass data', async () => {
+    const payload = { rows: [makeScreenRow('game-no-history'), makeScreenRow('game-adverse')] };
+    const result = await buildRankedScreenResponse({
+      client: {
+        queryOddsHistory: async (params) =>
+          params.gameId === 'game-adverse'
+            ? [
+                { odds: -110, start_ts: 1 },
+                { odds: 100, start_ts: 2 }
+              ]
+            : []
+      },
+      payloads: [payload],
+      args: { limit: 4, preHistoryShortlist: true },
+      focusBook: 'NoVigApp',
+      rankRows: (rows) =>
+        rows.map((row) => ({
+          ...row,
+          ...(row.gameId === 'game-adverse' ? { movementGrade: 'red', movementLabel: 'adverse' } : {})
+        }))
+    });
+
+    const noHistory = result.result.find((row) => row.gameId === 'game-no-history');
+    const adverse = result.result.find((row) => row.gameId === 'game-adverse');
+    assert.equal(noHistory.movementDisposition, 'insufficient');
+    assert.equal(adverse.movementDisposition, 'adverse_full');
+  });
+
+  it('keeps full exact-selection hydration when the shortlist is not requested (targeted path)', async () => {
+    const historyCalls = [];
+    const payload = {
+      rows: [
+        ...Array.from({ length: 10 }, (_, index) => makeScreenRow(`game-tgt-${index}`)),
+        makeScreenRow('game-tgt-exact', 2.5)
+      ]
+    };
+    const result = await buildRankedScreenResponse({
+      client: {
+        queryOddsHistory: async (params) => {
+          historyCalls.push(params);
+          return [];
+        }
+      },
+      payloads: [payload],
+      args: { limit: 1 },
+      focusBook: 'NoVigApp',
+      rankRows: (rows) => rows
+    });
+
+    // Default (targeted/game lookup) path must hydrate the ENTIRE raw
+    // universe — one history call per extracted side row.
+    assert.equal(historyCalls.length, payload.rows.length * 2);
+    assert.equal(result.result.length, payload.rows.length * 2);
+    assert.equal(result.resultMeta.preHistoryShortlist, undefined);
+  });
+
+  it('honors an explicit preHistoryShortlist:false opt-out (full hydration)', async () => {
+    const historyCalls = [];
+    const payload = {
+      rows: Array.from({ length: 8 }, (_, index) => makeScreenRow(`game-opt-${index}`))
+    };
+    const result = await buildRankedScreenResponse({
+      client: {
+        queryOddsHistory: async (params) => {
+          historyCalls.push(params);
+          return [];
+        }
+      },
+      payloads: [payload],
+      args: { limit: 1, preHistoryShortlist: false },
+      focusBook: 'NoVigApp',
+      rankRows: (rows) => rows
+    });
+
+    assert.equal(historyCalls.length, payload.rows.length * 2);
+    assert.equal(result.result.length, payload.rows.length * 2);
+  });
+
+  it('does not starve a whole league/market when the shortlist is small', async () => {
+    const historyCalls = [];
+    const payload = {
+      rows: [
+        ...Array.from({ length: 20 }, (_, index) => makeScreenRow(`ml-${index}`, 0.5, 'Moneyline', 'NBA')),
+        ...Array.from({ length: 20 }, (_, index) => makeScreenRow(`tot-${index}`, 0.5, 'Total', 'NBA'))
+      ]
+    };
+    const result = await buildRankedScreenResponse({
+      client: {
+        queryOddsHistory: async (params) => {
+          historyCalls.push(params);
+          return [];
+        }
+      },
+      payloads: [payload],
+      args: { limit: 1, preHistoryShortlist: true },
+      focusBook: 'NoVigApp',
+      rankRows: (rows) => rows
+    });
+
+    const moneylineGames = new Set(
+      historyCalls.filter((call) => String(call.gameId).startsWith('ml-')).map((call) => call.gameId)
+    );
+    const totalGames = new Set(
+      historyCalls.filter((call) => String(call.gameId).startsWith('tot-')).map((call) => call.gameId)
+    );
+    assert.ok(moneylineGames.size > 0, 'Moneyline market should be represented in the shortlist');
+    assert.ok(totalGames.size > 0, 'Total market should be represented in the shortlist');
+    assert.ok(result.resultMeta.preHistoryShortlist, 'shortlist metadata should be surfaced');
+  });
+});
+
 describe('buildDegradedDataWarnings — line field backfill (v2.1.3)', () => {
   it('emits a warning when non-moneyline rows had line values backfilled from upstream', () => {
     // Real shape after the ranker: rows do NOT have `line1` or `line` set

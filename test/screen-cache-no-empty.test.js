@@ -40,7 +40,7 @@ describe('screen cache does not pin empty responses', () => {
   it('re-fetches when the first call returns 0 rows (empty not cached)', async () => {
     const { client, getCalls } = makeClient();
     const handlers = createMcpHandlers({ client });
-    const args = { leagues: ['WNBA'], book: 'NoVigApp', limit: 3, validate: false };
+    const args = { leagues: ['WNBA'], book: 'NoVigApp', limit: 3, validate: false, cache: true };
 
     const first = await handlers.quick_screen(args);
     await handlers.quick_screen(args);

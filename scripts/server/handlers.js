@@ -720,7 +720,7 @@ function createMcpHandlers({
       // the fan-out loop still burns time iterating leagues. This cache
       // short-circuits the entire call when args haven't changed.
       // Bypassed when validate:true (must re-fetch for fresh validation).
-      const canCacheAggregate = !args.validate;
+      const canCacheAggregate = !args.validate && args.cache !== false;
       if (canCacheAggregate) {
         const aggregateCacheKey = JSON.stringify({
           _qs: 1,
@@ -798,7 +798,15 @@ function createMcpHandlers({
               includePasses: true,
               includeResearch: false,
               cardWindow: 'all', // always scan all — filter below
-              debug
+              debug,
+              // Aggregate scan mode: quick_screen fans out one sharp_plays
+              // call per (league, market) pair against a process-wide 75-call
+              // odds-history budget. Pass the TOTAL pair count so every pair
+              // claims a fair, small pre-history slice, and skip the redundant
+              // sharp-only cross-reference (the main ranked query already
+              // hydrates target + sharp books).
+              quickScreenAggregate: true,
+              aggregatePairCount: leagueMarketPairs.length
             });
 
             const candidates = Array.isArray(spResult?.result) ? spResult.result : [];
@@ -963,23 +971,40 @@ function createMcpHandlers({
       // validateTop limits validation to N best candidates when validate is false/omitted
       // When validate is explicitly false, skip validation entirely.
       const validateAll = args.validate === true; // default false, validate top 10 only
-      const validateTop =
+      const requestedValidateTop =
         args.validate === false ? 0 : Number.isFinite(Number(args.validateTop)) ? Number(args.validateTop) : 10;
+      // A validation can make several history calls while reconciling exact
+      // selection/timestamp drift. Bound bundled quick-screen validation by
+      // the shared window and reserve capacity for Tennis fallback recovery.
+      const remainingBeforeValidation =
+        typeof client.oddsHistoryBudgetRemaining === 'function' ? client.oddsHistoryBudgetRemaining() : null;
+      const validationBudgetCap = Number.isFinite(remainingBeforeValidation)
+        ? Math.max(0, Math.floor((remainingBeforeValidation - 20) / 20))
+        : requestedValidateTop;
+      const validateTop = validateAll ? requestedValidateTop : Math.min(requestedValidateTop, validationBudgetCap);
 
       if (validateAll || validateTop > 0) {
         const validationCache = new Map(); // gameId → validated result, shared across candidates
         const validationPromises = [];
+        const eligibleValidationCandidates = allCandidates.flatMap((entry) =>
+          (entry.candidates || [])
+            .filter((candidate) => candidate.gameId && candidate.selection && !candidate.altLineFiltered)
+            .map((candidate) => ({ candidate, entry }))
+        );
+        const selectedValidationCandidates = validateAll
+          ? eligibleValidationCandidates
+          : [...eligibleValidationCandidates]
+              .sort((a, b) => (b.candidate.screenScore || 0) - (a.candidate.screenScore || 0))
+              .slice(0, validateTop);
+        const selectedValidationSet = new Set(selectedValidationCandidates.map(({ candidate }) => candidate));
 
         for (const entry of allCandidates) {
           if (!entry.candidates || !entry.candidates.length) continue;
-          const sorted = validateAll
-            ? entry.candidates
-            : [...entry.candidates].sort((a, b) => (b.screenScore || 0) - (a.screenScore || 0));
-          const topN = sorted.slice(0, validateTop);
 
           for (const candidate of entry.candidates) {
-            // validateAll => validate everything; else only top-N (capped)
-            if (!validateAll && !topN.includes(candidate)) continue;
+            // validateAll => validate everything; otherwise validate the top N
+            // candidates GLOBALLY across the aggregate scan, not N per bucket.
+            if (!selectedValidationSet.has(candidate)) continue;
             if (!candidate.gameId || !candidate.selection) continue;
             // Skip alt-line rows already downgraded to TIER 4 by resolveAlternateLines
             // in the screen ranker. Validating them re-derives a fresh tier that
@@ -1008,6 +1033,8 @@ function createMcpHandlers({
                     league: entry.league,
                     gameId: candidate.gameId,
                     selection: candidate.selection,
+                    // Recheck only this exact selection (pre-hydration filter).
+                    exactSelectionOnly: true,
                     playId: candidate.playId,
                     market: entry.market,
                     skipResearch: true,
@@ -1021,6 +1048,10 @@ function createMcpHandlers({
                     screenConsensusBookCount: candidate.consensusBookCount,
                     screenExecutionQuality: candidate.executionQuality,
                     screenConsensusEdge: candidate.edge,
+                    // The aggregate screen already chose the exact line.
+                    // Recheck only that selection and do not amplify one
+                    // validation into adjacent-line history requests.
+                    enableHistoryLineFallback: false,
                     // Carry sharpBookMovementConfirmed so the re-fetched row
                     // doesn't lose the sharp-book confirmation and downgrade
                     // movementDisposition to 'insufficient'.
@@ -1059,7 +1090,6 @@ function createMcpHandlers({
           promoteFinalVerdictToDisplay(vr.candidate);
         }
       }
-
       // Post-validation: downgrade contradictory same-game+market plays
       for (const entry of allCandidates) {
         if (entry.candidates && entry.candidates.length) {
@@ -1283,8 +1313,17 @@ function createMcpHandlers({
         } catch {
           /* non-serializable — skip caching */
         }
-        // Per-league caches already filter empty responses; aggregate cache stores whatever we got
-        responseCache.set(args._aggregateCacheKey, formattedResponse, responseCacheTtlMs, estimatedSizeBytes);
+        // Per-league caches already filter empty responses; the aggregate
+        // cache must never pin a transient EMPTY slate (a live backend can
+        // intermittently return 0 rows, and serving that for the full TTL
+        // would hide a later-loaded slate).
+        const aggregateResultCount = (formattedResponse.results || []).reduce(
+          (sum, entry) => sum + (entry.count || (entry.candidates || []).length || (entry.plays || []).length || 0),
+          0
+        );
+        if (aggregateResultCount > 0) {
+          responseCache.set(args._aggregateCacheKey, formattedResponse, responseCacheTtlMs, estimatedSizeBytes);
+        }
       }
       // Log large responses for monitoring
       try {

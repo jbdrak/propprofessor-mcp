@@ -216,6 +216,16 @@ function createPlayDetailsHandlers(_client, _ctx) {
         client,
         payloads: [payload],
         args: { ...args, compact: false, skipHistory: false, historySportsbooks: augmentedBooksExcluded },
+        // Hydrate only the exact requested selection when this detail call is
+        // bundled validation (quick_screen validateTop). The pre-hydration
+        // filter must NOT apply to broad game-detail or mini-scan calls —
+        // those query whole games and would starve out unrelated rows.
+        ...(args.selection && args.exactSelectionOnly === true
+          ? {
+              preHydrationFilter: (row) =>
+                rowMatchesSelectionFilter(row, normalizeSelectionText(String(args.selection || '')))
+            }
+          : {}),
         league,
         focusBook,
         rankRows: (hydratedRows, options = {}) => {
