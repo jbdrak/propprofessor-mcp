@@ -3,6 +3,8 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
+const { CircuitBreakerOpenError } = require('../lib/propprofessor-circuit-breaker');
+
 const {
   hydrateScreenRowsWithHistory,
   extractLineFromPick,
@@ -230,6 +232,35 @@ describe('hydrateScreenRowsWithHistory', () => {
     assert.ok(maxInFlight <= 2, `Expected max 2 in-flight but got ${maxInFlight}`);
   });
 
+  it('bounds the default concurrency below the previous default of 6 when no option is given', async () => {
+    let maxInFlight = 0;
+    let currentInFlight = 0;
+
+    const client = makeClient(async () => {
+      currentInFlight++;
+      if (currentInFlight > maxInFlight) maxInFlight = currentInFlight;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      currentInFlight--;
+      return [
+        { odds: -110, start_ts: 1 },
+        { odds: -120, start_ts: 2 }
+      ];
+    });
+
+    const rows = Array.from({ length: 10 }, (_, i) =>
+      makeRow({ gameId: `game-defconc-${i}`, selectionId: `sel-defconc-${i}` })
+    );
+
+    // Callers (scan/screen_ranked) omit concurrency — the default itself must
+    // stay bounded so a full screen does not pile 6+ history calls onto a
+    // throttled upstream.
+    const results = await hydrateScreenRowsWithHistory(rows, { client });
+
+    assert.equal(results.length, 10);
+    assert.ok(maxInFlight < 6, `default concurrency must stay below 6, saw ${maxInFlight} in-flight`);
+    assert.ok(maxInFlight >= 1, 'default concurrency must stay above 0');
+  });
+
   it('respects concurrency=1 for serial execution', async () => {
     const order = [];
     const client = makeClient(async ({ gameId }) => {
@@ -418,5 +449,78 @@ describe('hydrateScreenRowsWithHistory — line-key fallback', () => {
     const [result] = await hydrateScreenRowsWithHistory(sourceRows, { client });
     assert.equal(result.lineHistoryAvailable, false);
     assert.ok(callCount >= 2, 'tried both exact and variant lines');
+  });
+});
+
+describe('hydrateScreenRowsWithHistory — throttle/circuit fail-soft', () => {
+  function captureStderr() {
+    const originalWrite = process.stderr.write.bind(process.stderr);
+    const chunks = [];
+    process.stderr.write = (chunk) => {
+      chunks.push(String(chunk));
+      return true;
+    };
+    return {
+      restore() {
+        process.stderr.write = originalWrite;
+      },
+      output() {
+        return chunks.join('');
+      }
+    };
+  }
+
+  function lineShapeRows() {
+    return [
+      makeRow({ gameId: 'g1', selectionId: 'sel-95', pick: 'Over 9.5', book: 'Pinnacle' }),
+      makeRow({ gameId: 'g1', selectionId: 'sel-90', pick: 'Over 9', book: 'BetOnline' })
+    ];
+  }
+
+  it('stops line-variant fallback after a 429 throttle error on the exact query', async () => {
+    const stderr = captureStderr();
+    let callCount = 0;
+    const client = makeClient(async () => {
+      callCount += 1;
+      const error = new Error('PropProfessor backend failed (429): rate limited');
+      error.status = 429;
+      error.code = 'PROPPROFESSOR_BACKEND_ERROR';
+      error.category = 'backend';
+      error.retryable = true;
+      throw error;
+    });
+
+    const results = await hydrateScreenRowsWithHistory(lineShapeRows(), { client });
+    stderr.restore();
+
+    // One exact query per row (2 rows) and no adjacent line variants on top:
+    // without the fail-soft guard each line-shaped row also re-queries its
+    // ±0.5 variants, turning this into 4 upstream calls during an outage.
+    assert.equal(callCount, 2, 'no adjacent line variants queried after a 429');
+    assert.ok(results.every((row) => row.lineHistoryAvailable === false));
+    const [result] = results;
+    assert.equal(result.historyErrorStatus, 429);
+    assert.equal(result.historyErrorCode, 'PROPPROFESSOR_BACKEND_ERROR');
+    assert.ok(result.historyError.includes('429'));
+    assert.ok(stderr.output().includes('429'));
+  });
+
+  it('stops line-variant fallback after a circuit-breaker-open error on the exact query', async () => {
+    const stderr = captureStderr();
+    let callCount = 0;
+    const client = makeClient(async () => {
+      callCount += 1;
+      throw new CircuitBreakerOpenError("Circuit breaker '/odds_history_new' is open", '/odds_history_new');
+    });
+
+    const results = await hydrateScreenRowsWithHistory(lineShapeRows(), { client });
+    stderr.restore();
+
+    // Same invariant: one exact query per row, zero variant queries.
+    assert.equal(callCount, 2, 'no adjacent line variants queried after circuit-open');
+    assert.ok(results.every((row) => row.lineHistoryAvailable === false));
+    const [result] = results;
+    assert.equal(result.historyErrorCode, 'CIRCUIT_BREAKER_OPEN');
+    assert.equal(result.historyErrorStatus, null);
   });
 });

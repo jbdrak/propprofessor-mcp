@@ -13,6 +13,7 @@ const {
   fetchAccessToken,
   isAbortLikeError,
   normalizeSelectionId,
+  parseRetryAfterDelayMs,
   readAuthState
 } = require('../lib/propprofessor-api');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
@@ -1011,6 +1012,89 @@ describe('createPropProfessorClient', () => {
     }
   });
 
+  it('records exactly one circuit breaker failure for a terminal 429 response (no double count)', async () => {
+    const { resetAllBreakers, getAllBreakersInfo } = require('../lib/propprofessor-circuit-breaker');
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    resetAllBreakers();
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        return { ok: false, status: 429, text: async () => 'rate limited' };
+      },
+      retryDelaysMs: []
+    });
+
+    try {
+      await assert.rejects(
+        () => client.querySportsbook({ leagues: ['NBA'] }),
+        (error) => {
+          assert.equal(error.status, 429);
+          assert.equal(error.retryable, true);
+          return true;
+        }
+      );
+      assert.equal(fetchAttempts, 1);
+      const breakers = getAllBreakersInfo();
+      const breaker = breakers.find((b) => b.name === 'https://backend.propprofessor.com/sportsbook');
+      assert.ok(breaker, 'expected a circuit breaker for the sportsbook endpoint');
+      assert.equal(breaker.failureCount, 1, 'one logical request must count as one breaker failure');
+    } finally {
+      resetAllBreakers();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('still retries 429 responses and counts one breaker failure per logical request', async () => {
+    const { resetAllBreakers, getAllBreakersInfo } = require('../lib/propprofessor-circuit-breaker');
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    resetAllBreakers();
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        return { ok: false, status: 429, text: async () => 'rate limited' };
+      },
+      retryDelaysMs: [0, 0]
+    });
+
+    try {
+      await assert.rejects(
+        () => client.querySportsbook({ leagues: ['NBA'] }),
+        (error) => {
+          assert.equal(error.status, 429);
+          assert.equal(error.retryable, true);
+          return true;
+        }
+      );
+      // Retry behavior preserved: retryDelaysMs [0, 0] => 3 attempts, all 429
+      assert.equal(fetchAttempts, 3);
+      const breakers = getAllBreakersInfo();
+      const breaker = breakers.find((b) => b.name === 'https://backend.propprofessor.com/sportsbook');
+      assert.ok(breaker, 'expected a circuit breaker for the sportsbook endpoint');
+      assert.equal(breaker.failureCount, 1, 'one logical request must count as one breaker failure');
+    } finally {
+      resetAllBreakers();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('retries timeout failures and reports them as transport errors when retries are exhausted', async () => {
     const { dir, file } = makeTempAuthState({
       cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
@@ -1146,6 +1230,145 @@ describe('createPropProfessorClient', () => {
           return true;
         }
       );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('Retry-After handling', () => {
+  it('parses numeric Retry-After seconds into a millisecond delay', () => {
+    const headers = { get: (name) => (name === 'Retry-After' ? '2' : null) };
+    assert.equal(parseRetryAfterDelayMs(headers), 2000);
+    assert.equal(parseRetryAfterDelayMs({ get: () => '3' }), 3000);
+  });
+
+  it('returns null when the response has no headers object', () => {
+    assert.equal(parseRetryAfterDelayMs(undefined), null);
+    assert.equal(parseRetryAfterDelayMs(null), null);
+    assert.equal(parseRetryAfterDelayMs({}), null);
+  });
+
+  it('returns null for malformed or non-positive Retry-After values', () => {
+    assert.equal(parseRetryAfterDelayMs({ get: () => 'abc' }), null);
+    assert.equal(parseRetryAfterDelayMs({ get: () => '0' }), null);
+    assert.equal(parseRetryAfterDelayMs({ get: () => '-3' }), null);
+    assert.equal(parseRetryAfterDelayMs({ get: () => 'Wed, 21 Oct 2015 07:28:00 GMT' }), null);
+    assert.equal(parseRetryAfterDelayMs({ get: () => null }), null);
+  });
+
+  it('caps the Retry-After delay at 30 seconds', () => {
+    assert.equal(parseRetryAfterDelayMs({ get: () => '45' }), 30_000);
+    assert.equal(parseRetryAfterDelayMs({ get: () => '120' }), 30_000);
+    assert.equal(parseRetryAfterDelayMs({ get: () => '3600' }), 30_000);
+  });
+
+  it('uses the 429 Retry-After header instead of the shorter generic retry delay', async () => {
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        if (fetchAttempts === 1) {
+          return {
+            ok: false,
+            status: 429,
+            text: async () => 'rate limited',
+            headers: { get: (name) => (name === 'Retry-After' ? '1' : null) }
+          };
+        }
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      },
+      // Generic retry delays are 0 — only the Retry-After hint can explain a ~1s pause.
+      retryDelaysMs: [0]
+    });
+
+    try {
+      const started = Date.now();
+      const result = await client.queryScreenOdds({});
+      const elapsed = Date.now() - started;
+      assert.deepEqual(result, { ok: true });
+      assert.equal(fetchAttempts, 2);
+      assert.ok(elapsed >= 900, `expected >= 900ms wait from Retry-After, got ${elapsed}ms`);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('retries 429 responses when mocks omit headers entirely', async () => {
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        if (fetchAttempts < 3) {
+          // Plain mock response: no headers property at all.
+          return { ok: false, status: 429, text: async () => 'rate limited' };
+        }
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      },
+      retryDelaysMs: [0, 0]
+    });
+
+    try {
+      const result = await client.queryScreenOdds({});
+      assert.deepEqual(result, { ok: true });
+      assert.equal(fetchAttempts, 3, '429 without headers must still retry');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores Retry-After on non-429 responses and keeps the generic retry schedule', async () => {
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        if (fetchAttempts === 1) {
+          return {
+            ok: false,
+            status: 503,
+            text: async () => 'service unavailable',
+            headers: { get: (name) => (name === 'Retry-After' ? '5' : null) }
+          };
+        }
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      },
+      retryDelaysMs: [0]
+    });
+
+    try {
+      const started = Date.now();
+      const result = await client.queryScreenOdds({});
+      const elapsed = Date.now() - started;
+      assert.deepEqual(result, { ok: true });
+      assert.equal(fetchAttempts, 2);
+      assert.ok(elapsed < 3000, `5xx Retry-After must be ignored (would sleep 5s); got ${elapsed}ms`);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
