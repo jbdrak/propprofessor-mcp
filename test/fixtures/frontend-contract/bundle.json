@@ -14,7 +14,7 @@
     },
     {
       "league": "tennis",
-      "markets": ["moneyline", "game handicap", "total games"]
+      "markets": ["moneyline", "total games", "set handicap"]
     },
     {
       "league": "MLB",
