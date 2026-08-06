@@ -33,6 +33,7 @@ const {
   parseGameStartMs
 } = require('../../lib/propprofessor-shared-utils');
 const { getLocalTimezone, localDateKey } = require('../../lib/mcp-runtime-config');
+const { getPropMarketsForSport } = require('../../lib/propprofessor-market-registry');
 
 /**
  * Get default markets for a given league and book.
@@ -727,7 +728,8 @@ function createMcpHandlers({
           markets: (markets || []).slice().sort(),
           books: (targetBooks || []).slice().sort(),
           limit,
-          cardWindow: args.cardWindow || 'today'
+          cardWindow: args.cardWindow || 'today',
+          includeProps: args.includeProps === true
         });
         const cached = responseCache.get(aggregateCacheKey);
         if (cached) {
@@ -743,7 +745,14 @@ function createMcpHandlers({
       const resolvedMarketsByLeague = {};
       for (const league of leagues) {
         const marketsForResolution = markets === null ? getDefaultMarketsForLeague(league, targetBooks) : markets;
-        const marketResolution = resolveMarkets({ markets: marketsForResolution }, league);
+        let marketArray = marketsForResolution;
+        if (args.includeProps === true) {
+          const propMarkets = getPropMarketsForSport(league);
+          if (propMarkets.length) {
+            marketArray = [...new Set([...marketArray, ...propMarkets])];
+          }
+        }
+        const marketResolution = resolveMarkets({ markets: marketArray }, league);
         resolvedMarketsByLeague[league] = marketResolution.array.length
           ? marketResolution.array
           : [marketResolution.single];

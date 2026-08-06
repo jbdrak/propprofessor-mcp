@@ -1330,6 +1330,34 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.ok(leagueNames.includes('NBA') || leagueNames.includes('MLB') || leagueNames.includes('WNBA'));
   });
 
+  it('quick_screen includeProps merges player prop markets for NBA', async () => {
+    const { client } = createRankedScreenClientStub();
+    const handlers = createMcpHandlers({ client });
+
+    // Spy on sharp_plays to capture the resolved (league, market) pairs
+    // quick_screen fans out to.
+    const requestedMarkets = [];
+    handlers.sharp_plays = async (args) => {
+      requestedMarkets.push(args.market);
+      return { ok: true, result: [] };
+    };
+
+    const result = await handlers.quick_screen({
+      books: ['NoVigApp'],
+      leagues: ['NBA'],
+      markets: ['Moneyline'],
+      includeProps: true,
+      includeResearch: false,
+      cardWindow: 'all'
+    });
+
+    assert.ok(result.ok);
+    assert.ok(
+      requestedMarkets.includes('Player Points'),
+      `expected Player Points in fanned-out markets, got: ${JSON.stringify(requestedMarkets)}`
+    );
+  });
+
   it('validate_play returns a structured response with required fields', async () => {
     const { client } = createRankedScreenClientStub();
     const handlers = createMcpHandlers({ client });
