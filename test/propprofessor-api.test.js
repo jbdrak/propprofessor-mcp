@@ -507,6 +507,90 @@ describe('createPropProfessorClient', () => {
     }
   });
 
+  it('does not retry odds-history 429 responses without Retry-After', async () => {
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt-history-429', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        return { ok: false, status: 429, text: async () => 'rate limited' };
+      },
+      retryDelaysMs: [0, 0, 0]
+    });
+
+    try {
+      await assert.rejects(
+        () =>
+          client.queryOddsHistory({
+            gameId: 'game-429',
+            selectionId: 'selection-429',
+            sportsbooks: ['FanDuel']
+          }),
+        (error) => {
+          assert.equal(error.status, 429);
+          assert.equal(error.code, 'PROPPROFESSOR_BACKEND_ERROR');
+          assert.equal(error.retryable, true);
+          return true;
+        }
+      );
+      assert.equal(fetchAttempts, 1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('preserves the original odds-history 429 when the breaker opens', async () => {
+    const { resetAllBreakers } = require('../lib/propprofessor-circuit-breaker');
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    resetAllBreakers();
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt-history-breaker', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        return { ok: false, status: 429, text: async () => 'rate limited' };
+      },
+      retryDelaysMs: []
+    });
+
+    try {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await assert.rejects(
+          () =>
+            client.queryOddsHistory({
+              gameId: `game-breaker-${attempt}`,
+              selectionId: `selection-breaker-${attempt}`,
+              sportsbooks: ['FanDuel']
+            }),
+          (error) => {
+            assert.equal(error.status, 429);
+            assert.equal(error.retryable, true);
+            return true;
+          }
+        );
+      }
+      assert.equal(fetchAttempts, 5);
+    } finally {
+      resetAllBreakers();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('returns screen-only health status when the screen endpoint fails', async () => {
     const { dir, file } = makeTempAuthState({
       cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
