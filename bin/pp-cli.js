@@ -169,6 +169,7 @@ Flags:
   --tz <IANA>                Timezone for display (default: America/Chicago). Overrides LOCALTIMEZONE env var.
   --no-tennis-fallback       Disable fallback recovery when tennis scan returns 0 plays
   --record-scan              Record scan + normalized candidates to the tracker ledger (PP_RECORD_LEDGER, default ~/.propprofessor/tracker/ledger.json)
+  --props                   Include player prop markets (Player Points, etc.) in the scan
 
 Examples:
   pp scan tennis wnba
@@ -780,6 +781,7 @@ async function cmdScan(handlers, positional, flags, client) {
 
   const markets = flags.m || flags.market || undefined;
   const marketList = markets ? (Array.isArray(markets) ? markets : markets.split(',')) : undefined;
+  const includeProps = flags.props || flags['include-props'] || false;
   const book = flags.b || flags.book || 'NoVigApp';
   const tier = flags.t || flags.tier || undefined;
   const onlyBets = flags.B || flags['only-bets'] || false;
@@ -852,6 +854,7 @@ async function cmdScan(handlers, positional, flags, client) {
       leagues,
       markets: marketList,
       books: [book],
+      includeProps: includeProps || undefined,
       targetTiers,
       onlyBets: onlyBets || undefined,
       minFinalTier,
