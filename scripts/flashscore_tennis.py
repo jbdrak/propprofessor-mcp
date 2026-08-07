@@ -16,6 +16,7 @@ Timezone: Sets browser to America/Chicago so times are CDT/CST.
 import sys
 import json
 import argparse
+import re
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -94,23 +95,77 @@ EXTRACT_JS = """() => {
 }"""
 
 
-def scrape_date(page, date_str, today_str):
-    """Scrape a single date's Flashscore tennis page."""
-    url = "https://www.flashscore.com/tennis/"
-    if date_str != today_str:
-        d = date_str.replace("-", "")
-        url = f"https://www.flashscore.com/tennis/?d={d}"
+def read_date_strip(page):
+    """Read the visible date strip ('07/08 Fr') Flashscore shows above the match list."""
+    try:
+        return page.evaluate("""() => {
+            const re = new RegExp("[0-9]{2}/[0-9]{2}");
+            const els = Array.from(document.querySelectorAll('*')).filter(e => {
+                const t = (e.textContent || '').trim();
+                return re.test(t) && t.length < 15 && e.childElementCount === 0;
+            });
+            return els.length ? els[0].textContent.trim() : null;
+        }""")
+    except Exception:
+        return None
+
+
+def strip_to_date(strip_text, year):
+    """Parse '07/08 Fr' -> date(year, 8, 7). Flashscore renders DD/MM."""
+    m = re.search(r"([0-9]{2})/([0-9]{2})", strip_text or "")
+    if not m:
+        return None
+    return datetime(year, int(m.group(2)), int(m.group(1))).date()
+
+
+def click_day(page, label):
+    """Click the Previous day / Next day arrow. Returns True on success."""
+    return page.evaluate("""(label) => {
+        const b = Array.from(document.querySelectorAll('button')).find(x => x.getAttribute('aria-label') === label);
+        if (b) { b.click(); return true; }
+        return false;
+    }""", label)
+
+
+def scrape_date(page, date_str, real_today_str):
+    """Scrape a single date's Flashscore tennis page.
+
+    Flashscore (2026+) ignores the ?d= URL param and switches days purely via
+    in-page state: the 'Previous day' / 'Next day' arrow buttons. So we load
+    the base page (always the REAL local today, regardless of the --date
+    window center) and click arrows until the date strip matches the target
+    date. Verification via the date strip catches silent misses.
+    """
+    target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    today_date = datetime.strptime(real_today_str, "%Y-%m-%d").date()
+    offset = (target_date - today_date).days
 
     try:
-        page.goto(url, wait_until="networkidle", timeout=30000)
+        page.goto("https://www.flashscore.com/tennis/", wait_until="networkidle", timeout=30000)
         page.wait_for_selector('[class*="event__match"]', timeout=15000)
+
+        label = "Next day" if offset > 0 else "Previous day"
+        for _ in range(abs(offset)):
+            if not click_day(page, label):
+                return {"error": f"day arrow '{label}' not found after {offset} day(s)"}
+            page.wait_for_timeout(2500)
+            try:
+                page.wait_for_selector('[class*="event__match"]', timeout=15000)
+            except Exception:
+                # page may show 'no matches' state for far-future dates; keep going
+                page.wait_for_timeout(1500)
+
+        # Verify the date strip matches the target date
+        strip = read_date_strip(page)
+        strip_date = strip_to_date(strip, target_date.year) if strip else None
+        if strip_date != target_date:
+            return {"error": f"date strip '{strip}' != target {date_str} (nav may be off)"}
 
         # Scroll to trigger lazy loading
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         page.wait_for_timeout(1500)
 
-        data = page.evaluate(EXTRACT_JS)
-        return data
+        return page.evaluate(EXTRACT_JS)
     except Exception as e:
         return {"error": str(e)}
 
@@ -146,10 +201,10 @@ def main():
     args = parser.parse_args()
 
     center = datetime.strptime(args.date, "%Y-%m-%d")
-    today_str = args.date
+    real_today_str = local_date_string()
     dates = [
         (center - timedelta(days=1)).strftime("%Y-%m-%d"),
-        today_str,
+        args.date,
         (center + timedelta(days=1)).strftime("%Y-%m-%d"),
     ]
 
@@ -166,7 +221,7 @@ def main():
         errors = []
 
         for date_str in dates:
-            result = scrape_date(page, date_str, today_str)
+            result = scrape_date(page, date_str, real_today_str)
             if isinstance(result, dict) and "error" in result:
                 errors.append(f"{date_str}: {result['error']}")
             elif isinstance(result, list):
