@@ -11,10 +11,8 @@
  * required, guarded so main() does not auto-run).
  */
 
-const { describe, it, before, beforeEach, afterEach } = require('node:test');
+const { describe, it, before } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
 const path = require('path');
 
 const PROJECT = path.resolve(__dirname, '..');
@@ -23,9 +21,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   let cmdScan;
   let formatScan;
   let momentumLabel;
-  let recentDriftContextLabel;
-  let snapshotStore;
-  const SNAPSHOT_FILE = path.join(os.tmpdir(), 'pp-scan-snapshot-test-' + process.pid + '.json');
+  let openerContextLabel;
 
   // ── mock recoverTennisFromScreen ─────────────────────────────────
   // We replace the tennis-fallback module in require.cache BEFORE
@@ -71,7 +67,6 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   };
 
   before(() => {
-    process.env.PP_SCAN_SNAPSHOT_FILE = SNAPSHOT_FILE;
     const tennisFallbackPath = require.resolve(PROJECT + '/lib/tennis-fallback');
     // Remove any stale cache entry
     delete require.cache[tennisFallbackPath];
@@ -93,16 +88,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     cmdScan = mod.cmdScan;
     formatScan = mod.formatScan;
     momentumLabel = mod.momentumLabel;
-    recentDriftContextLabel = mod.recentDriftContextLabel;
-    snapshotStore = require(PROJECT + '/lib/pp-scan-snapshot-store');
-  });
-
-  beforeEach(() => {
-    fs.rmSync(SNAPSHOT_FILE, { force: true });
-  });
-
-  afterEach(() => {
-    fs.rmSync(SNAPSHOT_FILE, { force: true });
+    openerContextLabel = mod.openerContextLabel;
   });
 
   // ── helpers ──────────────────────────────────────────────────────
@@ -781,228 +767,36 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     assert.match(out, /vs open: longer/, 'indicates longer odds vs opener');
   });
 
-  it('recentDriftContextLabel marks longer odds as recent adverse', () => {
-    const label = recentDriftContextLabel(-147, -141);
-    assert.match(label, /prev -147 -> now -141/);
-    assert.match(label, /since last scan: longer \(recent adverse\)/);
+  it('openerContextLabel suppresses sub-threshold drift (noise floor)', () => {
+    assert.equal(openerContextLabel(-111, -112), null);
+    assert.equal(openerContextLabel(-111, -110), null);
+    assert.equal(openerContextLabel(108, 109), null);
   });
 
-  it('recentDriftContextLabel marks shorter odds as recent supportive', () => {
-    const label = recentDriftContextLabel(163, 150);
-    assert.match(label, /prev \+163 -> now \+150/);
-    assert.match(label, /since last scan: shorter \(recent supportive\)/);
-  });
-
-  it('formatScan prints previous-scan drift when previousSeenOdds is present', () => {
+  it('formatScan omits the vs-open line for sub-threshold moves', () => {
     const results = [
       {
-        league: 'MLB',
-        market: 'Moneyline',
+        league: 'Tennis',
+        market: 'Total Games',
         plays: [
           {
-            selection: 'Braves',
-            odds: -141,
-            currentOdds: -141,
-            previousSeenOdds: -147,
-            openingOdds: -152,
-            tier: 'TIER 1',
+            selection: 'Under 21.5',
+            odds: -115,
+            currentOdds: -114,
+            openingOdds: -113,
+            tier: 'TIER 2',
             verdict: 'BET',
-            clvProxyPct: 2.1,
-            edge: 1.5,
-            books: 4,
-            game: 'Nationals vs Braves',
-            movementDisposition: 'supportive_clean'
+            clvProxyPct: 0.7,
+            edge: 0.7,
+            books: 5,
+            game: 'Svitolina vs Potapova',
+            movementDisposition: 'supportive_bouncy'
           }
         ]
       }
     ];
     const out = formatScan(results);
-    assert.match(out, /prev -147 -> now -141/);
-    assert.match(out, /recent adverse/);
+    assert.doesNotMatch(out, /vs open/);
   });
 
-  it('cmdScan stores prior snapshot and shows drift on the next scan', async () => {
-    const first = {
-      data: {
-        results: [
-          {
-            league: 'MLB',
-            market: 'Moneyline',
-            plays: [
-              {
-                selection: 'Braves',
-                odds: -147,
-                currentOdds: -147,
-                game: 'Nationals vs Braves',
-                gameId: 'MLB:1',
-                book: 'NoVigApp',
-                movementDisposition: 'supportive_clean',
-                tier: 'TIER 1',
-                verdict: 'BET'
-              }
-            ]
-          }
-        ],
-        totalCount: 1
-      }
-    };
-    const second = {
-      data: {
-        results: [
-          {
-            league: 'MLB',
-            market: 'Moneyline',
-            plays: [
-              {
-                selection: 'Braves',
-                odds: -141,
-                currentOdds: -141,
-                game: 'Nationals vs Braves',
-                gameId: 'MLB:1',
-                book: 'NoVigApp',
-                movementDisposition: 'supportive_clean',
-                tier: 'TIER 1',
-                verdict: 'BET'
-              }
-            ]
-          }
-        ],
-        totalCount: 1
-      }
-    };
-
-    const handlers = {
-      quick_screen: async () => {
-        const next = handlers.__calls === 0 ? first : second;
-        handlers.__calls += 1;
-        return next;
-      },
-      __calls: 0
-    };
-
-    let logs = [];
-    const origLog = console.log;
-    const origError = console.error;
-    console.log = (...args) => logs.push(args.join(' '));
-    console.error = () => {};
-    try {
-      await cmdScan(handlers, ['pp', 'scan', 'mlb'], {}, {});
-      logs = [];
-      await cmdScan(handlers, ['pp', 'scan', 'mlb'], {}, {});
-    } finally {
-      console.log = origLog;
-      console.error = origError;
-    }
-
-    const joined = logs.join('\n');
-    assert.match(joined, /prev -147 -> now -141/);
-    assert.match(joined, /recent adverse/);
-  });
-
-  it('snapshot keys include the book so scans from different books do not cross-contaminate', () => {
-    const noVigKey = snapshotStore.buildSnapshotKey({
-      league: 'MLB',
-      market: 'Moneyline',
-      gameId: 'MLB:1',
-      selection: 'Braves',
-      book: 'NoVigApp'
-    });
-    const dkKey = snapshotStore.buildSnapshotKey({
-      league: 'MLB',
-      market: 'Moneyline',
-      gameId: 'MLB:1',
-      selection: 'Braves',
-      book: 'DraftKings'
-    });
-    assert.notEqual(noVigKey, dkKey);
-  });
-
-  it('ignores stale previous snapshots older than the TTL', () => {
-    const staleSeenAt = new Date(Date.now() - snapshotStore.DEFAULT_PREVIOUS_SNAPSHOT_TTL_MS - 1000).toISOString();
-    const key = snapshotStore.buildSnapshotKey({
-      league: 'MLB',
-      market: 'Moneyline',
-      gameId: 'MLB:1',
-      selection: 'Braves',
-      book: 'NoVigApp'
-    });
-    const results = [
-      {
-        league: 'MLB',
-        market: 'Moneyline',
-        plays: [
-          {
-            selection: 'Braves',
-            gameId: 'MLB:1',
-            book: 'NoVigApp',
-            currentOdds: -141,
-            odds: -141
-          }
-        ]
-      }
-    ];
-    snapshotStore.annotateResultsWithPreviousSnapshot(results, {
-      [key]: { odds: -147, seenAt: staleSeenAt }
-    });
-    assert.equal(results[0].plays[0].previousSeenOdds, undefined);
-  });
-
-  it('preserves existing snapshot entries when a later scan returns no plays', async () => {
-    const first = {
-      data: {
-        results: [
-          {
-            league: 'MLB',
-            market: 'Moneyline',
-            plays: [
-              {
-                selection: 'Braves',
-                odds: -147,
-                currentOdds: -147,
-                game: 'Nationals vs Braves',
-                gameId: 'MLB:1',
-                book: 'NoVigApp',
-                movementDisposition: 'supportive_clean',
-                tier: 'TIER 1',
-                verdict: 'BET'
-              }
-            ]
-          }
-        ],
-        totalCount: 1
-      }
-    };
-    const empty = {
-      data: {
-        results: [],
-        totalCount: 0
-      }
-    };
-
-    const handlers = {
-      quick_screen: async () => {
-        const next = handlers.__calls === 0 ? first : empty;
-        handlers.__calls += 1;
-        return next;
-      },
-      __calls: 0
-    };
-
-    const origLog = console.log;
-    const origError = console.error;
-    console.log = () => {};
-    console.error = () => {};
-    try {
-      await cmdScan(handlers, ['pp', 'scan', 'mlb'], {}, {});
-      const afterFirst = snapshotStore.loadSnapshot();
-      assert.equal(Object.keys(afterFirst).length, 1);
-      await cmdScan(handlers, ['pp', 'scan', 'mlb'], {}, {});
-      const afterEmpty = snapshotStore.loadSnapshot();
-      assert.equal(Object.keys(afterEmpty).length, 1);
-      assert.deepEqual(afterEmpty, afterFirst);
-    } finally {
-      console.log = origLog;
-      console.error = origError;
-    }
-  });
 });

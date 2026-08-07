@@ -14,13 +14,6 @@ const { createMcpHandlers } = require(PROJECT + '/scripts/server/handlers');
 const { getLocalTimezone } = require(PROJECT + '/lib/mcp-runtime-config');
 const { parseGameStartMs } = require(PROJECT + '/lib/propprofessor-shared-utils');
 const { recoverTennisFromScreen } = require(PROJECT + '/lib/tennis-fallback');
-const {
-  loadSnapshot,
-  saveSnapshot,
-  annotateResultsWithPreviousSnapshot,
-  buildSnapshotFromResults,
-  mergeSnapshotEntries
-} = require(PROJECT + '/lib/pp-scan-snapshot-store');
 const { loadLedger, saveLedger, addRecord, defaultLedgerPath } = require(PROJECT + '/lib/record-ledger');
 const { normalizeScanCandidates } = require(PROJECT + '/lib/record-candidates');
 const { promoteCards } = require(PROJECT + '/lib/record-card');
@@ -378,22 +371,18 @@ function oddsFmt(n) {
   return v > 0 ? `+${v}` : String(v);
 }
 
+// Minimum American-odds move (in cents) before a drift counts as a directional
+// signal. Exchanges like Novig tick in 1¢ — a 1-2¢ wiggle is noise, not movement,
+// and labeling it "recent adverse"/"recent supportive" misleads the read.
+const MIN_DRIFT_CENTS = 3;
+
 function openerContextLabel(openingOdds, currentOdds) {
   const open = Number(openingOdds);
   const current = Number(currentOdds);
   if (!Number.isFinite(open) || !Number.isFinite(current) || open === current) return null;
+  if (Math.abs(current - open) < MIN_DRIFT_CENTS) return null;
   const direction = current > open ? 'vs open: longer' : 'vs open: shorter';
   return `open ${oddsFmt(open)} -> now ${oddsFmt(current)}  ·  ${direction}`;
-}
-
-function recentDriftContextLabel(previousSeenOdds, currentOdds) {
-  const previous = Number(previousSeenOdds);
-  const current = Number(currentOdds);
-  if (!Number.isFinite(previous) || !Number.isFinite(current) || previous === current) return null;
-  const isAdverse = current > previous;
-  const direction = isAdverse ? 'longer' : 'shorter';
-  const note = isAdverse ? 'recent adverse' : 'recent supportive';
-  return `prev ${oddsFmt(previous)} -> now ${oddsFmt(current)}  ·  since last scan: ${direction} (${note})`;
 }
 
 function momentumLabel(p) {
@@ -437,12 +426,11 @@ function formatScan(results) {
       out += '    ' + details.join('  ·  ') + '\n';
       const openerLine = openerContextLabel(p.openingOdds, p.currentOdds);
       if (openerLine) out += '    ' + openerLine + '\n';
-      const recentDriftLine = recentDriftContextLabel(p.previousSeenOdds, p.currentOdds ?? p.odds);
-      if (recentDriftLine) out += '    ' + recentDriftLine + '\n';
       const momentum = momentumLabel(p);
       if (momentum) out += '    ' + momentum + '\n';
       const matchup = p.game || p.matchup || '';
-      if (matchup || p.startCST) out += '    ' + matchup + '  ' + (p.startCST || '') + '\n';
+      if (matchup || p.startCST || p.startDisplay)
+        out += '    ' + matchup + '  ' + (p.startCST || p.startDisplay || '') + '\n';
     }
   }
   out += '\n' + B + total + R + ' plays across ' + results.length + ' markets';
@@ -487,7 +475,7 @@ function formatToday(data) {
     for (const p of slate) {
       out +=
         '  ' +
-        (p.startCST || '?') +
+        (p.startCST || p.startDisplay || '?') +
         '  ' +
         (p.game || p.matchup) +
         '  ' +
@@ -974,8 +962,6 @@ async function cmdScan(handlers, positional, flags, client) {
     }
 
     const results = res.data?.results || res.results || [];
-    const previousSnapshot = loadSnapshot();
-    annotateResultsWithPreviousSnapshot(results, previousSnapshot);
 
     // --record-scan: persist this scan + normalized candidates to the tracker
     // ledger. Status goes to stderr; a recording failure must never break the
@@ -1036,10 +1022,6 @@ async function cmdScan(handlers, positional, flags, client) {
       console.log(formatScan(results));
       const total = results.reduce((s, r) => s + (r.plays || []).length, 0);
       console.log('\n' + total + ' plays across ' + results.length + ' markets');
-    }
-    const nextSnapshot = buildSnapshotFromResults(results);
-    if (Object.keys(nextSnapshot).length) {
-      saveSnapshot(mergeSnapshotEntries(previousSnapshot, nextSnapshot));
     }
   } catch (e) {
     clearInterval(spinner);
@@ -1193,7 +1175,7 @@ async function cmdPicks(handlers, positional, flags) {
         '  ' +
         verdict +
         '  ' +
-        (p.startCST || '')
+        (p.startCST || p.startDisplay || '')
     );
     if (p.edge) console.log('    edge: ' + p.edge + '%  |  tier: ' + (p.tier || ''));
   }
@@ -1578,6 +1560,5 @@ module.exports = {
   formatScan,
   momentumLabel,
   openerContextLabel,
-  recentDriftContextLabel,
   oddsFmt
 };
