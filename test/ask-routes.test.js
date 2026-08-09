@@ -54,6 +54,18 @@ describe('ask() executes the suggested tool — one-call answer', () => {
       assert.ok(result.result !== undefined, 'should execute the tool and return the result');
     });
 
+    it('"best MLB play on OnyxOdds" executes quick_screen with books [OnyxOdds]', async () => {
+      const handlers = makeHandlers();
+      const result = await handlers.ask({ query: 'best MLB play on OnyxOdds' });
+      assert.equal(result.ok, true);
+      assert.equal(result._executed.tool, 'quick_screen');
+      assert.deepStrictEqual(result._executed.args.books, ['OnyxOdds']);
+      assert.equal(result.parsed.book, 'OnyxOdds');
+      assert.equal(result.parsed.league, 'MLB');
+      // Result is populated from the actual tool execution
+      assert.ok(result.result !== undefined, 'should execute the tool and return the result');
+    });
+
     it('"should I bet Tatum" executes validate_play', async () => {
       const handlers = makeHandlers();
       const result = await handlers.ask({ query: 'should I bet Tatum over 29.5 in NBA' });

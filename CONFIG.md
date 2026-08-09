@@ -30,8 +30,10 @@ The MCP uses three book categories. These are passed as parameters to specific t
 Books you actually place bets on. Pass to `quick_screen`, `smart_bet`:
 
 ```json
-{ "targetBooks": ["Fliff", "NoVigApp", "Rebet"] }
+{ "targetBooks": ["OnyxOdds", "Fliff", "NoVigApp", "Rebet"] }
 ```
+
+Target/execution support is separate from default sharp-book comparison: a book listed here (e.g. `OnyxOdds`) is a valid execution target but is not part of any default sharp set (see section 2 and "Default sharp sets" below).
 
 ### 2. Sharp comparison books (movement detection)
 

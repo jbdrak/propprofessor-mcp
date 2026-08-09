@@ -51,4 +51,12 @@ describe('propprofessor query parser', () => {
     assert.equal(inferDefaultLeague('mls'), 'MLS');
     assert.equal(inferDefaultLeague('major league soccer odds'), 'MLS');
   });
+
+  it('routes OnyxOdds queries to the OnyxOdds book with suggested books', () => {
+    const parsed = parseNaturalLanguagePropQuery('best MLB play on OnyxOdds');
+    assert.equal(parsed.book, 'OnyxOdds');
+    assert.equal(parsed.league, 'MLB');
+    assert.deepEqual(parsed.suggestedTool.args, { books: ['OnyxOdds'] });
+    assert.equal(inferPreferredBook('use OnyxOdds'), 'OnyxOdds');
+  });
 });

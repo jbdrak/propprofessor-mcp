@@ -31,8 +31,20 @@ describe('canonicalizeScreenArgs', () => {
   });
 
   it('produces different canonical keys for exact selections on the same game', () => {
-    const args1 = { gameId: '12345', leagues: ['Tennis'], markets: ['Total Games'], books: ['NoVigApp'], selection: 'Over 22.5' };
-    const args2 = { gameId: '12345', leagues: ['Tennis'], markets: ['Total Games'], books: ['NoVigApp'], selection: 'Over 20.5' };
+    const args1 = {
+      gameId: '12345',
+      leagues: ['Tennis'],
+      markets: ['Total Games'],
+      books: ['NoVigApp'],
+      selection: 'Over 22.5'
+    };
+    const args2 = {
+      gameId: '12345',
+      leagues: ['Tennis'],
+      markets: ['Total Games'],
+      books: ['NoVigApp'],
+      selection: 'Over 20.5'
+    };
     const key1 = canonicalizeScreenArgs(args1);
     const key2 = canonicalizeScreenArgs(args2);
     assert.notEqual(key1, key2, 'different exact selections must not share a cached response');

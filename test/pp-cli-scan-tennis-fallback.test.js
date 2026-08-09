@@ -128,7 +128,11 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
       restoreConsole(orig);
     }
 
-    assert.deepEqual(request.targetTiers, ['TIER 1', 'TIER 2', 'TIER 3'], 'normal scan should keep BET and CONSIDER tiers');
+    assert.deepEqual(
+      request.targetTiers,
+      ['TIER 1', 'TIER 2', 'TIER 3'],
+      'normal scan should keep BET and CONSIDER tiers'
+    );
     assert.equal(res.data.results[0].plays[0].selection, 'Guardians');
   });
 
@@ -823,5 +827,4 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     const out = formatScan(results);
     assert.doesNotMatch(out, /vs open/);
   });
-
 });
