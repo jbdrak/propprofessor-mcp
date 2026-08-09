@@ -1309,6 +1309,46 @@ describe('propprofessor MCP server stdio contract', () => {
     }
   });
 
+  it('quick_screen materializes final verdicts when validation is skipped', async () => {
+    const { client } = createRankedScreenClientStub();
+    client.oddsHistoryBudgetRemaining = () => 0;
+    const handlers = createMcpHandlers({ client });
+    handlers.sharp_plays = async () => ({
+      ok: true,
+      result: [
+        {
+          gameId: 'unvalidated-bet-game',
+          game: 'Stub Away vs Stub Home',
+          selection: 'Stub Home',
+          participant: 'Stub Home',
+          pick: 'Stub Home',
+          odds: -110,
+          confidenceTier: 'TIER 1',
+          displayTier: 'BET',
+          kaiCall: 'BET',
+          movementDisposition: 'supportive_clean',
+          screenScore: 10
+        }
+      ]
+    });
+
+    const result = await handlers.quick_screen({
+      books: ['NoVigApp'],
+      leagues: ['MLB'],
+      markets: ['Moneyline'],
+      onlyBets: true,
+      minFinalTier: 'TIER 2',
+      validate: false,
+      includeResearch: false,
+      cardWindow: 'all'
+    });
+
+    const candidates = result.results.flatMap((entry) => entry.candidates || []);
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0].finalVerdict, 'BET');
+    assert.equal(candidates[0].finalConfidenceTier, 'TIER 1');
+  });
+
   it('quick_screen fans out across multiple leagues (concurrency)', async () => {
     const { client } = createRankedScreenClientStub();
     const handlers = createMcpHandlers({ client });

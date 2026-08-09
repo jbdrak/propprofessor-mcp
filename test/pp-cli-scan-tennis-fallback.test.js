@@ -107,6 +107,31 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
 
   // ── tests ────────────────────────────────────────────────────────
 
+  it('does not restrict normal scans to TIER 1/2 by default', async () => {
+    let request;
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Guardians', odds: -106 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = {
+      quick_screen: async (args) => {
+        request = args;
+        return res;
+      }
+    };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    assert.deepEqual(request.targetTiers, ['TIER 1', 'TIER 2', 'TIER 3'], 'normal scan should keep BET and CONSIDER tiers');
+    assert.equal(res.data.results[0].plays[0].selection, 'Guardians');
+  });
+
   it('injects tennis fallback when tennis is among requested leagues but returned empty', async () => {
     const res = {
       data: {

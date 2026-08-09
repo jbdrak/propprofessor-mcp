@@ -1090,6 +1090,17 @@ function createMcpHandlers({
           promoteFinalVerdictToDisplay(vr.candidate);
         }
       }
+
+      // Every candidate needs an authoritative final verdict, even when the
+      // shared validation budget prevented a validate_play call. In that case
+      // applyFinalVerdict falls back to the screen's displayTier/kaiCall and
+      // keeps onlyBets from dropping valid screen BET rows.
+      for (const entry of allCandidates) {
+        for (const candidate of entry.candidates || []) {
+          applyFinalVerdict(candidate);
+        }
+      }
+
       // Post-validation: downgrade contradictory same-game+market plays
       for (const entry of allCandidates) {
         if (entry.candidates && entry.candidates.length) {

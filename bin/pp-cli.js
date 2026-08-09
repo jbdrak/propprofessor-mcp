@@ -806,8 +806,8 @@ async function cmdScan(handlers, positional, flags, client) {
       : tier === '2'
         ? ['TIER 2']
         : ['TIER 1', 'TIER 2']
-    : ['TIER 1', 'TIER 2'];
-  // minFinalTier must track targetTiers so onlyBets doesn't silently downgrade the floor to TIER 1.
+    : ['TIER 1', 'TIER 2', 'TIER 3'];
+  // minFinalTier still controls the onlyBets floor when --tier is explicit.
   const minFinalTier = tier ? (tier === '1' ? 'TIER 1' : tier === '2' ? 'TIER 2' : 'TIER 2') : 'TIER 2';
 
   const MOVEMENT_ALIASES = {
