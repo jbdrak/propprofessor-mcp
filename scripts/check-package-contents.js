@@ -100,6 +100,17 @@ function verify(files) {
   return failures;
 }
 
+function collectPackageFiles(manifest) {
+  const packageEntries = Array.isArray(manifest) ? manifest : Object.values(manifest || {});
+  const files = [];
+  for (const entry of packageEntries) {
+    for (const file of entry.files || []) {
+      files.push(file.path.replace(/^package\//, ''));
+    }
+  }
+  return files;
+}
+
 function main() {
   const result = spawnSync('npm', ['pack', '--dry-run', '--json'], {
     cwd: process.cwd(),
@@ -120,12 +131,7 @@ function main() {
     process.exit(1);
   }
 
-  const files = [];
-  for (const entry of manifest) {
-    for (const file of entry.files || []) {
-      files.push(file.path.replace(/^package\//, ''));
-    }
-  }
+  const files = collectPackageFiles(manifest);
 
   const failures = verify(files);
   for (const failure of failures) {
@@ -142,4 +148,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { REQUIRED, FORBIDDEN, verify };
+module.exports = { REQUIRED, FORBIDDEN, verify, collectPackageFiles };

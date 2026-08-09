@@ -25,7 +25,8 @@ for (const file of files) {
   });
   const duration = Date.now() - start;
 
-  const testMatch = (result.stderr || '').match(/# tests (\d+)/);
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+  const testMatch = output.match(/# tests (\d+)/);
   const testCount = testMatch ? parseInt(testMatch[1], 10) : 0;
 
   totalDuration += duration;

@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { verify } = require('../scripts/check-package-contents');
+const { collectPackageFiles, verify } = require('../scripts/check-package-contents');
 const { ALLOWED_DIRTY_PREFIXES, parse, verify: verifyTree } = require('../scripts/check-publish-tree');
 
 test('package content verifier accepts a coherent manifest', () => {
@@ -19,6 +19,12 @@ test('package content verifier accepts a coherent manifest', () => {
     'docs/openapi.json'
   ]);
   assert.deepEqual(failures, []);
+});
+
+test('package content parser accepts npm pack JSON array and object shapes', () => {
+  const files = [{ path: 'package/package.json' }, { path: 'package/lib/example.js' }];
+  assert.deepEqual(collectPackageFiles([{ files }]), ['package.json', 'lib/example.js']);
+  assert.deepEqual(collectPackageFiles({ 'propprofessor-mcp@2.9.1': { files } }), ['package.json', 'lib/example.js']);
 });
 
 test('package content verifier rejects missing required paths', () => {

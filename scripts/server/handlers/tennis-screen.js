@@ -39,6 +39,84 @@ function buildCacheKey(prefix, args, league) {
   });
 }
 
+async function runTennisEvFallback({ client, args, rows, marketResolution, preferredBook }) {
+  let evResult;
+  try {
+    evResult = await client.querySportsbook({
+      leagues: ['Tennis'],
+      sportsbooks: [
+        'FanDuel',
+        'DraftKings',
+        'BetMGM',
+        'Caesars',
+        'Pinnacle',
+        'Polymarket',
+        'Circa',
+        'BetOnline',
+        'Kalshi',
+        'NoVigApp'
+      ],
+      minOdds: -9999,
+      maxOdds: 9999,
+      minValue: 0,
+      maxHoursAway: 48,
+      isLive: false
+    });
+  } catch (error) {
+    process.stderr.write(`[propprofessor-mcp] Tennis +EV fallback query failed: ${error?.message || error}\n`);
+    return {
+      ok: true,
+      result: [],
+      league: 'Tennis',
+      resultMeta: { debugEnabled: false, source: 'fallback_empty' },
+      freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
+      warning: 'No tennis data available from either /screen or +EV endpoint'
+    };
+  }
+
+  const evCandidates = Array.isArray(evResult)
+    ? evResult.filter((row) => String(row.league || '').toLowerCase() === 'tennis')
+    : [];
+
+  const requestedMarket = marketResolution.single || null;
+  const marketFamilyCandidates = requestedMarket
+    ? evCandidates.filter((row) => {
+        const rowFamily = getTennisMarketFamily(row);
+        const requestedFamilies = normalizeTennisMarketQuery(requestedMarket).map((m) =>
+          getTennisMarketFamily({ market: m })
+        );
+        return rowFamily !== null && requestedFamilies.includes(rowFamily);
+      })
+    : evCandidates;
+
+  if (!marketFamilyCandidates.length) {
+    return {
+      ok: true,
+      result: [],
+      league: 'Tennis',
+      resultMeta: { debugEnabled: false, source: 'fallback_empty' },
+      freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
+      warning: '/screen returned only Polymarket odds and +EV endpoint has no tennis candidates today'
+    };
+  }
+
+  const ranked = await enrichTennisEvCandidates(marketFamilyCandidates, client, {
+    preferredBook,
+    limit: getLimit(args),
+    lookbackHours: getLookbackHours(args),
+    requestedMarket
+  });
+
+  return {
+    ok: true,
+    result: ranked,
+    league: 'Tennis',
+    freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
+    source: '+ev_enriched',
+    note: '/screen returned insufficient tennis data; results enriched from +EV endpoint with odds history'
+  };
+}
+
 /**
  * @param {import('../../../lib/propprofessor-api').PropProfessorClient} client
  * @param {object} deps
@@ -144,82 +222,13 @@ function createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }
       return screenResult;
     }
 
-    // Phase 2: fallback to +EV endpoint
-    let evResult;
-    try {
-      evResult = await client.querySportsbook({
-        leagues: ['Tennis'],
-        sportsbooks: [
-          'FanDuel',
-          'DraftKings',
-          'BetMGM',
-          'Caesars',
-          'Pinnacle',
-          'Polymarket',
-          'Circa',
-          'BetOnline',
-          'Kalshi',
-          'NoVigApp'
-        ],
-        minOdds: -9999,
-        maxOdds: 9999,
-        minValue: 0,
-        maxHoursAway: 48,
-        isLive: false
-      });
-    } catch (error) {
-      process.stderr.write(`[propprofessor-mcp] Tennis +EV fallback query failed: ${error?.message || error}\n`);
-      return {
-        ok: true,
-        result: [],
-        league: 'Tennis',
-        resultMeta: { debugEnabled: false, source: 'fallback_empty' },
-        freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
-        warning: 'No tennis data available from either /screen or +EV endpoint'
-      };
-    }
-
-    const evCandidates = Array.isArray(evResult)
-      ? evResult.filter((row) => String(row.league || '').toLowerCase() === 'tennis')
-      : [];
-
-    const requestedMarket = marketResolution.single || null;
-    const marketFamilyCandidates = requestedMarket
-      ? evCandidates.filter((row) => {
-          const rowFamily = getTennisMarketFamily(row);
-          const requestedFamilies = normalizeTennisMarketQuery(requestedMarket).map((m) =>
-            getTennisMarketFamily({ market: m })
-          );
-          return rowFamily !== null && requestedFamilies.includes(rowFamily);
-        })
-      : evCandidates;
-
-    if (!marketFamilyCandidates.length) {
-      return {
-        ok: true,
-        result: [],
-        league: 'Tennis',
-        resultMeta: { debugEnabled: false, source: 'fallback_empty' },
-        freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
-        warning: '/screen returned only Polymarket odds and +EV endpoint has no tennis candidates today'
-      };
-    }
-
-    const ranked = await enrichTennisEvCandidates(marketFamilyCandidates, client, {
-      preferredBook,
-      limit: getLimit(args),
-      lookbackHours: getLookbackHours(args),
-      requestedMarket
+    return runTennisEvFallback({
+      client,
+      args,
+      rows,
+      marketResolution,
+      preferredBook
     });
-
-    return {
-      ok: true,
-      result: ranked,
-      league: 'Tennis',
-      freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
-      source: '+ev_enriched',
-      note: '/screen returned insufficient tennis data; results enriched from +EV endpoint with odds history'
-    };
   }
 
   return { runTennisScreen };

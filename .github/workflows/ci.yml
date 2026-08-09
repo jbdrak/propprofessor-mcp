@@ -59,6 +59,11 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      - name: Check package contents
+        # Verify the npm tarball on every branch, not only release tags.
+        # This catches npm manifest-shape and publish-tree regressions early.
+        run: npm run check:package
+
       - name: Audit dependencies
         # `npm audit` surfaces known CVEs in the dependency tree. We use the
         # `audit-level=moderate` threshold so we don't fail on dev-time

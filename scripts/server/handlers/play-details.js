@@ -101,11 +101,196 @@ function rowMatchesSelectionFilter(row, needle) {
   return collectRowSelectionCandidates(row).includes(needle);
 }
 
-function createPlayDetailsHandlers(_client, _ctx) {
-  function getDefaultMarketsForLeague(league, _targetBooks) {
-    return require('../../../lib/propprofessor-market-registry').getMarketsForSport(league, _targetBooks);
+function finalizePlayDetailsResponse({ response, merged, args, gameIds, relaxedGameIdMatch, sharpBookSetDetail }) {
+  response.result = merged;
+  // Optional exact-selection filter. When args.selection is supplied
+  // (e.g. derived from a full playId "<gameId>::Total Games::over 22.5"
+  // or passed via --selection), return ONLY the top-level row(s) whose
+  // own selection matches the requested text, preserving their nested
+  // selections. This fixes the recheck bug where `pp game <gameId>
+  // -m 'Total Games'` surfaced a top-ranked row for a DIFFERENT line
+  // than the scan candidate even though the exact line existed in the
+  // response's nested selections. Fail closed (matchedRows 0 + explicit
+  // metadata) when nothing matches — never silently return a different
+  // line than the caller asked to recheck.
+  let matchedRowCount = merged.length;
+  const selectionFilter = String(args.selection || '').trim();
+  if (selectionFilter) {
+    const needle = normalizeSelectionText(selectionFilter);
+    const exactRows = merged.filter((row) => rowMatchesSelectionFilter(row, needle));
+    let finalRows = exactRows;
+    let selectionMatchedNested = false;
+    if (!finalRows.length) {
+      // The exact line may live inside a row's nested selections map even
+      // when no top-level row carries it (ranking can drop individual
+      // lines). Return one row per game that contains the line, preserving
+      // its nested selections.
+      const seenGames = new Set();
+      finalRows = merged.filter((row) => {
+        if (seenGames.has(row.gameId)) return false;
+        if (!collectNestedSelectionCandidates(row).includes(needle)) return false;
+        seenGames.add(row.gameId);
+        return true;
+      });
+      selectionMatchedNested = finalRows.length > 0;
+    }
+    if (!finalRows.length) {
+      response.result = [];
+      response.resultMeta = {
+        ...response.resultMeta,
+        queryGameIds: gameIds,
+        matchedRows: 0,
+        selectionFilter,
+        selectionNotFound: true,
+        error: `No row matched selection "${selectionFilter}" for the requested game(s).`,
+        errorCode: 'SELECTION_NOT_FOUND'
+      };
+      const verbosityEarly = String(args.verbosity || 'full').toLowerCase();
+      if (verbosityEarly === 'minimal') return formatGetPlayDetailsMinimal(response);
+      if (verbosityEarly === 'standard') return formatGetPlayDetailsStandard(response);
+      return response;
+    }
+    response.result = finalRows;
+    matchedRowCount = finalRows.length;
+    response.resultMeta = {
+      ...response.resultMeta,
+      selectionFilter,
+      ...(selectionMatchedNested ? { selectionMatchedNested: true } : {})
+    };
   }
 
+  for (const row of response.result) {
+    const matrix = {};
+    const sb = Array.isArray(row?.sportsbookData) ? row.sportsbookData : [];
+    for (const entry of sb) {
+      const book = String(entry?.book || '').trim();
+      const odds = Number(entry?.odds ?? entry?.noVigOdds);
+      if (book && Number.isFinite(odds)) matrix[book] = odds;
+    }
+    const selections = row?.selections && typeof row.selections === 'object' ? row.selections : {};
+    for (const sel of Object.values(selections)) {
+      const oddsMap = sel?.odds && typeof sel.odds === 'object' ? sel.odds : {};
+      for (const [book, v] of Object.entries(oddsMap)) {
+        if (!matrix[book] && Number.isFinite(Number(v?.odds1 ?? v))) {
+          matrix[book] = Number(v.odds1 ?? v);
+        }
+      }
+    }
+    if (Object.keys(matrix).length) row.oddsMatrix = matrix;
+  }
+
+  for (const row of response.result) {
+    if (row.sharpBookMovementConfirmed) continue;
+    const label = String(row.movementLabel || '').toLowerCase();
+    if (label === 'supportive') {
+      const sb = Array.isArray(row?.sportsbookData) ? row.sportsbookData : [];
+      const sharpBookNames = new Set(sharpBookSetDetail.map((b) => b.toLowerCase()));
+      const hasSharpBookOdds = sb.some((entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase()));
+      if (hasSharpBookOdds) {
+        row.sharpBookMovementConfirmed = true;
+        const sourceEntry = sb.find((entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase()));
+        row.sharpBookMovementSource = sourceEntry?.book || sharpBookSetDetail[0] || null;
+      }
+    }
+  }
+
+  response.focusBookMissingRows = undefined;
+  response.resultMeta = {
+    ...response.resultMeta,
+    queryGameIds: gameIds,
+    matchedRows: matchedRowCount,
+    ...(relaxedGameIdMatch ? { relaxedGameIdMatch: true } : {})
+  };
+  const verbosity = String(args.verbosity || 'full').toLowerCase();
+  if (verbosity === 'minimal') return formatGetPlayDetailsMinimal(response);
+  if (verbosity === 'standard') return formatGetPlayDetailsStandard(response);
+  return response;
+}
+
+async function queryPlayDetailsResponse({
+  client,
+  args,
+  gameIds,
+  league,
+  market,
+  relaxedGameIdMatch,
+  relaxedParticipants,
+  augmentedBooksExcluded,
+  focusBook,
+  augmentedBooks
+}) {
+  let payload;
+  try {
+    payload = await client.queryScreenOddsBestComps({
+      market,
+      league,
+      games: relaxedGameIdMatch ? [] : gameIds,
+      participants: relaxedParticipants,
+      books: augmentedBooksExcluded,
+      is_live: Boolean(args.live || args.is_live)
+    });
+  } catch (err) {
+    return {
+      ok: true,
+      result: [],
+      resultMeta: {
+        queryGameIds: gameIds,
+        matchedRows: 0,
+        error: err?.message || String(err),
+        errorCode: 'SCREEN_QUERY_FAILED'
+      }
+    };
+  }
+  let response;
+  try {
+    response = await buildRankedScreenResponseShared({
+      client,
+      payloads: [payload],
+      args: { ...args, compact: false, skipHistory: false, historySportsbooks: augmentedBooksExcluded },
+      // Hydrate only the exact requested selection when this detail call is
+      // bundled validation (quick_screen validateTop). The pre-hydration
+      // filter must NOT apply to broad game-detail or mini-scan calls —
+      // those query whole games and would starve out unrelated rows.
+      ...(args.selection && args.exactSelectionOnly === true
+        ? {
+            preHydrationFilter: (row) =>
+              rowMatchesSelectionFilter(row, normalizeSelectionText(String(args.selection || '')))
+          }
+        : {}),
+      league,
+      focusBook,
+      rankRows: (hydratedRows, options = {}) => {
+        const debug = Boolean(/** @type {any} */ (options).debug);
+        return rankLeagueScreenRows(hydratedRows, {
+          league,
+          market,
+          limit: gameIds.length * 4,
+          books: augmentedBooks,
+          includeAll: true,
+          debug
+        });
+      }
+    });
+  } catch (err) {
+    return {
+      ok: true,
+      result: [],
+      resultMeta: {
+        queryGameIds: gameIds,
+        matchedRows: 0,
+        error: err?.message || String(err),
+        errorCode: 'RANK_PIPELINE_FAILED'
+      }
+    };
+  }
+  return response;
+}
+
+function getDefaultMarketsForLeague(league, _targetBooks) {
+  return require('../../../lib/propprofessor-market-registry').getMarketsForSport(league, _targetBooks);
+}
+
+function createPlayDetailsHandlers(_client, _ctx) {
   async function runGetPlayDetailsImpl(client, args = {}) {
     const league = String(args.league || '').trim();
     const rawGameIds = Array.isArray(args.gameIds) ? args.gameIds : [];
@@ -188,71 +373,18 @@ function createPlayDetailsHandlers(_client, _ctx) {
       };
     }
 
-    let payload;
-    try {
-      payload = await client.queryScreenOddsBestComps({
-        market,
-        league,
-        games: relaxedGameIdMatch ? [] : gameIds,
-        participants: relaxedParticipants,
-        books: augmentedBooksExcluded,
-        is_live: Boolean(args.live || args.is_live)
-      });
-    } catch (err) {
-      return {
-        ok: true,
-        result: [],
-        resultMeta: {
-          queryGameIds: gameIds,
-          matchedRows: 0,
-          error: err?.message || String(err),
-          errorCode: 'SCREEN_QUERY_FAILED'
-        }
-      };
-    }
-    let response;
-    try {
-      response = await buildRankedScreenResponseShared({
-        client,
-        payloads: [payload],
-        args: { ...args, compact: false, skipHistory: false, historySportsbooks: augmentedBooksExcluded },
-        // Hydrate only the exact requested selection when this detail call is
-        // bundled validation (quick_screen validateTop). The pre-hydration
-        // filter must NOT apply to broad game-detail or mini-scan calls —
-        // those query whole games and would starve out unrelated rows.
-        ...(args.selection && args.exactSelectionOnly === true
-          ? {
-              preHydrationFilter: (row) =>
-                rowMatchesSelectionFilter(row, normalizeSelectionText(String(args.selection || '')))
-            }
-          : {}),
-        league,
-        focusBook,
-        rankRows: (hydratedRows, options = {}) => {
-          const debug = Boolean(/** @type {any} */ (options).debug);
-          return rankLeagueScreenRows(hydratedRows, {
-            league,
-            market,
-            limit: gameIds.length * 4,
-            books: augmentedBooks,
-            includeAll: true,
-            debug
-          });
-        }
-      });
-    } catch (err) {
-      return {
-        ok: true,
-        result: [],
-        resultMeta: {
-          queryGameIds: gameIds,
-          matchedRows: 0,
-          error: err?.message || String(err),
-          errorCode: 'RANK_PIPELINE_FAILED'
-        }
-      };
-    }
-
+    const response = await queryPlayDetailsResponse({
+      client,
+      args,
+      gameIds,
+      league,
+      market,
+      relaxedGameIdMatch,
+      relaxedParticipants,
+      augmentedBooksExcluded,
+      focusBook,
+      augmentedBooks
+    });
     if (marketResolution.aliasesUsed.length) {
       response.resultMeta = {
         ...response.resultMeta,
@@ -278,115 +410,17 @@ function createPlayDetailsHandlers(_client, _ctx) {
         merged.push({ ...fbRow, __focusBookMissing: true });
       }
     }
-    response.result = merged;
-
-    // Optional exact-selection filter. When args.selection is supplied
-    // (e.g. derived from a full playId "<gameId>::Total Games::over 22.5"
-    // or passed via --selection), return ONLY the top-level row(s) whose
-    // own selection matches the requested text, preserving their nested
-    // selections. This fixes the recheck bug where `pp game <gameId>
-    // -m 'Total Games'` surfaced a top-ranked row for a DIFFERENT line
-    // than the scan candidate even though the exact line existed in the
-    // response's nested selections. Fail closed (matchedRows 0 + explicit
-    // metadata) when nothing matches — never silently return a different
-    // line than the caller asked to recheck.
-    let matchedRowCount = merged.length;
-    const selectionFilter = String(args.selection || '').trim();
-    if (selectionFilter) {
-      const needle = normalizeSelectionText(selectionFilter);
-      const exactRows = merged.filter((row) => rowMatchesSelectionFilter(row, needle));
-      let finalRows = exactRows;
-      let selectionMatchedNested = false;
-      if (!finalRows.length) {
-        // The exact line may live inside a row's nested selections map even
-        // when no top-level row carries it (ranking can drop individual
-        // lines). Return one row per game that contains the line, preserving
-        // its nested selections.
-        const seenGames = new Set();
-        finalRows = merged.filter((row) => {
-          if (seenGames.has(row.gameId)) return false;
-          if (!collectNestedSelectionCandidates(row).includes(needle)) return false;
-          seenGames.add(row.gameId);
-          return true;
-        });
-        selectionMatchedNested = finalRows.length > 0;
-      }
-      if (!finalRows.length) {
-        response.result = [];
-        response.resultMeta = {
-          ...response.resultMeta,
-          queryGameIds: gameIds,
-          matchedRows: 0,
-          selectionFilter,
-          selectionNotFound: true,
-          error: `No row matched selection "${selectionFilter}" for the requested game(s).`,
-          errorCode: 'SELECTION_NOT_FOUND'
-        };
-        const verbosityEarly = String(args.verbosity || 'full').toLowerCase();
-        if (verbosityEarly === 'minimal') return formatGetPlayDetailsMinimal(response);
-        if (verbosityEarly === 'standard') return formatGetPlayDetailsStandard(response);
-        return response;
-      }
-      response.result = finalRows;
-      matchedRowCount = finalRows.length;
-      response.resultMeta = {
-        ...response.resultMeta,
-        selectionFilter,
-        ...(selectionMatchedNested ? { selectionMatchedNested: true } : {})
-      };
-    }
-
-    for (const row of response.result) {
-      const matrix = {};
-      const sb = Array.isArray(row?.sportsbookData) ? row.sportsbookData : [];
-      for (const entry of sb) {
-        const book = String(entry?.book || '').trim();
-        const odds = Number(entry?.odds ?? entry?.noVigOdds);
-        if (book && Number.isFinite(odds)) matrix[book] = odds;
-      }
-      const selections = row?.selections && typeof row.selections === 'object' ? row.selections : {};
-      for (const sel of Object.values(selections)) {
-        const oddsMap = sel?.odds && typeof sel.odds === 'object' ? sel.odds : {};
-        for (const [book, v] of Object.entries(oddsMap)) {
-          if (!matrix[book] && Number.isFinite(Number(v?.odds1 ?? v))) {
-            matrix[book] = Number(v.odds1 ?? v);
-          }
-        }
-      }
-      if (Object.keys(matrix).length) row.oddsMatrix = matrix;
-    }
-
-    for (const row of response.result) {
-      if (row.sharpBookMovementConfirmed) continue;
-      const label = String(row.movementLabel || '').toLowerCase();
-      if (label === 'supportive') {
-        const sb = Array.isArray(row?.sportsbookData) ? row.sportsbookData : [];
-        const sharpBookNames = new Set(sharpBookSetDetail.map((b) => b.toLowerCase()));
-        const hasSharpBookOdds = sb.some((entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase()));
-        if (hasSharpBookOdds) {
-          row.sharpBookMovementConfirmed = true;
-          const sourceEntry = sb.find((entry) => sharpBookNames.has(String(entry?.book || '').toLowerCase()));
-          row.sharpBookMovementSource = sourceEntry?.book || sharpBookSetDetail[0] || null;
-        }
-      }
-    }
-
-    response.focusBookMissingRows = undefined;
-    response.resultMeta = {
-      ...response.resultMeta,
-      queryGameIds: gameIds,
-      matchedRows: matchedRowCount,
-      ...(relaxedGameIdMatch ? { relaxedGameIdMatch: true } : {})
-    };
-    const verbosity = String(args.verbosity || 'full').toLowerCase();
-    if (verbosity === 'minimal') return formatGetPlayDetailsMinimal(response);
-    if (verbosity === 'standard') return formatGetPlayDetailsStandard(response);
-    return response;
+    return finalizePlayDetailsResponse({
+      response,
+      merged,
+      args,
+      gameIds,
+      relaxedGameIdMatch,
+      sharpBookSetDetail
+    });
   }
 
-  return {
-    runGetPlayDetailsImpl
-  };
+  return { runGetPlayDetailsImpl };
 }
 
 module.exports = { createPlayDetailsHandlers };

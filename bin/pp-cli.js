@@ -118,9 +118,8 @@ function deriveFromPlayId(id, { league, market, selection } = {}) {
 
 // ── help system ─────────────────────────────────────────────────
 
-function printHelp(command) {
-  const HELP = {
-    '': `pp — PropProfessor CLI
+const CLI_HELP = {
+  '': `pp — PropProfessor CLI
 
 Usage: pp <command> [args...]
 
@@ -142,7 +141,7 @@ Commands:
 
 Run "pp <command> --help" for command-specific help.
 `,
-    scan: `pp scan [leagues...] [flags]
+  scan: `pp scan [leagues...] [flags]
 
 Scan for plays across one or more leagues. Defaults to all leagues.
 
@@ -170,7 +169,7 @@ Examples:
   pp scan -M supportive --asc
 `,
 
-    validate: `pp validate <playId> [flags]
+  validate: `pp validate <playId> [flags]
 
 Validate a specific play by playId.
 
@@ -181,7 +180,7 @@ Flags:
   -b, --book <name>         Book (default: NoVigApp)
   -j, --json                Raw JSON output
 `,
-    game: `pp game <gameId|playId> [flags]
+  game: `pp game <gameId|playId> [flags]
 
 Fetch play details for a game/market combination.
 
@@ -197,7 +196,7 @@ Flags:
   -b, --book <name>         Book (default: NoVigApp)
   -j, --json                Raw JSON output
 `,
-    today: `pp today [flags]
+  today: `pp today [flags]
 
 Show today's slate and pending picks.
 
@@ -207,7 +206,7 @@ Flags:
   -j, --json                Raw JSON output
   --tz <IANA>                Timezone for display (default: America/Chicago). Overrides LOCALTIMEZONE env var.
 `,
-    picks: `pp picks [flags]
+  picks: `pp picks [flags]
 
 Show recent logged picks.
 
@@ -215,7 +214,7 @@ Flags:
   -n, --limit <N>           Max results. Default: 10
   -j, --json                Raw JSON output
 `,
-    log: `pp log <gameId> --league <league> --market <market> --selection <pick> --odds <N> [flags]
+  log: `pp log <gameId> --league <league> --market <market> --selection <pick> --odds <N> [flags]
 
 Log a pick. Requires: game ID, league, market, selection, odds.
 
@@ -230,7 +229,7 @@ Flags:
   -n, --notes <text>        Optional notes
   -j, --json                Raw JSON output
 `,
-    'record-card': `pp record-card <card.json> [flags]
+  'record-card': `pp record-card <card.json> [flags]
 
 Record a reviewed decision card into the tracker ledger (PP_RECORD_LEDGER,
 default ~/.propprofessor/tracker/ledger.json). Promotes explicit BET cards
@@ -260,7 +259,7 @@ Exit status:
   0 — all cards recorded (duplicates count as success)
   1 — malformed/missing input or any rejected card; ledger not modified
 `,
-    record: `pp record <stats|review|pending> [flags]
+  record: `pp record <stats|review|pending> [flags]
 
 Review official bets, P&L, and raw candidates from the tracker ledger
 (PP_RECORD_LEDGER, default ~/.propprofessor/tracker/ledger.json). Local and
@@ -283,7 +282,7 @@ Exit status:
   1 — ledger read errors
   2 — usage errors (unknown mode, malformed --date)
 `,
-    player: `pp player <name> [flags]
+  player: `pp player <name> [flags]
 
 Look up player context, injury flags, and risk summary.
 
@@ -295,7 +294,7 @@ Examples:
   pp player "Soto"
   pp player "Markkanen" --league NBA
 `,
-    prices: `pp prices <gameId> [flags]
+  prices: `pp prices <gameId> [flags]
 
 Compare prices across books for a game and market.
 
@@ -305,7 +304,7 @@ Flags:
   -s, --selection <text>    Selection to filter by
   -j, --json                Raw JSON output
 `,
-    rank: `pp rank <league> [flags]
+  rank: `pp rank <league> [flags]
 
 Show all ranked plays for a league with full movement data.
 
@@ -315,7 +314,7 @@ Flags:
   -n, --limit <N>           Max results. Default: 20
   -j, --json                Raw JSON output
 `,
-    fantasy: `pp fantasy [flags]
+  fantasy: `pp fantasy [flags]
 
 Show fantasy optimizer props from PrizePicks, Underdog, etc.
 
@@ -324,12 +323,14 @@ Flags:
   -l, --league <name>       League filter
   -j, --json                Raw JSON output
 `,
-    health: `pp health
+  health: `pp health
 
 Check auth + backend health. Always JSON output.
 `
-  };
-  console.log(HELP[command || ''] || HELP['']);
+};
+
+function printHelp(command) {
+  console.log(CLI_HELP[command || ''] || CLI_HELP['']);
 }
 
 function die(msg, code = 1) {
@@ -760,6 +761,170 @@ async function cmdRecord(positional, flags) {
 
 // ── scan ────────────────────────────────────────────────────────
 
+async function applyTennisScanFallback({ res, leagues, flags, book, client, marketList, onlyBets, resolvedMovement }) {
+  // Tennis fallback: if tennis was among requested leagues but returned 0
+  // plays, try direct screen query.  Works for mixed-league scans too.
+  const tennisFallbackEnabled = flags['tennis-fallback'] !== false;
+  const isTennisLeague = (leagueName) => String(leagueName || '').toLowerCase() === 'tennis';
+  if (tennisFallbackEnabled) {
+    const tennisInLeagues = leagues.some(isTennisLeague);
+    if (tennisInLeagues) {
+      const resultsArr = res.data?.results || res.results || [];
+      const tennisResult = resultsArr.find((r) => isTennisLeague(r.league));
+      const tennisPlaysCount = tennisResult ? (tennisResult.plays || []).length : 0;
+      if (tennisPlaysCount === 0) {
+        console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
+        // Size the fallback's history spend to the shared 75-call
+        // odds-history window. Mixed-sport scans already spent most of the
+        // window on the other leagues — take a conservative slice and
+        // reserve headroom. Tennis-only scans may use the larger safe
+        // default (the fallback still clamps to the remaining window).
+        const tennisFallbackRemaining =
+          typeof client.oddsHistoryBudgetRemaining === 'function' ? Number(client.oddsHistoryBudgetRemaining()) : 75;
+        const mixedSportScan = leagues.some((leagueName) => !isTennisLeague(leagueName));
+        const maxHistorySelections = mixedSportScan
+          ? Math.max(2, Math.min(20, tennisFallbackRemaining - 10))
+          : undefined;
+        const tennisPlays = await recoverTennisFromScreen({
+          book,
+          client,
+          markets: marketList,
+          ...(maxHistorySelections !== undefined ? { maxHistorySelections } : {})
+        });
+        const fallbackMeta = tennisPlays.fallbackMeta;
+        if (fallbackMeta) {
+          console.error(
+            `[tennis-fallback] candidates=${fallbackMeta.totalCandidates} hydratedSides=${fallbackMeta.historyCalls} skipped=${fallbackMeta.skippedEntries} effectiveMax=${fallbackMeta.effectiveMaxHistorySelections} budgetRemaining=${tennisFallbackRemaining}${maxHistorySelections !== undefined ? ` requestedMax=${maxHistorySelections}` : ''}`
+          );
+        }
+        if (tennisPlays.length) {
+          const normalizedFallbackPlays = tennisPlays.map((play) => {
+            const movementDisposition = play.movementDisposition || play.movement || 'insufficient';
+            // CLV evidence requires a real, non-zero finite number. A
+            // numeric zero (flat), null/undefined, or malformed values
+            // ('', '0', false, NaN) must never count as evidence.
+            const hasClvEvidence =
+              typeof play.clvProxyPct === 'number' && Number.isFinite(play.clvProxyPct) && play.clvProxyPct !== 0;
+            const supportive =
+              movementDisposition === 'supportive_clean' || movementDisposition === 'supportive_bouncy';
+            return {
+              ...play,
+              movementDisposition,
+              verdict: supportive && hasClvEvidence ? 'BET' : 'CONSIDER'
+            };
+          });
+          const movementMatches = (play) =>
+            !resolvedMovement || resolvedMovement.includes(play.movementDisposition || play.movement);
+          const filteredPlays = normalizedFallbackPlays.filter(
+            (play) => movementMatches(play) && (!onlyBets || play.verdict === 'BET')
+          );
+          if (filteredPlays.length) {
+            const filtered = resultsArr.filter((r) => !isTennisLeague(r.league));
+            filtered.push({
+              league: 'Tennis',
+              market: 'All Markets',
+              plays: filteredPlays.sort((a, b) => {
+                const aMs = parseGameStartMs(a.start);
+                const bMs = parseGameStartMs(b.start);
+                if (!Number.isFinite(aMs) && !Number.isFinite(bMs)) return 0;
+                if (!Number.isFinite(aMs)) return 1;
+                if (!Number.isFinite(bMs)) return -1;
+                return aMs - bMs;
+              }),
+              // Honesty metadata: how many raw candidates the fallback saw
+              // and how many it actually hydrated under the history budget.
+              ...(fallbackMeta
+                ? {
+                    fallback: {
+                      totalCandidates: fallbackMeta.totalCandidates,
+                      hydratedSides: fallbackMeta.historyCalls,
+                      skippedEntries: fallbackMeta.skippedEntries,
+                      effectiveMaxHistorySelections: fallbackMeta.effectiveMaxHistorySelections
+                    }
+                  }
+                : {})
+            });
+            // Write back — match where we read from (res.data preferred)
+            if (res.data) {
+              res.data.results = filtered;
+              res.data.totalCount = (res.data.totalCount || 0) + filteredPlays.length;
+            } else {
+              res.results = filtered;
+            }
+          }
+        }
+      }
+    }
+  }
+  return res;
+}
+
+function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, cardWindow, limit }) {
+  const jsonOut = flags.j || flags.json || false;
+  const results = res.data?.results || res.results || [];
+
+  // --record-scan: persist this scan + normalized candidates to the tracker
+  // ledger. Status goes to stderr; a recording failure must never break the
+  // scan output (stdout stays valid JSON under --json).
+  if (flags['record-scan'] || flags.recordScan) {
+    try {
+      recordScanResults(results, {
+        leagues,
+        markets: marketList,
+        book,
+        tiers: targetTiers,
+        cardWindow,
+        limit
+      });
+    } catch (e) {
+      console.error('record-scan: ' + (e && e.message ? e.message : String(e)));
+    }
+  }
+  // Build the date-range header line using actual candidate start times
+  const allStarts = [];
+  for (const r of results) {
+    for (const p of r.plays || r.candidates || []) {
+      const ms = parseGameStartMs(p.start || p.startCST);
+      if (Number.isFinite(ms)) allStarts.push(ms);
+    }
+  }
+  const localTz = getLocalTimezone();
+  const fmtDateTime = (ms) => {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: localTz,
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZoneName: 'shortGeneric'
+      }).format(new Date(ms));
+    } catch {
+      return '';
+    }
+  };
+  const windowLabel = cardWindow === 'today' ? 'Today' : cardWindow === 'next' ? 'Next day' : 'All upcoming';
+  let rangeHeader = '';
+  if (allStarts.length) {
+    const earliest = Math.min(...allStarts);
+    const latest = Math.max(...allStarts);
+    rangeHeader =
+      earliest === latest
+        ? `${windowLabel}: ${fmtDateTime(earliest)}`
+        : `${windowLabel}: ${fmtDateTime(earliest)} → ${fmtDateTime(latest)}`;
+  }
+  if (jsonOut) {
+    console.log(JSON.stringify(results, null, 2));
+  } else {
+    if (rangeHeader) console.log(B + rangeHeader + R + '\n');
+    console.log(formatScan(results));
+    const total = results.reduce((s, r) => s + (r.plays || []).length, 0);
+    console.log('\n' + total + ' plays across ' + results.length + ' markets');
+  }
+}
+
 async function cmdScan(handlers, positional, flags, client) {
   const FAST_LEAGUES = ['MLB', 'Tennis', 'NBA', 'WNBA', 'Soccer'];
   let leagues =
@@ -797,7 +962,6 @@ async function cmdScan(handlers, positional, flags, client) {
   const cardWindow = flags['card-window'] || flags.cardWindow || 'all';
   const tz = flags.tz || flags['tz'] || undefined;
   if (tz) process.env.LOCAL_TIMEZONE = tz;
-  const jsonOut = flags.j || flags.json || false;
   const validateAll = flags['validate-all'] || false;
 
   const targetTiers = tier
@@ -866,163 +1030,18 @@ async function cmdScan(handlers, positional, flags, client) {
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
 
-    // Tennis fallback: if tennis was among requested leagues but returned 0
-    // plays, try direct screen query.  Works for mixed-league scans too.
-    const tennisFallbackEnabled = flags['tennis-fallback'] !== false;
-    const isTennisLeague = (leagueName) => String(leagueName || '').toLowerCase() === 'tennis';
-    if (tennisFallbackEnabled) {
-      const tennisInLeagues = leagues.some(isTennisLeague);
-      if (tennisInLeagues) {
-        const resultsArr = res.data?.results || res.results || [];
-        const tennisResult = resultsArr.find((r) => isTennisLeague(r.league));
-        const tennisPlaysCount = tennisResult ? (tennisResult.plays || []).length : 0;
-        if (tennisPlaysCount === 0) {
-          console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
-          // Size the fallback's history spend to the shared 75-call
-          // odds-history window. Mixed-sport scans already spent most of the
-          // window on the other leagues — take a conservative slice and
-          // reserve headroom. Tennis-only scans may use the larger safe
-          // default (the fallback still clamps to the remaining window).
-          const tennisFallbackRemaining =
-            typeof client.oddsHistoryBudgetRemaining === 'function' ? Number(client.oddsHistoryBudgetRemaining()) : 75;
-          const mixedSportScan = leagues.some((leagueName) => !isTennisLeague(leagueName));
-          const maxHistorySelections = mixedSportScan
-            ? Math.max(2, Math.min(20, tennisFallbackRemaining - 10))
-            : undefined;
-          const tennisPlays = await recoverTennisFromScreen({
-            book,
-            client,
-            markets: marketList,
-            ...(maxHistorySelections !== undefined ? { maxHistorySelections } : {})
-          });
-          const fallbackMeta = tennisPlays.fallbackMeta;
-          if (fallbackMeta) {
-            console.error(
-              `[tennis-fallback] candidates=${fallbackMeta.totalCandidates} hydratedSides=${fallbackMeta.historyCalls} skipped=${fallbackMeta.skippedEntries} effectiveMax=${fallbackMeta.effectiveMaxHistorySelections} budgetRemaining=${tennisFallbackRemaining}${maxHistorySelections !== undefined ? ` requestedMax=${maxHistorySelections}` : ''}`
-            );
-          }
-          if (tennisPlays.length) {
-            const normalizedFallbackPlays = tennisPlays.map((play) => {
-              const movementDisposition = play.movementDisposition || play.movement || 'insufficient';
-              // CLV evidence requires a real, non-zero finite number. A
-              // numeric zero (flat), null/undefined, or malformed values
-              // ('', '0', false, NaN) must never count as evidence.
-              const hasClvEvidence =
-                typeof play.clvProxyPct === 'number' && Number.isFinite(play.clvProxyPct) && play.clvProxyPct !== 0;
-              const supportive =
-                movementDisposition === 'supportive_clean' || movementDisposition === 'supportive_bouncy';
-              return {
-                ...play,
-                movementDisposition,
-                verdict: supportive && hasClvEvidence ? 'BET' : 'CONSIDER'
-              };
-            });
-            const movementMatches = (play) =>
-              !resolvedMovement || resolvedMovement.includes(play.movementDisposition || play.movement);
-            const filteredPlays = normalizedFallbackPlays.filter(
-              (play) => movementMatches(play) && (!onlyBets || play.verdict === 'BET')
-            );
-            if (filteredPlays.length) {
-              const filtered = resultsArr.filter((r) => !isTennisLeague(r.league));
-              filtered.push({
-                league: 'Tennis',
-                market: 'All Markets',
-                plays: filteredPlays.sort((a, b) => {
-                  const aMs = parseGameStartMs(a.start);
-                  const bMs = parseGameStartMs(b.start);
-                  if (!Number.isFinite(aMs) && !Number.isFinite(bMs)) return 0;
-                  if (!Number.isFinite(aMs)) return 1;
-                  if (!Number.isFinite(bMs)) return -1;
-                  return aMs - bMs;
-                }),
-                // Honesty metadata: how many raw candidates the fallback saw
-                // and how many it actually hydrated under the history budget.
-                ...(fallbackMeta
-                  ? {
-                      fallback: {
-                        totalCandidates: fallbackMeta.totalCandidates,
-                        hydratedSides: fallbackMeta.historyCalls,
-                        skippedEntries: fallbackMeta.skippedEntries,
-                        effectiveMaxHistorySelections: fallbackMeta.effectiveMaxHistorySelections
-                      }
-                    }
-                  : {})
-              });
-              // Write back — match where we read from (res.data preferred)
-              if (res.data) {
-                res.data.results = filtered;
-                res.data.totalCount = (res.data.totalCount || 0) + filteredPlays.length;
-              } else {
-                res.results = filtered;
-              }
-            }
-          }
-        }
-      }
-    }
+    await applyTennisScanFallback({
+      res,
+      leagues,
+      flags,
+      book,
+      client,
+      marketList,
+      onlyBets,
+      resolvedMovement
+    });
 
-    const results = res.data?.results || res.results || [];
-
-    // --record-scan: persist this scan + normalized candidates to the tracker
-    // ledger. Status goes to stderr; a recording failure must never break the
-    // scan output (stdout stays valid JSON under --json).
-    if (flags['record-scan'] || flags.recordScan) {
-      try {
-        recordScanResults(results, {
-          leagues,
-          markets: marketList,
-          book,
-          tiers: targetTiers,
-          cardWindow,
-          limit
-        });
-      } catch (e) {
-        console.error('record-scan: ' + (e && e.message ? e.message : String(e)));
-      }
-    }
-    // Build the date-range header line using actual candidate start times
-    const allStarts = [];
-    for (const r of results) {
-      for (const p of r.plays || r.candidates || []) {
-        const ms = parseGameStartMs(p.start || p.startCST);
-        if (Number.isFinite(ms)) allStarts.push(ms);
-      }
-    }
-    const localTz = getLocalTimezone();
-    const fmtDateTime = (ms) => {
-      try {
-        return new Intl.DateTimeFormat('en-US', {
-          timeZone: localTz,
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-          timeZoneName: 'shortGeneric'
-        }).format(new Date(ms));
-      } catch {
-        return '';
-      }
-    };
-    const windowLabel = cardWindow === 'today' ? 'Today' : cardWindow === 'next' ? 'Next day' : 'All upcoming';
-    let rangeHeader = '';
-    if (allStarts.length) {
-      const earliest = Math.min(...allStarts);
-      const latest = Math.max(...allStarts);
-      rangeHeader =
-        earliest === latest
-          ? `${windowLabel}: ${fmtDateTime(earliest)}`
-          : `${windowLabel}: ${fmtDateTime(earliest)} → ${fmtDateTime(latest)}`;
-    }
-    if (jsonOut) {
-      console.log(JSON.stringify(results, null, 2));
-    } else {
-      if (rangeHeader) console.log(B + rangeHeader + R + '\n');
-      console.log(formatScan(results));
-      const total = results.reduce((s, r) => s + (r.plays || []).length, 0);
-      console.log('\n' + total + ' plays across ' + results.length + ' markets');
-    }
+    renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, cardWindow, limit });
   } catch (e) {
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
