@@ -14,11 +14,22 @@
 
 const { execFileSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const PYTHON_SCRIPT = path.join(__dirname, 'flashscore_tennis.py');
 const CACHE_DIR = path.join(__dirname, '..', 'lib', 'tennis-schedule-data');
 const CACHE_PATH = path.join(CACHE_DIR, 'flashscore-cache.json');
+
+// The system `python3` (/usr/bin/python3) cannot run the Playwright scraper
+// (missing/ABI-mismatched playwright + greenlet). Default to the Hermes agent
+// venv interpreter, which has a working Playwright + Chromium install. Set
+// FLASHSCORE_PYTHON to point at a different interpreter when needed.
+const DEFAULT_PYTHON = path.join(os.homedir(), '.hermes', 'hermes-agent', 'venv', 'bin', 'python');
+
+function resolvePythonCommand() {
+  return process.env.FLASHSCORE_PYTHON || DEFAULT_PYTHON;
+}
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
@@ -48,7 +59,7 @@ function main() {
   const pyArgs = [PYTHON_SCRIPT, '--date', targetDate];
   let stdout;
   try {
-    stdout = execFileSync('python3', pyArgs, {
+    stdout = execFileSync(resolvePythonCommand(), pyArgs, {
       encoding: 'utf-8',
       timeout: 60000,
       stdio: ['pipe', 'pipe', 'pipe']
@@ -111,4 +122,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { defaultScrapeDate };
+module.exports = { defaultScrapeDate, resolvePythonCommand };
