@@ -112,6 +112,23 @@ describe('record-card: BET promotion', () => {
     assert.equal(current.candidates[0].selection, 'Under 7.5');
   });
 
+  it('rejects BET cards when the candidate has no settlement-usable start', () => {
+    const ledger = makeLedger();
+    delete ledger.candidates[0].start;
+    const result = recordCard.promoteCard(ledger, baseCard());
+    assert.equal(result.ok, false);
+    assert.match(result.error, /scheduled start/);
+    assert.equal(ledger.bets.length, 0);
+  });
+
+  it('stores the resolved scheduled start on the official bet', () => {
+    const result = recordCard.promoteCard(makeLedger(), baseCard(), {
+      now: () => '2026-08-04T02:30:00.000Z'
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.bet.scheduledStart, '2026-08-04T23:40:00.000Z');
+  });
+
   it('rejects BET cards with a missing or invalid price', () => {
     for (const odds of [undefined, null, '', 'abc', 0, NaN, Infinity]) {
       const result = recordCard.promoteCard(makeLedger(), baseCard({ odds }));

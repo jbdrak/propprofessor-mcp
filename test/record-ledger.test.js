@@ -175,4 +175,15 @@ describe('record-ledger', () => {
     assert.equal(current.candidates[0].nested.value, 1);
     assert.equal(ledger.findRecord(current, 'candidates', 'missing'), undefined);
   });
+
+  it('reports duplicate official bet and settlement identities', () => {
+    const current = ledger.createLedger();
+    current.bets.push({ id: 'bet-1' }, { id: 'bet-1' });
+    current.settlements.push({ betId: 'bet-1' }, { betId: 'bet-1' });
+    const result = ledger.validateLedgerIntegrity(current);
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.length, 2);
+    assert.match(result.errors[0], /duplicate id/);
+    assert.match(result.errors[1], /duplicate betId/);
+  });
 });

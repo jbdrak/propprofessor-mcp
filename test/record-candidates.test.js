@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeScanCandidates, buildCandidateId } = require('../lib/record-candidates');
+const { normalizeScanCandidates, buildCandidateId, buildScanFingerprint } = require('../lib/record-candidates');
 
 // Focused Task 2 tests: normalize scan output into recordable candidates.
 // No recommendation logic, no official-bet creation, deterministic IDs.
@@ -256,5 +256,45 @@ describe('buildCandidateId', () => {
       buildCandidateId({ scanId: 's', gameId: 'g', market: null, selection: 'X', odds: undefined }),
       buildCandidateId({ scanId: 's', gameId: 'g', market: undefined, selection: 'X', odds: null })
     );
+  });
+});
+
+describe('buildScanFingerprint', () => {
+  it('changes when actual play identity changes even if scan filters do not', () => {
+    const first = [{ league: 'MLB', market: 'Moneyline', plays: [{ gameId: 'g1', selection: 'Yankees', odds: -120 }] }];
+    const second = [
+      { league: 'MLB', market: 'Moneyline', plays: [{ gameId: 'g2', selection: 'Red Sox', odds: -120 }] }
+    ];
+    assert.notEqual(buildScanFingerprint(first), buildScanFingerprint(second));
+  });
+
+  it('is independent of input play order', () => {
+    const first = [
+      {
+        league: 'MLB',
+        market: 'Moneyline',
+        plays: [
+          { gameId: 'g1', selection: 'Yankees', odds: -120 },
+          { gameId: 'g2', selection: 'Astros', odds: +150 }
+        ]
+      }
+    ];
+    const second = [
+      {
+        league: 'MLB',
+        market: 'Moneyline',
+        plays: [
+          { gameId: 'g2', selection: 'Astros', odds: +150 },
+          { gameId: 'g1', selection: 'Yankees', odds: -120 }
+        ]
+      }
+    ];
+    assert.equal(buildScanFingerprint(first), buildScanFingerprint(second));
+  });
+
+  it('canonicalizes numeric and string odds consistently', () => {
+    const numeric = [{ market: 'Moneyline', plays: [{ gameId: 'g1', selection: 'Yankees', odds: -120 }] }];
+    const string = [{ market: 'Moneyline', plays: [{ gameId: 'g1', selection: 'Yankees', odds: '-120' }] }];
+    assert.equal(buildScanFingerprint(numeric), buildScanFingerprint(string));
   });
 });

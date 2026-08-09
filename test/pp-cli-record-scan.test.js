@@ -152,4 +152,16 @@ describe('pp-cli --record-scan', () => {
       'second run reports the duplicate on stderr'
     );
   });
+
+  it('records a changed play set separately when filters and play count stay the same', async (t) => {
+    const env = withTempEnv(t);
+    const first = makeResults();
+    const second = makeResults();
+    second[0].plays[0] = { ...second[0].plays[0], selection: 'Red Sox' };
+    await runScan({ handlerResults: first, flags: { 'record-scan': true } });
+    await runScan({ handlerResults: second, flags: { 'record-scan': true } });
+    const ledger = JSON.parse(fs.readFileSync(env.ledgerPath, 'utf8'));
+    assert.equal(ledger.scans.length, 2, 'changed play identities do not collide');
+    assert.notEqual(ledger.scans[0].scanFingerprint, ledger.scans[1].scanFingerprint);
+  });
 });

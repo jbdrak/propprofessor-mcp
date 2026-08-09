@@ -15,7 +15,7 @@ const { getLocalTimezone } = require(PROJECT + '/lib/mcp-runtime-config');
 const { parseGameStartMs } = require(PROJECT + '/lib/propprofessor-shared-utils');
 const { recoverTennisFromScreen } = require(PROJECT + '/lib/tennis-fallback');
 const { loadLedger, saveLedger, addRecord, defaultLedgerPath } = require(PROJECT + '/lib/record-ledger');
-const { normalizeScanCandidates } = require(PROJECT + '/lib/record-candidates');
+const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/lib/record-candidates');
 const { promoteCards } = require(PROJECT + '/lib/record-card');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
@@ -570,7 +570,8 @@ function recordScanResults(results, context = {}) {
     tiers: context.tiers || null,
     cardWindow: context.cardWindow || null,
     limit: context.limit || null,
-    playCount
+    playCount,
+    scanFingerprint: buildScanFingerprint(results)
   };
   const scan = addRecord(ledger, 'scans', scanRecord);
   if (!scan.ok) {

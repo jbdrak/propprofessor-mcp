@@ -180,6 +180,7 @@ function reviewBetStart(bet) {
 /** Summarize resolved review rows into W-L-P-V, bucket, and P&L counts. */
 function summarize(rows) {
   const counts = { wins: 0, losses: 0, pushes: 0, voids: 0, pending: 0, unresolved: 0, retirement: 0, delayed: 0 };
+  const pendingReasons = {};
   let totalUnits = 0;
   let stakedUnits = 0;
   for (const row of rows) {
@@ -189,7 +190,11 @@ function summarize(rows) {
     else if (row.status === 'void') counts.voids += 1;
     else if (row.status === 'unresolved') counts.unresolved += 1;
     else if (row.status === 'retirement') counts.retirement += 1;
-    else counts.pending += 1;
+    else {
+      counts.pending += 1;
+      const code = row.settlement && row.settlement.reasonCode;
+      if (code) pendingReasons[code] = (pendingReasons[code] || 0) + 1;
+    }
     if (row.delayed) counts.delayed += 1;
     if (SETTLED.includes(row.status)) {
       totalUnits += row.pnlUnits;
@@ -207,6 +212,7 @@ function summarize(rows) {
     unresolved: counts.unresolved,
     retirement: counts.retirement,
     delayed: counts.delayed,
+    pendingReasons,
     pnl: {
       totalUnits,
       stakedUnits,

@@ -394,7 +394,7 @@ function createPlayDetailsHandlers(_client, _ctx) {
 
     const normalizeGameId = (id) =>
       String(id || '')
-        .replace(/:\\d{10,}$/, '')
+        .replace(/:\d{10,}$/, '')
         .trim();
     const normalizedRequested = gameIds.map(normalizeGameId);
     const gameIdSet = new Set(normalizedRequested);

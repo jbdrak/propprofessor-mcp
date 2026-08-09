@@ -117,6 +117,14 @@ describe('extractScreenRows', () => {
     );
   });
 
+  it('returns rows from an array-like game_data payload', () => {
+    const payload = { game_data: { 0: { id: 'array-like-row' } } };
+    assert.deepEqual(
+      extractScreenRows(payload).map((row) => row.id),
+      ['array-like-row']
+    );
+  });
+
   it('falls back to legacy data/results arrays', () => {
     assert.deepEqual(
       extractScreenRows({ data: [{ id: 'a' }] }).map((row) => row.id),

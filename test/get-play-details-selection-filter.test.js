@@ -7,7 +7,7 @@ const { createMockClient } = require('./fixtures/mock-client');
 
 const GAME_ID = 'Tennis:PREMATCH:Borges:Hanfmann:1786017600';
 
-function makePayload() {
+function makePayload(rowGameId = GAME_ID) {
   const nested = {
     over22: {
       selection1: 'Over',
@@ -37,7 +37,7 @@ function makePayload() {
   return {
     rows: [
       {
-        gameId: GAME_ID,
+        gameId: rowGameId,
         league: 'Tennis',
         market: 'Total Games',
         selection: 'Over',
@@ -52,8 +52,8 @@ function makePayload() {
   };
 }
 
-function makeHandlers() {
-  const { client } = createMockClient({ screenPayloads: { 'Tennis:Total Games': makePayload() } });
+function makeHandlers(rowGameId) {
+  const { client } = createMockClient({ screenPayloads: { 'Tennis:Total Games': makePayload(rowGameId) } });
   return createMcpHandlers({ client });
 }
 
@@ -83,6 +83,19 @@ describe('get_play_details exact selection filter', () => {
     });
 
     assert.equal(result.resultMeta.selectionFilter, undefined);
+    assert.equal(result.result.length, 4);
+  });
+
+  it('matches a backend row when its game ID omits the embedded start timestamp', async () => {
+    const baseGameId = GAME_ID.replace(/:\d{10,}$/, '');
+    const result = await makeHandlers(baseGameId).get_play_details({
+      league: 'Tennis',
+      market: 'Total Games',
+      gameIds: [GAME_ID],
+      books: ['NoVigApp']
+    });
+
+    assert.equal(result.resultMeta.matchedRows, 4);
     assert.equal(result.result.length, 4);
   });
 

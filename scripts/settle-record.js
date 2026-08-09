@@ -37,6 +37,7 @@
 const fs = require('node:fs');
 
 const ledgerApi = require('../lib/record-ledger');
+const resultContract = require('../lib/record-results');
 const settlement = require('../lib/record-settlement');
 
 // Start resolution is centralized in lib/record-settlement.betStart so direct
@@ -143,21 +144,14 @@ function runSettleRecord(opts = {}) {
   } catch {
     return fail(`results file contains invalid JSON: ${options.results}`);
   }
-  if (!resultData || typeof resultData !== 'object' || Array.isArray(resultData)) {
-    return fail(
-      'results file must contain an object with non-empty top-level provider and sourceUrl (bare event arrays are no longer accepted)'
-    );
-  }
-  if (typeof resultData.provider !== 'string' || resultData.provider.trim() === '') {
-    return fail('results file missing a non-empty top-level provider (settlement provenance required)');
-  }
-  if (typeof resultData.sourceUrl !== 'string' || resultData.sourceUrl.trim() === '') {
-    return fail('results file missing a non-empty top-level sourceUrl (settlement provenance required)');
-  }
+  const contract = resultContract.validateResultPayload(resultData);
+  if (!contract.ok) return fail(`invalid results file: ${contract.errors.join('; ')}`);
 
   const loaded = ledgerApi.loadLedger({ fs: fsModule, path: ledgerPath });
   if (!loaded.ok) return fail(loaded.error, 1);
   const ledger = loaded.ledger;
+  const integrity = ledgerApi.validateLedgerIntegrity(ledger);
+  if (!integrity.ok) return fail(`ledger integrity check failed: ${integrity.errors.join('; ')}`, 1);
 
   let bets = Array.isArray(ledger.bets) ? ledger.bets.filter(Boolean) : [];
   if (options.date) bets = bets.filter((bet) => chicagoDay(betStart(bet)) === options.date);

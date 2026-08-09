@@ -346,10 +346,13 @@ describe('settleEvent — MLB final score', () => {
     const { events } = settlement.normalizeResultData(mlbResult());
     const notFinal = settlement.settleEvent(mlbBet(), { ...events[0], status: 'scheduled' });
     assert.equal(notFinal.status, 'pending');
+    assert.equal(notFinal.reasonCode, 'unresolved');
     const noScores = settlement.settleEvent(mlbBet(), { ...events[0], homeScore: null });
     assert.equal(noScores.status, 'pending');
+    assert.equal(noScores.reasonCode, 'missing_final_score');
     const ambiguous = settlement.settleEvent(mlbBet({ selection: 'Yankees Red Sox' }), events[0]);
     assert.equal(ambiguous.status, 'pending');
+    assert.equal(ambiguous.reasonCode, 'ambiguous_selection');
   });
 
   it('keeps spread markets pending (only moneyline and totals grade locally)', () => {
@@ -732,6 +735,47 @@ describe('solve — ledger integration', () => {
     assert.equal(record.evidence.retired, true);
     assert.equal(record.evidence.retiredSide, 'Carlos Alcaraz');
   });
+
+  it('preserves retirement evidence when a later rerun cannot match the event', () => {
+    const ledger = ledgerModule.createLedger();
+    const bet = {
+      id: 't-ret-rerun',
+      gameId: 'ret-rerun',
+      game: 'Djokovic N vs Alcaraz C',
+      league: 'Tennis',
+      market: 'Moneyline',
+      selection: 'Djokovic N',
+      start: '2026-08-05T12:00:00.000Z'
+    };
+    const retirement = settlement.solve(ledger, {
+      bets: [bet],
+      resultData: {
+        provider: 'espn',
+        sourceUrl: 'https://example.test/tennis',
+        events: [
+          {
+            eventId: 'ret-rerun',
+            homeTeam: 'Novak Djokovic',
+            awayTeam: 'Carlos Alcaraz',
+            status: 'retired',
+            retired: true,
+            retiredSide: 'Carlos Alcaraz',
+            date: '2026-08-05T14:00:00.000Z'
+          }
+        ]
+      },
+      now
+    });
+    assert.equal(retirement.pending[0].status, 'retirement');
+    const rerun = settlement.solve(ledger, {
+      bets: [bet],
+      resultData: { provider: 'espn', sourceUrl: 'https://example.test/tennis', events: [] },
+      now
+    });
+    assert.equal(rerun.pending.length, 1);
+    assert.equal(rerun.pending[0].status, 'retirement');
+    assert.equal(rerun.pending[0].evidence.retiredSide, 'Carlos Alcaraz');
+  });
 });
 
 describe('betStart — card-shaped start resolution', () => {
@@ -979,5 +1023,39 @@ describe('solve — same-ID regressions and provenance gate', () => {
     assert.equal(second.settled.length, 0);
     assert.equal(ledger.settlements.length, 1);
     assert.equal(ledger.settlements[0].status, 'win');
+  });
+
+  it('keeps duplicate same-ID events pending instead of choosing one', () => {
+    const bet = brewersPiratesBet();
+    const result = settlement.matchEvent(bet, [
+      ...brewersPiratesResult().events,
+      {
+        eventId: 'g-fabricated',
+        homeTeam: 'New York Yankees',
+        awayTeam: 'Boston Red Sox',
+        homeScore: 5,
+        awayScore: 3,
+        status: 'final',
+        date: '2026-08-05T02:00:00.000Z'
+      }
+    ]);
+    assert.equal(result.matched, false);
+    assert.match(result.reason, /multiple events share the same game id/);
+  });
+
+  it('does not resolve a selection that matches both event sides', () => {
+    const bet = mlbBet({ selection: 'New York' });
+    const event = {
+      eventId: 'g-ambiguous',
+      homeTeam: 'New York Yankees',
+      awayTeam: 'New York Mets',
+      homeScore: 3,
+      awayScore: 2,
+      status: 'final',
+      date: '2026-08-05T23:05:00.000Z'
+    };
+    const result = settlement.settleEvent(bet, event);
+    assert.equal(result.status, 'pending');
+    assert.match(result.reason, /unambiguously identify/);
   });
 });

@@ -217,6 +217,19 @@ describe('review-record parseArgs', () => {
 describe('review-record Aug 4 acceptance', () => {
   const ledger = makeAug4Ledger();
 
+  it('aggregates structured pending reason codes in official stats', () => {
+    const pendingLedger = structuredClone(ledger);
+    pendingLedger.bets[0].status = 'pending';
+    pendingLedger.settlements[0] = {
+      ...pendingLedger.settlements[0],
+      status: 'pending',
+      reasonCode: 'missing_final_score'
+    };
+    const result = review.buildReview(pendingLedger, { mode: 'stats', date: '2024-08-04' });
+    assert.equal(result.official.pending, 1);
+    assert.deepEqual(result.official.pendingReasons, { missing_final_score: 1 });
+  });
+
   it('reports the official record: 1W 1L, -0.10u on 2u, ROI -5%', () => {
     const result = review.buildReview(ledger, { mode: 'review', date: '2024-08-04' });
     assert.equal(result.ok, true);
