@@ -60,7 +60,7 @@ function makeGoneClient() {
   return {
     queryScreenOddsBestComps: async () => {
       calls += 1;
-      if (calls === 1) return makePayload(fiveBookOdds);
+      if (calls <= 2) return makePayload(fiveBookOdds);
       return { game_data: [] };
     },
     queryOddsHistory: async () => ({ NoVigApp: [{ odds: 150, start_ts: 1 }] })

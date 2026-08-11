@@ -4,6 +4,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { runSharpPlays } = require('../lib/propprofessor-sharp-plays-service');
 const { buildRankedScreenResponse } = require('../lib/propprofessor-mcp-ranked-screen');
+const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 
 /**
  * Aggregate odds-history budget regression.
@@ -217,5 +218,185 @@ describe('quick_screen aggregate odds-history budget', () => {
     assert.equal(getAggregateGameBudget(4), 10);
     assert.equal(getAggregateGameBudget(1), 24); // capped at the per-call max
     assert.equal(getAggregateGameBudget(0), 24); // degenerate input
+  });
+
+  it('mixed quick_screen: empty pairs do not starve MLB/WNBA of the 40-call budget', async () => {
+    // Production-shaped coordinator regression: quick_screen fans out one
+    // sharp_plays call per (league, market) pair. On a broad MIXED scan only
+    // MLB and WNBA have live slates; every other league is empty. Before the
+    // active-pair fix the 40-call initial odds-history allocation was divided
+    // by the RAW fan-out count (9 pairs → 4 games per pair → only the top-2
+    // games actually hydrated), so qualifying MLB/WNBA candidates outside the
+    // top games were dropped from the shortlist and disappeared. After the
+    // fix quick_screen probes each pair with a no-history screen, fans out
+    // hydration over the ACTIVE pairs only (2), and passes
+    // activeAggregatePairCount=2 — so each live pair gets a 20-game budget,
+    // every game is hydrated, both qualifying rows survive, and total initial
+    // odds-history selection calls stay <= 40.
+    const LEAGUES = ['MLB', 'WNBA', 'NBA', 'NFL', 'NHL', 'Soccer', 'NCAAF', 'NCAAB', 'Tennis'];
+
+    // Side-1 consensus edge rises monotonically with `edge` (NoVigApp -100 →
+    // +105 pivot at 1.0 against Pinnacle -120), so the pre-history shortlist
+    // picks games by index order: under the old 9-pair split only indices 6–7
+    // hydrated; index 5 is the qualifying row that vanished.
+    function makeLeagueRow(gameId, edge) {
+      return {
+        gameId,
+        league: 'MLB',
+        market: 'Moneyline',
+        selection1: `Home ${gameId}`,
+        participant1: `Home ${gameId}`,
+        selection1Id: `Moneyline:Home_${gameId}`,
+        selection2: `Away ${gameId}`,
+        participant2: `Away ${gameId}`,
+        selection2Id: `Moneyline:Away_${gameId}`,
+        odds: {
+          NoVigApp: { odds1: edge > 1 ? 105 : -100, odds2: 100 },
+          Pinnacle: { odds1: -120, odds2: -120 }
+        },
+        timestamp: Date.now()
+      };
+    }
+
+    // Ranker stub: rows hydrated with real history are graded supportive so
+    // the regression can assert the surviving rows are usable, not degraded.
+    function makeSupportiveRanker(rows) {
+      return rows.map((row) =>
+        row.lineHistoryAvailable
+          ? {
+              ...row,
+              movementGrade: 'green',
+              movementLabel: 'supportive',
+              recentSharpMoveDirection: 'supportive',
+              fullWindowSharpMoveDirection: 'supportive',
+              clvProxyPct: 1
+            }
+          : row
+      );
+    }
+
+    const historyCalls = [];
+    const client = {
+      queryOddsHistory: async (params) => {
+        historyCalls.push(params);
+        return [
+          { odds: -110, line: null, start_ts: 1 },
+          { odds: -120, line: null, start_ts: 2 },
+          { odds: -130, line: null, start_ts: 3 }
+        ];
+      }
+    };
+    const handlers = createMcpHandlers({ client });
+
+    // Run the REAL sharp_plays/runSharpPlays pipeline but record every
+    // invocation so we can assert the active-pair contract end to end.
+    const sharpPlaysInvocations = [];
+    const originalSharpPlays = handlers.sharp_plays;
+    handlers.sharp_plays = async (args) => {
+      const result = await originalSharpPlays(args);
+      sharpPlaysInvocations.push({ args, result });
+      return result;
+    };
+
+    // Screen layer: MLB and WNBA have 8 current games each; every other
+    // league/market is empty. buildRankedScreenResponse runs the REAL
+    // pre-history shortlist + odds-history hydration machinery.
+    const screenCalls = [];
+    const tennisScreenCalls = [];
+    handlers.runLeagueScreen = async (rankedArgs, league) => {
+      screenCalls.push({ args: rankedArgs, league });
+      const active = league === 'MLB' || league === 'WNBA';
+      const payload = {
+        rows: active
+          ? Array.from({ length: 8 }, (_, index) => makeLeagueRow(`game-${league}-${index}`, 0.5 + index * 0.3))
+          : []
+      };
+      return buildRankedScreenResponse({
+        client,
+        payloads: [payload],
+        args: rankedArgs,
+        league,
+        focusBook: 'NoVigApp',
+        rankRows: makeSupportiveRanker
+      });
+    };
+    handlers.runTennisScreen = async (rankedArgs) => {
+      tennisScreenCalls.push(rankedArgs);
+      return { ok: true, result: [] };
+    };
+
+    const result = await handlers.quick_screen({
+      leagues: LEAGUES,
+      markets: ['Moneyline'],
+      book: 'NoVigApp',
+      limit: 100,
+      scanLimit: 100,
+      validate: false,
+      includeResearch: false
+    });
+
+    // 1) Probe contract: every pair was probed current-market-only (zero
+    //    odds-history calls), and the hydrated fan-out ran for exactly the
+    //    two active pairs.
+    const probeCalls = screenCalls.filter((c) => c.args.skipHistory === true);
+    const hydratedCalls = screenCalls.filter((c) => c.args.skipHistory !== true);
+    assert.equal(probeCalls.length, LEAGUES.length - 1, 'every non-tennis pair should be probed once');
+    assert.equal(tennisScreenCalls.length, 1, 'tennis pair should be probed through runTennisScreen');
+    assert.equal(hydratedCalls.length, 2, 'only the active MLB/WNBA pairs should be hydrated');
+    for (const { args } of probeCalls) {
+      assert.equal(args.skipHistory, true, 'probe must be current-market-only');
+      assert.equal(args.compact, true, 'probe must use a light compact response');
+    }
+    for (const { args } of hydratedCalls) {
+      assert.equal(args.preHistoryShortlist, true, 'hydrated pass must opt into the pre-history shortlist');
+      assert.equal(args.enableHistoryLineFallback, false, 'aggregate hydration must not amplify line variants');
+    }
+
+    // 2) Active-pair count contract: every per-pair sharp_plays call got the
+    //    SAME global active count (2), not the raw 9-pair fan-out total.
+    assert.equal(sharpPlaysInvocations.length, 2, 'one sharp_plays call per active pair');
+    for (const { args, result: spResult } of sharpPlaysInvocations) {
+      assert.equal(args.quickScreenAggregate, true);
+      assert.equal(args.activeAggregatePairCount, 2, 'active count must be passed into every invocation');
+      assert.equal(args.aggregatePairCount, LEAGUES.length, 'raw total kept for backward compat');
+      assert.equal(spResult.resultMeta.historyBudget.pairCount, 2, 'budget meta must reflect ACTIVE pairs');
+      assert.equal(spResult.resultMeta.historyBudget.maxSelectionCalls, 40, '2 active × 20-game budget = 40 max calls');
+    }
+
+    // 3) THE regression: both qualifying rows survive with real movement.
+    const allCandidates = (result.results || []).flatMap((entry) => entry.candidates || []);
+    const findQualifying = (league) =>
+      allCandidates.find((c) => String(c.gameId) === `game-${league}-5` && c.selection === `Home game-${league}-5`);
+    for (const league of ['MLB', 'WNBA']) {
+      const qualifying = findQualifying(league);
+      assert.ok(qualifying, `qualifying ${league} candidate (game index 5) must survive the scan`);
+      assert.equal(
+        qualifying.movementDisposition,
+        'supportive_clean',
+        `${league} qualifying row must be hydrated (starved to 'insufficient' or dropped pre-fix)`
+      );
+    }
+
+    // 4) Empty pairs consumed zero odds-history calls; total initial
+    //    odds-history selection calls stay within the 40-call allocation.
+    assert.ok(historyCalls.length <= 40, `total odds-history calls ${historyCalls.length} must stay <= 40`);
+    assert.ok(
+      historyCalls.length >= 16,
+      `active pairs should hydrate at least 8 games each, got ${historyCalls.length} calls`
+    );
+    for (const call of historyCalls) {
+      const gameId = String(call.gameId || '');
+      assert.ok(
+        gameId.startsWith('game-MLB-') || gameId.startsWith('game-WNBA-'),
+        `empty pairs must never consume odds-history calls (got ${gameId})`
+      );
+    }
+
+    // 5) Empty pairs are still reported so the response stays informative.
+    const emptySlateLeagues = (result.emptySlate || []).map((e) => e.league);
+    assert.ok(
+      LEAGUES.filter((l) => l !== 'MLB' && l !== 'WNBA').every((l) => emptySlateLeagues.includes(l)),
+      'empty pairs should be surfaced in emptySlate'
+    );
   });
 });

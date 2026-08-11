@@ -46,7 +46,7 @@ function getDefaultMarketsForLeague(league, _targetBooks) {
   return require('../../lib/propprofessor-market-registry').getMarketsForSport(league, _targetBooks);
 }
 const { mapCandidateRow } = require('../../lib/propprofessor-mcp-candidate-mapper');
-const { getLimit } = require('../../lib/propprofessor-mcp-ranked-screen');
+const { getLimit, getLeagueRankingPreset } = require('../../lib/propprofessor-mcp-ranked-screen');
 const { categorizeError } = require('../../lib/propprofessor-mcp-stdio');
 const { reconcileValidateOverride } = require('../../lib/validate-reconcile');
 const { runSharpPlays } = require('../../lib/propprofessor-sharp-plays-service');
@@ -782,8 +782,66 @@ function createMcpHandlers({
         }
       }
 
+      // === Active-pair probe (bounded, no-history) ===
+      // The aggregate odds-history allocation (40 calls) is split across the
+      // pairs that actually have current rows, not the raw league×market
+      // fan-out. A broad mixed scan (e.g. every league × every market) can
+      // contain 20+ pairs while only a couple of leagues have live slates;
+      // dividing 40 by the TOTAL pair count starves the live pairs down to
+      // ~1 hydrated game each and valid MLB/WNBA candidates disappear.
+      // Probe every pair with a current-market-only screen (skipHistory: true
+      // → zero odds-history calls, compact → lighter payload and no per-league
+      // cache write), then run the hydrated fan-out over the ACTIVE subset
+      // only so empty pairs consume no odds-history calls at all.
+      const activeLeagueMarketPairs = [];
       await mapWithConcurrency(
         leagueMarketPairs,
+        async ({ league, market }) => {
+          try {
+            const probeArgs = {
+              // Books must mirror the hydrated fan-out (targetBooks → the
+              // per-pair scan augments with sharp books) so the probe sees
+              // the same universe the scan would hydrate. A probe scoped to
+              // a smaller book set could mark a pair inactive that the real
+              // scan would find rows for.
+              books: targetBooks,
+              league,
+              market,
+              scanLimit,
+              lookbackHours,
+              is_live: false,
+              cardWindow: 'all',
+              skipHistory: true,
+              compact: true,
+              includeResearch: false,
+              strict: false,
+              includePasses: true
+            };
+            const probe =
+              String(getLeagueRankingPreset(league).league || league).toUpperCase() === 'TENNIS'
+                ? await ctx.handlers.runTennisScreen(probeArgs)
+                : await ctx.handlers.runLeagueScreen(probeArgs, league);
+            if (Array.isArray(probe?.result) && probe.result.length > 0) {
+              activeLeagueMarketPairs.push({ league, market });
+            } else {
+              emptySlate.push({ league, market, reason: 'no candidates returned' });
+            }
+          } catch {
+            // Probe failure: activity is unknown — fail OPEN and let the
+            // hydrated fan-out report the error (preserves the pre-probe
+            // error-reporting contract). Only a definitively EMPTY probe
+            // (no rows, no error) marks a pair inactive.
+            activeLeagueMarketPairs.push({ league, market });
+          }
+        },
+        { concurrency: 8 }
+      );
+      // Global ACTIVE pair count, passed into every hydrated invocation so
+      // the aggregate budget (40 calls) is divided only across live pairs.
+      const activeAggregatePairCount = Math.max(1, activeLeagueMarketPairs.length);
+
+      await mapWithConcurrency(
+        activeLeagueMarketPairs,
         async ({ league, market }) => {
           try {
             const spResult = await handlers.sharp_plays({
@@ -801,11 +859,14 @@ function createMcpHandlers({
               debug,
               // Aggregate scan mode: quick_screen fans out one sharp_plays
               // call per (league, market) pair against a process-wide 75-call
-              // odds-history budget. Pass the TOTAL pair count so every pair
-              // claims a fair, small pre-history slice, and skip the redundant
-              // sharp-only cross-reference (the main ranked query already
-              // hydrates target + sharp books).
+              // odds-history budget. Pass the ACTIVE pair count (from the
+              // no-history probe above) so every live pair claims a fair,
+              // small pre-history slice instead of the raw fan-out total —
+              // on a mixed scan, empty pairs would otherwise starve the live
+              // leagues down to ~1 hydrated game each. aggregatePairCount is
+              // kept as the raw total for backward compatibility.
               quickScreenAggregate: true,
+              activeAggregatePairCount,
               aggregatePairCount: leagueMarketPairs.length
             });
 

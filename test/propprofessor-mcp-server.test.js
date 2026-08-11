@@ -1311,6 +1311,14 @@ describe('propprofessor MCP server stdio contract', () => {
 
   it('quick_screen materializes final verdicts when validation is skipped', async () => {
     const { client } = createRankedScreenClientStub();
+    const originalScreenQuery = client.queryScreenOddsBestComps;
+    client.queryScreenOddsBestComps = async (...args) => {
+      const payload = await originalScreenQuery(...args);
+      return {
+        ...payload,
+        game_data: (payload.game_data || []).map((row) => ({ ...row, league: 'MLB' }))
+      };
+    };
     client.oddsHistoryBudgetRemaining = () => 0;
     const handlers = createMcpHandlers({ client });
     handlers.sharp_plays = async () => ({
