@@ -762,7 +762,7 @@ async function cmdRecord(positional, flags) {
 
 // ── scan ────────────────────────────────────────────────────────
 
-async function applyTennisScanFallback({ res, leagues, flags, book, client, marketList, onlyBets, resolvedMovement }) {
+async function applyTennisScanFallback({ res, leagues, flags, book, client, marketList, cardWindow, onlyBets, resolvedMovement }) {
   // Tennis fallback: if tennis was among requested leagues but returned 0
   // plays, try direct screen query.  Works for mixed-league scans too.
   const tennisFallbackEnabled = flags['tennis-fallback'] !== false;
@@ -790,6 +790,7 @@ async function applyTennisScanFallback({ res, leagues, flags, book, client, mark
           book,
           client,
           markets: marketList,
+          cardWindow,
           ...(maxHistorySelections !== undefined ? { maxHistorySelections } : {})
         });
         const fallbackMeta = tennisPlays.fallbackMeta;
@@ -1038,6 +1039,7 @@ async function cmdScan(handlers, positional, flags, client) {
       book,
       client,
       marketList,
+      cardWindow,
       onlyBets,
       resolvedMovement
     });

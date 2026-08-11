@@ -22,6 +22,7 @@ const {
 const { resolveMarkets } = require('./handler-utils');
 const { extractScreenRows } = require('../../../lib/screen-parser');
 const { ALL_SCREEN_BOOKS } = require('../../../lib/propprofessor-sharp-books');
+const { filterTennisRowsByCardWindow } = require('../../../lib/tennis-fallback');
 
 function buildCacheKey(prefix, args, league) {
   return JSON.stringify({
@@ -89,18 +90,20 @@ async function runTennisEvFallback({ client, args, rows, marketResolution, prefe
       })
     : evCandidates;
 
-  if (!marketFamilyCandidates.length) {
+  const cardWindowCandidates = filterTennisRowsByCardWindow(marketFamilyCandidates, args.cardWindow);
+
+  if (!cardWindowCandidates.length) {
     return {
       ok: true,
       result: [],
       league: 'Tennis',
       resultMeta: { debugEnabled: false, source: 'fallback_empty' },
       freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
-      warning: '/screen returned only Polymarket odds and +EV endpoint has no tennis candidates today'
+      warning: '/screen returned only Polymarket odds and +EV endpoint has no tennis candidates in the requested card window'
     };
   }
 
-  const ranked = await enrichTennisEvCandidates(marketFamilyCandidates, client, {
+  const ranked = await enrichTennisEvCandidates(cardWindowCandidates, client, {
     preferredBook,
     limit: getLimit(args),
     lookbackHours: getLookbackHours(args),
@@ -234,4 +237,4 @@ function createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }
   return { runTennisScreen };
 }
 
-module.exports = { createTennisScreenHandler };
+module.exports = { createTennisScreenHandler, filterTennisRowsByCardWindow };
