@@ -177,6 +177,7 @@ describe('recommended_bets: totals conflict losers survive validation (plan Task
       markets: ['Total Points'],
       bankroll: 1000,
       limit: 10,
+      targetTiers: ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4'],
       validate: true,
       includeResearch: false,
       hideVerdict: false

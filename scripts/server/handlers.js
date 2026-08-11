@@ -1705,6 +1705,17 @@ function createMcpHandlers({
         }
       }
 
+      // Validation can downgrade a play after the initial screen-tier filter.
+      // Re-apply targetTiers to the authoritative final tier so a TIER 4
+      // validation result can't leak through a TIER 1-only request.
+      for (const entry of allRecommended) {
+        if (!Array.isArray(entry.plays)) continue;
+        entry.plays = entry.plays.filter((play) =>
+          targetTiers.includes(play.finalConfidenceTier || play.confidenceTier)
+        );
+        entry.count = entry.plays.length;
+      }
+
       // Post-validation: downgrade contradictory same-game+market plays
       for (const entry of allRecommended) {
         if (entry.plays && entry.plays.length) {
