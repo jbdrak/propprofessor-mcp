@@ -1160,7 +1160,7 @@ function categorizeError(error) {
     code: 'INTERNAL_ERROR',
     category: 'internal',
     message,
-    recovery: 'Check logs or file an issue at github.com/j17drake/propprofessor-mcp'
+    recovery: 'Check logs or file an issue at github.com/jbdrak/propprofessor-mcp'
   };
 }
 ```

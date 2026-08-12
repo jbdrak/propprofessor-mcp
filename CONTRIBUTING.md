@@ -53,4 +53,4 @@ Be decent. This is a small project about sports betting data — there's no room
 
 ## Questions?
 
-Open a [Discussion](https://github.com/j17drake/propprofessor-mcp/discussions) or an [Issue](https://github.com/j17drake/propprofessor-mcp/issues).
+Open a [Discussion](https://github.com/jbdrak/propprofessor-mcp/discussions) or an [Issue](https://github.com/jbdrak/propprofessor-mcp/issues).

@@ -3,7 +3,7 @@ name: Bug Report
 about: Something isn't working as expected
 title: ''
 labels: bug
-assignees: j17drake
+assignees: jbdrak
 ---
 
 **Describe the bug**

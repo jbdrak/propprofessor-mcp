@@ -1,6 +1,6 @@
 # Installation
 
-PropProfessor MCP is a Model Context Protocol server plus a setup CLI. It ships as an npm package and exposes three commands.
+PropProfessor MCP is a Model Context Protocol server plus a setup CLI. The npm package is not currently published, so the supported install path is from the GitHub repository.
 
 ## Prerequisites
 
@@ -8,10 +8,13 @@ PropProfessor MCP is a Model Context Protocol server plus a setup CLI. It ships 
 - npm 10 or newer
 - A PropProfessor account with valid credentials (see the auth section in [README.md](README.md))
 
-## Install
+## Install from source
 
 ```bash
-npm install -g propprofessor-mcp
+git clone https://github.com/jbdrak/propprofessor-mcp.git
+cd propprofessor-mcp
+npm ci
+npm link
 ```
 
 This exposes the `pp`, `pp-mcp`, `pp-query`, and `pp-backtest` binaries.

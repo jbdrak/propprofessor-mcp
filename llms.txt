@@ -3,10 +3,10 @@
 A Model Context Protocol server that gives AI agents access to sharp sports betting signal — live odds across 36 sportsbooks, consensus edge detection, sharp money movement tracking, and player injury research.
 
 ## Quick start
-- Install: `npm install -g propprofessor-mcp`
-- Auth: `node scripts/pp-login.js` (one-time browser login)
+- Install from source: `git clone https://github.com/jbdrak/propprofessor-mcp.git && cd propprofessor-mcp && npm ci && npm link`
+- Auth: `pp-query login` (one-time browser login)
 - Wire: add to your MCP client config
-- Verify: `npm run install:verify` (53 tests, no credentials needed, <1s)
+- Verify: `npm run install:verify` (credential-free install verification)
 
 ## Key tools for agents
 - `today()` — one-call: sharp slate + your pending picks + recent stats
@@ -25,6 +25,6 @@ A Model Context Protocol server that gives AI agents access to sharp sports bett
 - Use `get_market_registry({ sport })` to discover correct market names for your league+book combo
 
 ## More info
-- README: https://github.com/j17drake/propprofessor-mcp#readme
+- README: https://github.com/jbdrak/propprofessor-mcp#readme
 - Agent guide: docs/agent-guide.md
 - Backtesting: docs/BACKTESTING.md

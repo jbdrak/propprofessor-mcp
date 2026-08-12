@@ -1,15 +1,13 @@
 # PropProfessor MCP ── Sharp Money Intelligence for AI Agents
 
 <p align="center">
-  <a href="https://github.com/j17drake/propprofessor-mcp/releases">
-    <img src="https://img.shields.io/github/v/release/j17drake/propprofessor-mcp?color=44cc11" alt="Release" />
+  <a href="https://github.com/jbdrak/propprofessor-mcp/releases">
+    <img src="https://img.shields.io/github/v/release/jbdrak/propprofessor-mcp?color=44cc11" alt="Release" />
   </a>
-  <a href="https://github.com/j17drake/propprofessor-mcp/actions/workflows/ci.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/j17drake/propprofessor-mcp/ci.yml?branch=main&label=ci" alt="CI" />
+  <a href="https://github.com/jbdrak/propprofessor-mcp/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/jbdrak/propprofessor-mcp/ci.yml?branch=main&label=ci" alt="CI" />
   </a>
-  <img src="https://img.shields.io/badge/tests-passing-44cc11" alt="Tests" />
-  <img src="https://img.shields.io/badge/coverage-82%25-44cc11" alt="Coverage" />
-  <img src="https://img.shields.io/badge/node-18%2B-44cc11" alt="Node" />
+  <img src="https://img.shields.io/badge/node-20%2B-44cc11" alt="Node" />
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
   </a>
@@ -20,6 +18,13 @@ PropProfessor MCP is a Model Context Protocol server that lets AI agents see wha
 Connect it to Claude Desktop, Cursor, Cline, Hermes, or any MCP client. Requires a [PropProfessor](https://propprofessor.com) account.
 
 > **Honest scope — no profitability claim:** PropProfessor MCP is a sharp-signal DISCOVERY and RATING tool. `tier` / `kaiCall` / `edge` / `screenScore` are signal-quality ratings, not win-probability predictions. Profitability is UNPROVEN — no settled-results backtest has been published yet. Use it to find candidate plays and validate them yourself; do not treat outputs as a guaranteed winning system. The ranking pipeline surfaces _what sharp books are doing_; the betting decision stays with you.
+
+## What this project demonstrates
+
+- **Agent integration** — a 31-tool MCP surface with natural-language routing and structured responses
+- **Data pipelines** — live odds extraction, line-history hydration, consensus scoring, and market-specific ranking
+- **Operational reliability** — auth recovery, circuit breakers, caching, validation, and deterministic install checks
+- **Honest evaluation** — synthetic validation is separated from real settled-results backtesting; unsupported win-rate claims are deliberately avoided
 
 ## 🚀 Overview
 
@@ -34,7 +39,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
 
 ## ⚡ Quickstart (30 seconds)
 
-1. **Install:** `npm install -g propprofessor-mcp` (or clone + `npm install` for dev)
+1. **Clone and install:** `git clone https://github.com/jbdrak/propprofessor-mcp.git && cd propprofessor-mcp && npm ci && npm link`
 2. **Wire your MCP client** — pick your client below:
 
    **Claude Desktop** (`claude_desktop_config.json`):
@@ -108,7 +113,10 @@ That's it — your agent now sees 31 tools.
 PropProfessor ships with a fast, standalone CLI that calls handlers directly — no MCP server needed.
 
 ```bash
-npm install -g propprofessor-mcp
+git clone https://github.com/jbdrak/propprofessor-mcp.git
+cd propprofessor-mcp
+npm ci
+npm link
 pp scan mlb tennis -M supportive -n3
 ```
 
@@ -138,7 +146,7 @@ pp scan mlb tennis -M supportive -n3
 **MCP mode:** `pp --mcp` runs as an MCP stdio server. Connect it to Claude Desktop,
 Cursor, Cline, or any MCP client. Pass `--mode full` for the full 31-tool surface.
 
-**Quick start (installed globally):** `pp --mcp` — works if you've run `npm install -g propprofessor-mcp`. No path needed.
+**Quick start (from a clone):** after `npm link`, run `pp --mcp` to start the MCP server. No global package download is required.
 **Development/clone setup:** use the full path — `node /path/to/scripts/propprofessor-mcp-server.js` — see [MCP Client Setup](#mcp-client-setup) below.
 
 All commands support `-j`/`--json` for piping and `--no-color` for CI/Telegram output.
@@ -295,7 +303,7 @@ flowchart LR
 ### Quick Start
 
 ```bash
-git clone https://github.com/j17drake/propprofessor-mcp.git
+git clone https://github.com/jbdrak/propprofessor-mcp.git
 cd propprofessor-mcp
 npm install
 npm link
@@ -334,11 +342,13 @@ Replace `/path/to/` with your actual install path (e.g. `/Users/you/projects/pro
 
 **For short-lived one-off sessions:**
 
+Clone the repository, install dependencies, and point your client at the server script:
+
 ```json
-{ "command": "npx", "args": ["-y", "propprofessor-mcp"] }
+{ "command": "node", "args": ["/path/to/propprofessor-mcp/scripts/propprofessor-mcp-server.js"] }
 ```
 
-Works out of the box — no git clone needed. Requires a PropProfessor account.
+Requires a local clone and a PropProfessor account.
 
 **For headless/CI environments (no Chrome):**
 
@@ -348,8 +358,8 @@ Set the `PROPPROFESSOR_COOKIES` env var with your PropProfessor cookies exported
 {
   "mcpServers": {
     "propprofessor": {
-      "command": "npx",
-      "args": ["-y", "propprofessor-mcp"],
+      "command": "node",
+      "args": ["/path/to/propprofessor-mcp/scripts/propprofessor-mcp-server.js"],
       "env": {
         "PROPPROFESSOR_COOKIES": "[{\"name\":\"__Secure-next-auth.session-token\",\"value\":\"...\",\"domain\":\".propprofessor.com\"}]"
       }
@@ -542,7 +552,7 @@ See [Quick Start](#quick-start) for Hermes Agent setup. The MCP is self-document
 
 ### Discord / Telegram Alerts
 
-The [Positive EV Command Center](https://github.com/j17drake/positive-ev-command-center) is a companion project that monitors PropProfessor for high-EV slips and plays, then pushes them to Discord and Telegram in real-time. It uses the same auth session and API client.
+The [Positive EV Command Center](https://github.com/jbdrak/positive-ev-command-center) is a companion project that monitors PropProfessor for high-EV slips and plays, then pushes them to Discord and Telegram in real-time. It uses the same auth session and API client.
 
 ### CLI
 
@@ -608,7 +618,7 @@ the ranking engine, they do NOT prove profitability.
 | **`CIRCUIT_BREAKER_OPEN` persists**          | Circuit breaker threshold exceeded                           | Increase `PROPPROFESSOR_CIRCUIT_BREAKER_THRESHOLD` (default 5) or timeout (default 30s). See [CONFIG.md](CONFIG.md)                |
 | **Debug logging needed**                     | —                                                            | Set `PROPPROFESSOR_DEBUG=1` to see request/response traces on stderr                                                               |
 
-Still stuck? Run `pp-query doctor` and [open an issue](https://github.com/j17drake/propprofessor-mcp/issues) with the output.
+Still stuck? Run `pp-query doctor` and [open an issue](https://github.com/jbdrak/propprofessor-mcp/issues) with the output.
 
 ## ❓ FAQ
 
@@ -622,15 +632,15 @@ Still stuck? Run `pp-query doctor` and [open an issue](https://github.com/j17dra
 
 **Can I run it without an MCP client?** Yes — `pp doctor` is a standalone CLI.
 
-**What if I find a bug?** Run `pp doctor` first, then [open an issue](https://github.com/j17drake/propprofessor-mcp/issues).
+**What if I find a bug?** Run `pp doctor` first, then [open an issue](https://github.com/jbdrak/propprofessor-mcp/issues).
 
 ## ⭐ Support
 
 This is free, MIT-licensed software. If it saves you time or makes you money:
 
 - ⭐ Star the repo — helps others find it
-- 🐛 [Open an issue](https://github.com/j17drake/propprofessor-mcp/issues) when you find a bug
-- 💸 [Sponsor on GitHub](https://github.com/sponsors/j17drake) — funds ongoing development
+- 🐛 [Open an issue](https://github.com/jbdrak/propprofessor-mcp/issues) when you find a bug
+- 💸 [Sponsor on GitHub](https://github.com/sponsors/jbdrak) — funds ongoing development
 
 No paid tier. No upsell. The whole codebase is open and the priority is making it better for the people who use it.
 
@@ -668,4 +678,4 @@ Release: push a `v*` tag → CI runs lint + tests on Node 20 + 22 → publishes 
 
 ## 📝 License
 
-[MIT](LICENSE). PropProfessor is a paid service; this MCP is an unofficial client built by [j17drake](https://github.com/j17drake), not affiliated with PropProfessor.
+[MIT](LICENSE). PropProfessor is a paid service; this MCP is an unofficial client built by [James Drake](https://github.com/jbdrak), not affiliated with PropProfessor.

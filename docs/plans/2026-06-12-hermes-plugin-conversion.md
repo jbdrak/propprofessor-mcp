@@ -1406,7 +1406,7 @@ grep -n "^## " README.md | head -10
 **One command. No config editing required.**
 
 ```bash
-git clone https://github.com/j17drake/propprofessor-mcp.git
+git clone https://github.com/jbdrak/propprofessor-mcp.git
 cd propprofessor-mcp
 npm install
 npm link
@@ -1473,7 +1473,7 @@ git commit -m "docs(readme): lead with 'make install' one-command flow"
 
 ```bash
 # 1. Clone + install Node deps
-git clone https://github.com/j17drake/propprofessor-mcp.git
+git clone https://github.com/jbdrak/propprofessor-mcp.git
 cd propprofessor-mcp
 npm install
 npm link

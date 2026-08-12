@@ -11,7 +11,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security issue, please report it privately through [GitHub Security Advisories](https://github.com/j17drake/propprofessor-mcp/security/advisories/new) so we can fix it before public disclosure. Do not open a public issue.
+If you discover a security issue, please report it privately through [GitHub Security Advisories](https://github.com/jbdrak/propprofessor-mcp/security/advisories/new) so we can fix it before public disclosure. Do not open a public issue.
 
 **What to include:**
 

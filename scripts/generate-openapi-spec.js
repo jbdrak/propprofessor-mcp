@@ -230,7 +230,7 @@ function generateOpenApiSpec() {
       description: `Lean, fast odds analysis engine for AI agents. Screens 36+ sportsbooks across NBA, MLB, NHL, NFL, WNBA, UFC, Tennis, Soccer — ranks plays by sharp movement, consensus edge, and steam detection.\n\nSee the README for setup instructions and tool guides by user type.`,
       contact: {
         name: 'James Drake',
-        url: 'https://github.com/j17drake/propprofessor-mcp'
+        url: 'https://github.com/jbdrak/propprofessor-mcp'
       },
       license: {
         name: 'MIT',

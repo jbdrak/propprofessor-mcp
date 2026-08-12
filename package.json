@@ -43,12 +43,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/j17drake/propprofessor-mcp.git"
+    "url": "git+https://github.com/jbdrak/propprofessor-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/j17drake/propprofessor-mcp/issues"
+    "url": "https://github.com/jbdrak/propprofessor-mcp/issues"
   },
-  "homepage": "https://github.com/j17drake/propprofessor-mcp#readme",
+  "homepage": "https://github.com/jbdrak/propprofessor-mcp#readme",
   "keywords": [
     "mcp",
     "mcp-server",
