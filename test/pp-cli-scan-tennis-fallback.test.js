@@ -22,6 +22,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   let formatScan;
   let momentumLabel;
   let openerContextLabel;
+  let mockedFallbackPlays;
 
   // ── mock recoverTennisFromScreen ─────────────────────────────────
   // We replace the tennis-fallback module in require.cache BEFORE
@@ -66,7 +67,34 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     source: 'tennis_fallback'
   };
 
+  const CONFLICT_WINNER = {
+    ...SAMPLE_TENNIS_PLAY,
+    game: 'Djokovic N vs Alcaraz C',
+    gameId: 'tennis-conflict-game',
+    selection: 'Djokovic N',
+    participant: 'Djokovic N',
+    movementDisposition: 'supportive_clean',
+    clvProxyPct: 3,
+    edge: 3,
+    verdict: 'BET'
+  };
+
+  const CONFLICT_LOSER = {
+    ...CONSIDER_TENNIS_PLAY,
+    game: 'Djokovic N vs Alcaraz C',
+    gameId: 'tennis-conflict-game',
+    selection: 'Alcaraz C',
+    participant: 'Alcaraz C',
+    movementDisposition: 'supportive_bouncy',
+    clvProxyPct: 1,
+    edge: 1,
+    verdict: 'CONSIDER',
+    conflictResolved: true,
+    conflictNote: 'Opposite side "Djokovic N" (supportive_clean, CLV=3) kept as BET'
+  };
+
   before(() => {
+    mockedFallbackPlays = [SAMPLE_TENNIS_PLAY, CONSIDER_TENNIS_PLAY];
     const tennisFallbackPath = require.resolve(PROJECT + '/lib/tennis-fallback');
     // Remove any stale cache entry
     delete require.cache[tennisFallbackPath];
@@ -76,7 +104,7 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
       filename: tennisFallbackPath,
       loaded: true,
       exports: {
-        recoverTennisFromScreen: async () => [SAMPLE_TENNIS_PLAY, CONSIDER_TENNIS_PLAY],
+        recoverTennisFromScreen: async () => mockedFallbackPlays,
         computeClvFromHistory: () => null,
         deriveMovementFromClv: () => 'insufficient',
         assignTierFromClv: () => 'TIER 2',
@@ -106,6 +134,56 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
   }
 
   // ── tests ────────────────────────────────────────────────────────
+
+  it('preserves recovered opposite-side conflict demotions during normalization', async () => {
+    mockedFallbackPlays = [CONFLICT_WINNER, CONFLICT_LOSER];
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], {}, {});
+    } finally {
+      mockedFallbackPlays = [SAMPLE_TENNIS_PLAY, CONSIDER_TENNIS_PLAY];
+      restoreConsole(orig);
+    }
+
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis group should exist');
+    assert.equal(tennisGroup.plays.length, 2, 'both rows remain visible without -B');
+    assert.equal(tennisGroup.plays.filter((play) => play.verdict === 'BET').length, 1);
+    const loser = tennisGroup.plays.find((play) => play.selection === 'Alcaraz C');
+    assert.equal(loser.verdict, 'CONSIDER', 'conflict loser must remain CONSIDER');
+    assert.equal(loser.conflictResolved, true);
+  });
+
+  it('-B excludes the recovered opposite-side conflict loser', async () => {
+    mockedFallbackPlays = [CONFLICT_WINNER, CONFLICT_LOSER];
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis', '-B'], { B: true }, {});
+    } finally {
+      mockedFallbackPlays = [SAMPLE_TENNIS_PLAY, CONSIDER_TENNIS_PLAY];
+      restoreConsole(orig);
+    }
+
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis group should exist');
+    assert.equal(tennisGroup.plays.length, 1);
+    assert.equal(tennisGroup.plays[0].selection, 'Djokovic N');
+    assert.equal(res.data.totalCount, 2, 'totalCount should include only the surviving BET');
+  });
 
   it('does not restrict normal scans to TIER 1/2 by default', async () => {
     let request;

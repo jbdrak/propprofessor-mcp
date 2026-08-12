@@ -176,7 +176,7 @@ const TENNIS_HISTORY = {
  * Factory: creates a mock client for a single tennis game.
  * Returns market-specific screen data per queryScreenOdds call.
  */
-function createMockClient() {
+function createMockClient(history = TENNIS_HISTORY) {
   const calls = { screen: [], history: [] };
   const client = {
     calls,
@@ -188,7 +188,7 @@ function createMockClient() {
     },
     queryOddsHistory({ gameId, selectionId }) {
       calls.history.push({ gameId, selectionId });
-      const hist = TENNIS_HISTORY[selectionId];
+      const hist = history[selectionId];
       return Promise.resolve(hist || {});
     }
   };
@@ -222,6 +222,29 @@ describe('recoverTennisFromScreen — opposite sides', () => {
 
     // Alcaraz has no odds history of its own → insufficient signal
     assert.equal(alcaraz.verdict, 'CONSIDER', 'Alcaraz (no movement evidence) should be CONSIDER');
+  });
+
+  it('keeps only one BET when both opposite moneyline sides have supportive CLV', async () => {
+    const bothSupportiveHistory = {
+      ...TENNIS_HISTORY,
+      'Moneyline:Carlos_Alcaraz': supportiveHistory(140, 125)
+    };
+    const bothSupportiveClient = createMockClient(bothSupportiveHistory);
+    const plays = await recoverTennisFromScreen({
+      client: bothSupportiveClient,
+      book: 'Pinnacle',
+      markets: ['Moneyline'],
+      skipTimeCorrection: true
+    });
+    const mlPlays = plays.filter((p) => p.market === 'Moneyline');
+    const bets = mlPlays.filter((p) => p.verdict === 'BET');
+    const conflictLoser = mlPlays.find((p) => p.conflictResolved);
+
+    assert.equal(mlPlays.length, 2, 'both moneyline sides should be present');
+    assert.equal(bets.length, 1, 'opposing sides must not both remain BET');
+    assert.ok(conflictLoser, 'the losing side should be marked as conflict-resolved');
+    assert.equal(conflictLoser.verdict, 'CONSIDER');
+    assert.match(conflictLoser.conflictNote, /Opposite side/);
   });
 });
 

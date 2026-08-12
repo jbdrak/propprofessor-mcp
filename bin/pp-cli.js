@@ -822,7 +822,7 @@ async function applyTennisScanFallback({
             return {
               ...play,
               movementDisposition,
-              verdict: supportive && hasClvEvidence ? 'BET' : 'CONSIDER'
+              verdict: play.conflictResolved ? 'CONSIDER' : supportive && hasClvEvidence ? 'BET' : 'CONSIDER'
             };
           });
           const movementMatches = (play) =>
