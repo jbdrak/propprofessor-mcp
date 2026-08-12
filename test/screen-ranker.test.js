@@ -1128,6 +1128,43 @@ describe('totals-conflict resolution (resolveTotalsConflicts)', () => {
     assert.equal(ranked[2].totalsConflictWith, 'Over 168.5');
   });
 
+  it('keeps a bad execution row non-actionable and PASS', () => {
+    const [row] = rankScreenRows(
+      [
+        {
+          book: 'NoVigApp',
+          league: 'Tennis',
+          market: 'Moneyline',
+          gameId: 'Tennis:PREMATCH:A:B:1',
+          game: 'A vs B',
+          selection: 'A',
+          participant: 'A',
+          selection1: 'A',
+          participant1: 'A',
+          selection1Id: 'Moneyline:A',
+          selection2: 'B',
+          participant2: 'B',
+          selection2Id: 'Moneyline:B',
+          allBookOdds: {
+            NoVigApp: { odds1: -500, odds2: 350 },
+            Pinnacle: { odds1: -120, odds2: 100 },
+            Polymarket: { odds1: -125, odds2: 105 }
+          }
+        }
+      ],
+      {
+        preferredBooks: ['NoVigApp', 'Pinnacle', 'Polymarket'],
+        includeAll: true,
+        limit: 10
+      }
+    );
+
+    assert.equal(row.executionQuality, 'bad');
+    assert.equal(row.isActionable, false);
+    assert.equal(row.kaiCall, 'PASS');
+    assert.equal(row.confidenceTier, 'TIER 4');
+  });
+
   it('PASS rows cannot win or be demoted in a totals conflict', () => {
     const ranked = [
       {

@@ -74,6 +74,22 @@ describe('get_play_details exact selection filter', () => {
     assert.ok(result.result[0].selections, 'nested line map is preserved');
   });
 
+  it('uses the requested focus book for the exact top-level quote', async () => {
+    const result = await makeHandlers().get_play_details({
+      league: 'Tennis',
+      market: 'Total Games',
+      gameIds: [GAME_ID],
+      books: ['NoVigApp'],
+      selection: 'Over 22.5'
+    });
+
+    const row = result.result[0];
+    assert.equal(row.book, 'NoVigApp');
+    assert.equal(row.odds, -120);
+    assert.equal(row.targetBookOdds, -120);
+    assert.equal(row.liquidityUsd, 18);
+  });
+
   it('preserves broad game lookup when no selection is supplied', async () => {
     const result = await makeHandlers().get_play_details({
       league: 'Tennis',

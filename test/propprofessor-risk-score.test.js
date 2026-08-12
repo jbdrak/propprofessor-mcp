@@ -7,12 +7,47 @@ const {
   calculateRiskScore,
   getConfidenceTier,
   getConfidenceTierStable,
+  getKaiCall,
   clearTierCache,
   clearScoreTimeline,
   tierCacheKey
 } = require('../lib/propprofessor-risk-score');
 
 describe('gradeRiskToTierAndCall — unified lookup', () => {
+  it('bad or unknown execution cannot produce an actionable call', () => {
+    const row = {
+      movementLabel: 'supportive',
+      movementDisposition: 'supportive_clean',
+      movementQuality: 'high',
+      movementQualityScore: 0.9,
+      consensusBookCount: 8,
+      clvProxyPct: 2,
+      executionQuality: 'bad',
+      multiWindowInsufficientData: true,
+      league: 'Tennis'
+    };
+
+    assert.equal(getKaiCall(row), 'PASS');
+    assert.equal(getConfidenceTier(row), 'TIER 4');
+  });
+
+  it('a PASS call cannot remain in an actionable tier', () => {
+    const row = {
+      movementLabel: 'adverse',
+      movementDisposition: 'adverse_full',
+      movementQuality: 'high',
+      movementQualityScore: 0.9,
+      consensusBookCount: 8,
+      clvProxyPct: 2,
+      executionQuality: 'best',
+      multiWindowInsufficientData: true,
+      league: 'Tennis'
+    };
+
+    assert.equal(getKaiCall(row), 'PASS');
+    assert.equal(getConfidenceTier(row), 'TIER 4');
+  });
+
   it('red always → TIER 4, PASS regardless of risk', () => {
     assert.deepStrictEqual(gradeRiskToTierAndCall('red', 1), { tier: 'TIER 4', kaiCall: 'PASS' });
     assert.deepStrictEqual(gradeRiskToTierAndCall('red', 10), { tier: 'TIER 4', kaiCall: 'PASS' });

@@ -266,6 +266,7 @@ async function queryPlayDetailsResponse({
           market,
           limit: gameIds.length * 4,
           books: augmentedBooks,
+          focusBook,
           includeAll: true,
           debug
         });
