@@ -99,7 +99,8 @@ async function runTennisEvFallback({ client, args, rows, marketResolution, prefe
       league: 'Tennis',
       resultMeta: { debugEnabled: false, source: 'fallback_empty' },
       freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
-      warning: '/screen returned only Polymarket odds and +EV endpoint has no tennis candidates in the requested card window'
+      warning:
+        '/screen returned only Polymarket odds and +EV endpoint has no tennis candidates in the requested card window'
     };
   }
 

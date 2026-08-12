@@ -762,7 +762,17 @@ async function cmdRecord(positional, flags) {
 
 // ── scan ────────────────────────────────────────────────────────
 
-async function applyTennisScanFallback({ res, leagues, flags, book, client, marketList, cardWindow, onlyBets, resolvedMovement }) {
+async function applyTennisScanFallback({
+  res,
+  leagues,
+  flags,
+  book,
+  client,
+  marketList,
+  cardWindow,
+  onlyBets,
+  resolvedMovement
+}) {
   // Tennis fallback: if tennis was among requested leagues but returned 0
   // plays, try direct screen query.  Works for mixed-league scans too.
   const tennisFallbackEnabled = flags['tennis-fallback'] !== false;
