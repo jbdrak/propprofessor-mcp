@@ -23,6 +23,7 @@ const { createScreenHandlers } = require('./handlers/screen');
 const { createPlayDetailsHandlers } = require('./handlers/play-details');
 const { createValidatePlayHandlers } = require('./handlers/validate-play');
 const { createScreenLeaguesHandlers } = require('./handlers/screen-leagues');
+const { createTennisScreenHandler } = require('./handlers/tennis-screen');
 const { resolveMarkets, stripVerdictFields } = require('./handlers/handler-utils');
 const { ok } = require('../../lib/response-envelope');
 const { createPropProfessorClient } = require('../../lib/propprofessor-api');
@@ -114,7 +115,8 @@ function applyValidatedFields(target, validationResult) {
     screenDisposition: target.movementDisposition,
     validateExec: play.executionQuality || target.executionQuality,
     validateDisposition: verdict.movementDisposition || target.movementDisposition,
-    consensusDrift: Boolean(validationResult.consensusDrift)
+    consensusDrift: Boolean(validationResult.consensusDrift),
+    driftReason: validationResult.driftReason || ''
   });
   target.validatedMovementDisposition = reconcile.movementDisposition;
   target.validatedExecQuality = reconcile.executionQuality;
@@ -148,6 +150,13 @@ function applyValidatedFields(target, validationResult) {
  * Also sets `finalConfidenceTier`, `priceDrift`, and `finalWarnings`.
  */
 function applyFinalVerdict(target) {
+  if (target.validationSkipped === true) {
+    delete target.validationFailed;
+    delete target.validationFailureReason;
+    if (Array.isArray(target.finalWarnings)) {
+      target.finalWarnings = target.finalWarnings.filter((warning) => warning !== 'validation-failed');
+    }
+  }
   const validatedVerdict = target.validatedVerdict || null;
   // validatedTier / displayTier are BET/CONSIDER/PASS verdicts. The real
   // confidence tier (TIER 1/2/3/4) lives in validatedConfidenceTier.
@@ -176,7 +185,11 @@ function applyFinalVerdict(target) {
   // guard inside runValidatePlayImpl (which already downgrades to CONSIDER
   // there) — applied again here so finalVerdict + the promoted display tier
   // can never ship a stale BET. Idempotent: CONSIDER/PASS are left alone.
-  if ((target.validatedConsensusDrift || target.validatedUnverified) && verdict === 'BET') {
+  const validationFailed =
+    target.validationFailed === true ||
+    (!target._validated && !validatedVerdict && target.validationSkipped !== true) ||
+    (Array.isArray(target.finalWarnings) && target.finalWarnings.includes('validation-failed'));
+  if ((target.validatedConsensusDrift || target.validatedUnverified || validationFailed) && verdict === 'BET') {
     verdict = 'CONSIDER';
   }
 
@@ -229,7 +242,7 @@ function applyFinalVerdict(target) {
   if (target.validatedGameContext && target.validatedGameContext.riskFlag === 'unknown') {
     target.finalWarnings = [...(target.finalWarnings || []), 'unknown-game-context'];
   }
-  if (!target._validated) {
+  if (!target._validated && target.validationSkipped !== true) {
     target.finalWarnings = [...(target.finalWarnings || []), 'validation-failed'];
   }
   if (target.validatedConsensusDrift) {
@@ -1044,6 +1057,12 @@ function createMcpHandlers({
         : requestedValidateTop;
       const validateTop = validateAll ? requestedValidateTop : Math.min(requestedValidateTop, validationBudgetCap);
 
+      if (args.validate === false) {
+        for (const entry of allCandidates) {
+          for (const candidate of entry.candidates || []) candidate.validationSkipped = true;
+        }
+      }
+
       if (validateAll || validateTop > 0) {
         const validationCache = new Map(); // gameId → validated result, shared across candidates
         const validationPromises = [];
@@ -1063,6 +1082,10 @@ function createMcpHandlers({
           if (!entry.candidates || !entry.candidates.length) continue;
 
           for (const candidate of entry.candidates) {
+            if (!selectedValidationSet.has(candidate) && candidate.kaiCall === 'BET') {
+              candidate.validationFailed = true;
+              candidate.validationFailureReason = 'validation not selected within validation budget';
+            }
             // validateAll => validate everything; otherwise validate the top N
             // candidates GLOBALLY across the aggregate scan, not N per bucket.
             if (!selectedValidationSet.has(candidate)) continue;
@@ -1118,18 +1141,25 @@ function createMcpHandlers({
                     // movementDisposition to 'insufficient'.
                     screenSharpBookConfirmed: candidate.sharpBookMovementConfirmed || false
                   });
-                  const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(
+                  let timeoutId;
+                  const timeoutPromise = new Promise((_, reject) => {
+                    timeoutId = setTimeout(
                       () => reject(new Error(`Validation timeout for ${candidate.gameId}:${candidate.selection}`)),
                       VALIDATION_TIMEOUT_MS
-                    )
-                  );
-                  const result = await Promise.race([validatePromise, timeoutPromise]);
-                  if (candidate.gameId && result && result.ok) {
-                    validationCache.set(qsCacheKey, result);
+                    );
+                  });
+                  try {
+                    const result = await Promise.race([validatePromise, timeoutPromise]);
+                    if (candidate.gameId && result && result.ok) {
+                      validationCache.set(qsCacheKey, result);
+                    }
+                    return { candidate, result };
+                  } finally {
+                    clearTimeout(timeoutId);
                   }
-                  return { candidate, result };
                 } catch (err) {
+                  candidate.validationFailed = true;
+                  candidate.validationFailureReason = err.message;
                   return { candidate, result: null, error: err.message };
                 }
               })()
@@ -1141,7 +1171,10 @@ function createMcpHandlers({
 
         for (const vr of validationResults) {
           const validation = vr.result?.data?.verdictSummary ? vr.result.data : vr.result;
-          if (!validation || !validation.ok || !validation.verdictSummary) continue;
+          if (!validation || !validation.ok || !validation.verdictSummary) {
+            vr.candidate.validationFailed = true;
+            continue;
+          }
           applyValidatedFields(vr.candidate, validation);
           vr.candidate._validated = true;
           applyFinalVerdict(vr.candidate);
@@ -1464,8 +1497,17 @@ function createMcpHandlers({
                 // Live backend can stall on a single league/market call. Don't
                 // let one hung call hang the whole recommended_bets response —
                 // time it out and contribute 0 rows for that market.
-                const withTimeout = (p, ms) =>
-                  Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('screen timeout')), ms))]);
+                const withTimeout = async (p, ms) => {
+                  let timeoutId;
+                  const timeoutPromise = new Promise((_, rej) => {
+                    timeoutId = setTimeout(() => rej(new Error('screen timeout')), ms);
+                  });
+                  try {
+                    return await Promise.race([p, timeoutPromise]);
+                  } finally {
+                    clearTimeout(timeoutId);
+                  }
+                };
                 let screenResult;
                 try {
                   screenResult = await withTimeout(
@@ -1614,6 +1656,12 @@ function createMcpHandlers({
       const validateTopRB =
         args.validate === false ? 0 : Number.isFinite(Number(args.validateTop)) ? Number(args.validateTop) : 10;
 
+      if (args.validate === false) {
+        for (const leagueEntry of allRecommended) {
+          for (const play of leagueEntry.plays || []) play.validationSkipped = true;
+        }
+      }
+
       if (validateAllRB || validateTopRB > 0) {
         const validationCache = new Map();
         const validationPromises = [];
@@ -1626,8 +1674,13 @@ function createMcpHandlers({
           const topN = sorted.slice(0, validateTopRB);
 
           for (const play of leagueEntry.plays) {
-            // validateAllRB => validate everything; else only top-N (capped)
+            if (!validateAllRB && !topN.includes(play) && play.kaiCall === 'BET') {
+              play.validationFailed = true;
+              play.validationFailureReason = 'validation not selected within validation budget';
+            }
+            // validateAllRB => validate everything; otherwise only top-N (capped)
             if (!validateAllRB && !topN.includes(play)) continue;
+
             if (!play.gameId || !play.selection) continue;
             // Skip alt-line rows already downgraded to TIER 4 by resolveAlternateLines
             // in the screen ranker. Validating them re-derives a fresh tier that
@@ -1674,18 +1727,25 @@ function createMcpHandlers({
                     // movementDisposition to 'insufficient'.
                     screenSharpBookConfirmed: play.sharpBookMovementConfirmed || false
                   });
-                  const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(
+                  let timeoutId;
+                  const timeoutPromise = new Promise((_, reject) => {
+                    timeoutId = setTimeout(
                       () => reject(new Error(`Validation timeout for ${play.gameId}:${play.selection}`)),
                       VALIDATION_TIMEOUT_MS
-                    )
-                  );
-                  const result = await Promise.race([validatePromise, timeoutPromise]);
-                  if (play.gameId && result && result.ok) {
-                    validationCache.set(rbCacheKey, result);
+                    );
+                  });
+                  try {
+                    const result = await Promise.race([validatePromise, timeoutPromise]);
+                    if (play.gameId && result && result.ok) {
+                      validationCache.set(rbCacheKey, result);
+                    }
+                    return { play, result };
+                  } finally {
+                    clearTimeout(timeoutId);
                   }
-                  return { play, result };
                 } catch (err) {
+                  play.validationFailed = true;
+                  play.validationFailureReason = err.message;
                   return { play, result: null, error: err.message };
                 }
               })()
@@ -1697,11 +1757,23 @@ function createMcpHandlers({
 
         for (const vr of validationResults) {
           const validation = vr.result?.data?.verdictSummary ? vr.result.data : vr.result;
-          if (!validation || !validation.ok || !validation.verdictSummary) continue;
+          if (!validation || !validation.ok || !validation.verdictSummary) {
+            vr.play.validationFailed = true;
+            continue;
+          }
           applyValidatedFields(vr.play, validation);
           vr.play._validated = true;
           applyFinalVerdict(vr.play);
           promoteFinalVerdictToDisplay(vr.play);
+        }
+      }
+
+      // Apply the fail-closed policy to plays that weren't selected within a
+      // bounded validation budget. Explicit validate:false is marked as
+      // validationSkipped above and remains an intentional opt-out.
+      for (const leagueEntry of allRecommended) {
+        for (const play of leagueEntry.plays || []) {
+          applyFinalVerdict(play);
         }
       }
 
@@ -1954,6 +2026,7 @@ function createMcpHandlers({
   Object.assign(handlers, createPlayDetailsHandlers(client, ctx));
   Object.assign(handlers, createValidatePlayHandlers(client, ctx));
   Object.assign(handlers, createScreenLeaguesHandlers(client, ctx));
+  Object.assign(handlers, createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }));
 
   // Set handlers reference on ctx so extracted modules can cross-call.
   ctx.handlers = handlers;

@@ -213,6 +213,32 @@ describe('buildRankedScreenResponse', () => {
     assert.equal(result.resultMeta.debugEnabled, false);
   });
 
+  it('filters wrong-day scheduled rows for today scans before ranking', async () => {
+    const payload = {
+      rows: [
+        {
+          gameId: 'yesterday',
+          league: 'NBA',
+          market: 'Moneyline',
+          start: '2026-07-12T23:00:00.000Z',
+          book: 'NoVigApp'
+        },
+        { gameId: 'today', league: 'NBA', market: 'Moneyline', start: '2026-07-13T23:00:00.000Z', book: 'NoVigApp' }
+      ]
+    };
+    const rankRows = (rows) => rows;
+    const result = await buildRankedScreenResponse({
+      client: null,
+      payloads: [payload],
+      args: { cardWindow: 'today', nowMs: Date.parse('2026-07-13T15:00:00.000Z') },
+      rankRows
+    });
+    assert.deepEqual(
+      result.result.map((row) => row.gameId),
+      ['today']
+    );
+  });
+
   it('passes recentWindowHours through to rankRows when explicitly requested', async () => {
     const payload = {
       rows: [

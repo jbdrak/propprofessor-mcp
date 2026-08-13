@@ -50,10 +50,10 @@ const FORBIDDEN = [
   { type: 'pattern', value: /^scripts\/_scan-/ },
   { type: 'pattern', value: /^scripts\/check-/ },
   { type: 'pattern', value: /^scripts\/novig-scan\.js$/ },
-  // local audit/plan artifacts
+  // generated/local documentation artifacts
   { type: 'prefix', value: 'docs/plans/' },
   { type: 'prefix', value: 'docs/cron-prompts/' },
-  { type: 'exact', value: 'CLEANUP_PLAN.md' },
+  { type: 'exact', value: 'docs/openapi.json' },
   // repo tooling / meta
   { type: 'prefix', value: '.hermes/' },
   { type: 'prefix', value: '.github/' },

@@ -1977,6 +1977,10 @@
                     "type": "string",
                     "description": "Market type, default Moneyline"
                   },
+                  "selection": {
+                    "type": "string",
+                    "description": "Optional exact selection/line filter, e.g. \"Over 22.5\" or \"Celtics\". When provided, only the top-level row(s) whose selection matches (case-insensitive) are returned, with nested selections preserved. Fails closed with matchedRows 0 + selectionNotFound metadata when no row matches."
+                  },
                   "books": {
                     "type": "array",
                     "items": {
@@ -6023,7 +6027,7 @@
                   },
                   "playId": {
                     "type": "string",
-                    "description": "Canonical playId from a prior quick_screen / recommended_bets / screen_ranked row. When provided, row matching uses exact playId lookup and skips fragile string comparison — pass this to avoid \"no row matched\" lookup_failed errors. Takes priority over selection string matching."
+                    "description": "Canonical playId from a prior quick_screen or screen_ranked row. When provided, row matching uses exact playId lookup and skips fragile string comparison — pass this to avoid \"no row matched\" lookup_failed errors. Takes priority over selection string matching."
                   },
                   "market": {
                     "type": "string",

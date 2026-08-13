@@ -168,3 +168,15 @@ test('applyFinalVerdict preserves deeper PASS demotion on conflict loser', () =>
   applyFinalVerdict(cand);
   assert.strictEqual(cand.finalVerdict, 'PASS', 'already-PASS conflict row stays PASS');
 });
+
+test('applyFinalVerdict never leaves a failed-validation screen BET actionable', () => {
+  const cand = {
+    displayTier: 'BET',
+    kaiCall: 'BET',
+    confidenceTier: 'TIER 1',
+    _validated: false
+  };
+  applyFinalVerdict(cand);
+  assert.strictEqual(cand.finalVerdict, 'CONSIDER');
+  assert.ok(cand.finalWarnings.includes('validation-failed'));
+});

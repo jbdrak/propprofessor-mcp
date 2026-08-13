@@ -7,7 +7,8 @@ const {
   normalizeKey,
   stripLine,
   stripOverUnder,
-  extractNumeric
+  extractNumeric,
+  findBestMatchGameIdChanged
 } = require('../lib/selection-matcher.js');
 
 // ── unit tests ──
@@ -185,4 +186,35 @@ test('returns null when no match', () => {
 test('returns null for empty inputs', () => {
   assert.strictEqual(findBestMatch([], 'Anything'), null);
   assert.strictEqual(findBestMatch(null, 'Anything'), null);
+});
+
+test('gameId drift matching requires exact market, selection, and date', () => {
+  const oldGameId = 'Tennis:PREMATCH:Player_A:Player_B:1786017600';
+  const rows = [
+    {
+      gameId: 'Tennis:PREMATCH:Player_A:Player_B:1786019000',
+      league: 'Tennis',
+      market: 'Moneyline',
+      selection: 'Player A',
+      homeTeam: 'Player A',
+      awayTeam: 'Player B',
+      start: '2026-08-06T18:00:00.000Z'
+    },
+    {
+      gameId: 'Tennis:PREMATCH:Player_A:Player_B:1786019100',
+      league: 'Tennis',
+      market: 'Total Games',
+      selection: 'Over 22.5',
+      homeTeam: 'Player A',
+      awayTeam: 'Player B',
+      start: '2026-08-05T18:00:00.000Z'
+    }
+  ];
+  const match = findBestMatchGameIdChanged(rows, {
+    league: 'Tennis',
+    market: 'Moneyline',
+    selection: 'Player A',
+    gameId: oldGameId
+  });
+  assert.equal(match.gameId, rows[0].gameId);
 });

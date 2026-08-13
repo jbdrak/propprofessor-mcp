@@ -16,7 +16,7 @@ test('package content verifier accepts a coherent manifest', () => {
     'bin/pp',
     'scripts/propprofessor-mcp-server.js',
     'scripts/fetch-sofascore.py',
-    'docs/openapi.json'
+    'docs/agent-guide.md'
   ]);
   assert.deepEqual(failures, []);
 });
@@ -58,13 +58,15 @@ test('package content verifier rejects tests, auth data, and scratch scripts', (
     'scripts/scan-tennis-debug.js',
     'scripts/_scan-nba.js',
     'scripts/check-whatever.js',
-    'scripts/novig-scan.js'
+    'scripts/novig-scan.js',
+    'docs/openapi.json'
   ]);
   assert.ok(failures.some((f) => f.includes('test/record-settlement.test.js')));
   assert.ok(failures.some((f) => f.includes('auth.json')));
   assert.ok(failures.some((f) => f.includes('scripts/scan-tennis-debug.js')));
   assert.ok(failures.some((f) => f.includes('scripts/_scan-nba.js')));
   assert.ok(failures.some((f) => f.includes('scripts/novig-scan.js')));
+  assert.ok(failures.some((f) => f.includes('docs/openapi.json')));
 });
 
 test('publish-tree parser reads porcelain entries', () => {

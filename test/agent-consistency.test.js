@@ -116,7 +116,10 @@ describe('quick_screen topPick (Task 5)', () => {
 describe('quick_screen lite mode (Task 6)', () => {
   it('lite payload is small and drops verbose fields', async () => {
     const handlers = createHandlers({
-      screenPayloads: { 'WNBA:Moneyline': WNBA_MONEYLINE_LITE_PAYLOAD }
+      screenPayloads: {
+        'WNBA:Moneyline': WNBA_MONEYLINE_LITE_PAYLOAD,
+        'NBA:Moneyline': WNBA_MONEYLINE_LITE_PAYLOAD
+      }
     });
     const result = await handlers.quick_screen({
       books: ['NoVigApp'],

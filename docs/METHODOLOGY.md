@@ -125,7 +125,7 @@ Plus a **2-hour rolling window** — the returned tier is the mode of all raw ti
 
 ## Step 5: Sharp book cross-reference
 
-For `sharp_plays` and `quick_screen` (with targetTiers filter, the successor to the retired `recommended_bets`), each play is cross-referenced against individual sharp book screens (Pinnacle, Circa, BookMaker, BetOnline). A play only gets "Bet candidate" status if a non-target sharp book **independently** shows supportive movement on the same game+selection. This filters out target books whose own self-sourced movement is unreliable.
+For `quick_screen` with `mode: "sharp"` or a `targetTiers` filter, each play is cross-referenced against individual sharp book screens (Pinnacle, Circa, BookMaker, BetOnline). A play only gets "Bet candidate" status if a non-target sharp book **independently** shows supportive movement on the same game+selection. This filters out target books whose own self-sourced movement is unreliable.
 
 The cross-reference happens against the four sharpest non-target books. If at least one of them independently moved in the same direction as the target book, the play is marked as having independent sharp confirmation.
 

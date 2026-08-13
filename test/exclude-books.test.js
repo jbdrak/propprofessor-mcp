@@ -83,4 +83,16 @@ describe('get_play_details: /screen grid filters (Task 5)', () => {
     assert.equal(lastCall.is_live, false, 'pre-match by default');
     assert.deepEqual(lastCall.participants, [], 'no participant filter by default');
   });
+
+  it('keeps relaxed timestamp fallback unfiltered without explicit participants', async () => {
+    const { client, calls } = createMockClient();
+    const handlers = createMcpHandlers({ client });
+    await handlers.get_play_details({
+      league: 'NBA',
+      gameIds: ['NBA:PREMATCH:Lakers:Celtics:1783807200'],
+      market: 'Moneyline'
+    });
+    const relaxedCall = calls.queryScreenOddsBestComps.at(-1);
+    assert.deepEqual(relaxedCall.participants, [], 'fallback must not infer participants from gameId');
+  });
 });

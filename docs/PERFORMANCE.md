@@ -1,6 +1,6 @@
 # Performance & Response Tuning
 
-Every screen/recommended/staking tool supports a set of params that let you trade off response size, latency, and data completeness. Use these to keep your agent's context window small and fast.
+The screen and staking tools support params that let you trade off response size, latency, and data completeness. Use these to keep your agent's context window small and fast.
 
 ## Quick reference
 
@@ -17,7 +17,7 @@ Every screen/recommended/staking tool supports a set of params that let you trad
 **Casual bettor asking "what should I bet on tonight?"**
 
 ```js
-recommended_bets({ verbosity: 'minimal' }); // retired — use quick_screen(...)
+quick_screen({ verbosity: 'minimal', targetTiers: ['TIER 1', 'TIER 2'] });
 ```
 
 Returns plain-English picks with the kaiCall and a one-line reason.

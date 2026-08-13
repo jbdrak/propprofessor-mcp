@@ -13,7 +13,7 @@
   </a>
 </p>
 
-PropProfessor MCP is a Model Context Protocol server that lets AI agents see what the sharpest sportsbooks are doing. It screens 36 books across 10 leagues, detects coordinated sharp movement, surfaces steam moves and line lags, and explains the consensus — so you can decide what to bet, not be told.
+PropProfessor MCP is a Model Context Protocol server that lets AI agents see what the sharpest sportsbooks are doing. Its current registry covers 39 screen feeds across 12 league configs, detects coordinated sharp movement, surfaces steam moves and line lags, and explains the consensus — so you can decide what to bet, not be told.
 
 Connect it to Claude Desktop, Cursor, Cline, Hermes, or any MCP client. Requires a [PropProfessor](https://propprofessor.com) account.
 
@@ -30,7 +30,7 @@ Connect it to Claude Desktop, Cursor, Cline, Hermes, or any MCP client. Requires
 
 Your AI agent gets 31 tools that surface the same signal feed professional bettors use:
 
-- **Screen & rank** — query live odds across 36 sportsbooks, ranked by consensus edge and movement
+- **Screen & rank** — query the current 39-feed screen registry, ranked by consensus edge and movement
 - **Detect sharp coordination** — Pinnacle, Circa, BookMaker, and BetOnline moving together? That's a signal
 - **Explain the "why"** — every play comes with a human-readable rationale: _what moved, on which books, over what timeframe_
 - **Natural language routing** — agents call `ask("best plays on Fliff tonight")` and get routed to the right tool automatically
@@ -264,14 +264,14 @@ PropProfessor MCP follows a layered data pipeline:
 
 ```mermaid
 flowchart LR
-    subgraph BOOKS["36 Sportsbooks"]
+    subgraph BOOKS["39 Screen Feeds"]
         B1[Pinnacle]
         B2[Circa]
         B3[BookMaker]
         B4[BetOnline]
         B5[NoVigApp]
         B6[Fliff]
-        BN[...30 more]
+        BN[...33 more]
     end
 
     API[PropProfessor API]
@@ -404,7 +404,7 @@ Agent: quick_screen({ books: ["Fliff"] })
 | "what should I bet today"            | `ask` → `quick_screen(mode="recommended")`              | TIER 1 & TIER 2 across major leagues |
 | "Tatum over 29.5 points"             | `ask` → `player_context(player="Tatum", sport="NBA")`   | Injury/news risk check               |
 | "show me MLB sharp plays"            | `ask` → `quick_screen(leagues=["MLB"], mode="sharp")`   | Multi-sharp consensus plays          |
-| "line shop Celtics ML"               | `ask` → `find_best_price(league="NBA", market="ML", …)` | Best price across 36 books           |
+| "line shop Celtics ML"               | `ask` → `find_best_price(league="NBA", market="ML", …)` | Best price across available books    |
 | "validate that Warriors spread play" | `ask` → `validate_play(league="NBA", gameId="…", …)`    | BET/CONSIDER/PASS verdict            |
 
 ## 📊 Available Tools
@@ -554,7 +554,7 @@ See [Quick Start](#quick-start) for Hermes Agent setup. The MCP is self-document
 
 The [Positive EV Command Center](https://github.com/jbdrak/positive-ev-command-center) is a companion project that monitors PropProfessor for high-EV slips and plays, then pushes them to Discord and Telegram in real-time. It uses the same auth session and API client.
 
-### CLI
+### `pp-query` CLI
 
 `pp-query` is a standalone CLI for one-off queries without an MCP client:
 
@@ -565,7 +565,7 @@ pp-query login
 pp-query doctor
 ```
 
-## 📈 Backtesting
+## 📈 Validation methodology
 
 **TL;DR:** The infrastructure is in place. Real outcome data hasn't accumulated yet.
 
@@ -626,7 +626,7 @@ Still stuck? Run `pp-query doctor` and [open an issue](https://github.com/jbdrak
 
 **Do I need a PropProfessor account?** Yes. Live data requires a paid subscription at [propprofessor.com](https://propprofessor.com).
 
-**What books does it cover?** 36 sportsbooks across 10 leagues. Sharp cross-reference: Pinnacle, Circa, BookMaker, BetOnline.
+**What books does it cover?** The code currently registers 39 screen feeds across 12 league configs. Some entries are alternate or specialized feeds rather than distinct sportsbooks. Sharp cross-reference: Pinnacle, Circa, BookMaker, BetOnline.
 
 **Is it free?** Code is MIT-licensed. Data requires a paid PropProfessor subscription. No paid tier of the MCP itself.
 

@@ -103,7 +103,7 @@ No strong plays in MLB right now.
 **Tools to call:**
 
 1. `quick_screen` with `verbosity: "standard"` — structured plays with edge, tier, risk, and research — one call instead of three
-   - Validation is ON by default. `quick_screen` and `recommended_bets` run `validate_play` on EVERY returned play (post tier/kaiCall filter) and merge `validatedTier`, `validatedConsensusBookCount`, `validatedMovementDisposition`, `validatedRiskFlags`, and `validatedActionableSummary` into each row — no second round-trip. To opt out for speed, pass `validate: false`. The older `validateTop: N` param still works as a cap but is only honored when `validate: false` (top N per league/market bucket).
+   - Validation is ON by default. `quick_screen` runs `validate_play` on every returned play (post tier/kaiCall filter) and merges `validatedTier`, `validatedConsensusBookCount`, `validatedMovementDisposition`, `validatedRiskFlags`, and `validatedActionableSummary` into each row — no second round-trip. To opt out for speed, pass `validate: false`. The older `validateTop: N` param still works as a cap but is only honored when `validate: false` (top N per league/market bucket).
 2. `player_context` — injury risk check
 3. `find_best_price` — line shop across books
 4. `league_presets` — show ranking weights if they ask "how does this work?"
@@ -208,7 +208,7 @@ If `riskFlag === "high"`, **downgrade or skip the play entirely** regardless of 
 
 ### Never recommend TIER 4 plays
 
-TIER 4 means: red movement, PASS call, or risk ≥ 8. These are anti-plays. If `recommended_bets` returns a TIER 4 row, filter it out before presenting to the user. If using `screen_ranked` directly, exclude any row with `confidenceTier: "TIER 4"`.
+TIER 4 means: red movement, PASS call, or risk ≥ 8. These are anti-plays. If `quick_screen` returns a TIER 4 row, filter it out before presenting to the user. If using `screen_ranked` directly, exclude any row with `confidenceTier: "TIER 4"`.
 
 ### Warn about high-risk plays (riskScore ≥ 7)
 
@@ -229,7 +229,7 @@ When presenting any play with riskScore ≥ 7:
 
 ### Empty results are normal
 
-`recommended_bets` returns 0 plays on quiet days. This is **expected behavior, not a bug.** Tell the user: "No strong plays right now. The sharp books aren't showing clear signals today." Don't force recommendations by lowering standards.
+`quick_screen` can return 0 plays on quiet days. This is **expected behavior, not a bug.** Tell the user: "No strong plays right now. The sharp books aren't showing clear signals today." Don't force recommendations by lowering standards.
 
 ### Pick `verbosity` based on what you'll do with the response
 

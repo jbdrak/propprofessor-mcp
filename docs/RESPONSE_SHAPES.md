@@ -51,7 +51,7 @@ When a tool returns ranked rows, each row may include:
 
 ## Per-tool shapes
 
-### `screen_ranked` / `screen` (DEPRECATED: prefer screen_ranked)
+### `screen_ranked`
 
 ```jsonc
 {
@@ -81,9 +81,9 @@ When a tool returns ranked rows, each row may include:
 
 **Note:** `all_slates` does NOT include `result`, `resultMeta`, or `freshness` at the top level. Use `consolidated` instead. Returns ALL ranked rows regardless of tier; use `quick_screen` with `targetTiers: ['TIER 1','TIER 2']` for the filtered shortlist.
 
-### `quick_screen` filtered shortlist (formerly `recommended_bets`)
+### `quick_screen` filtered shortlist
 
-> **Retired tool:** `recommended_bets` was removed. The equivalent is `quick_screen` with `targetTiers: ['TIER 1','TIER 2']` (or any tier filter). The response shape below is exactly what `quick_screen` returns when filtered.
+Use `quick_screen` with `targetTiers: ['TIER 1','TIER 2']` (or any tier filter). The response shape below is what `quick_screen` returns when filtered.
 
 ```jsonc
 {
@@ -116,7 +116,7 @@ When a tool returns ranked rows, each row may include:
 }
 ```
 
-### `quick_screen` (v2.2.0) / `novig_screen`
+### `quick_screen`
 
 ```jsonc
 {
@@ -253,7 +253,7 @@ The `_meta.validation` block on the response root reports how many candidates we
   "tool_descriptions": [
     {
       "name": "quick_screen",
-      "one_liner": "Curated TIER 1-2 plays across leagues (replaces recommended_bets).",
+      "one_liner": "Curated TIER 1-2 plays across leagues.",
       "when_to_call": "Your main \"what should I bet\" tool. Default to verbosity=\"minimal\" for plain English."
     }
   ],
@@ -293,7 +293,7 @@ Several tools accept a `compact: true` flag. When set:
 - Verbose fields stripped from each row: `lineHistory[]`, `scoreBreakdown{}`, `allBookOdds{}`, `filteredLineHistory[]`, `movementDebug{}`, `history{}`.
 - Reduces response size ~70-90% depending on tool.
 - **Does NOT affect history hydration** — movement data is still fetched server-side; only the response payload is trimmed.
-- On `quick_screen` (and the retired `recommended_bets`), only the nested `screen_ranked` payloads shrink; the outer envelope (`leagues[]`, `markets_queried`, `summary`, etc.) is unaffected.
+- On `quick_screen`, only the nested `screen_ranked` payloads shrink; the outer envelope (`leagues[]`, `markets_queried`, `summary`, etc.) is unaffected.
 
 When `compact` is paired with a `fields: [...]` list, `fields` takes precedence and is applied row-by-row.
 
@@ -318,6 +318,5 @@ At `minimal` verbosity, the `ok` and `result` fields are replaced with `{ summar
 | `validate_play`             | `get_play_details` + `player_context` (parallelized)               |
 | `ev_candidates` (validated) | `ev_candidates` (raw) + `screen_ranked` (validation pass)          |
 | `all_slates`                | `screen_ranked` per league, parallelized                           |
-| `novig_screen`              | `screen_ranked` (legacy alias for `quick_screen`)                  |
 
 When in doubt: **prefer the leaf tool** (`screen_ranked`, `get_play_details`, `player_context`) for full control. The composite tools (`quick_screen`, `staking_plan`, `validate_play`) trade flexibility for convenience.

@@ -7,7 +7,7 @@
  * "files" entries) must match the committed tree before `npm publish`.
  *
  * Local audit/plan artifacts (tests, coverage, backtest data, .hermes plans,
- * docs/plans, docs/cron-prompts, CLEANUP_PLAN.md) are allowed to be dirty —
+ * docs/plans and docs/cron-prompts) are allowed to be dirty —
  * they do not ship.
  *
  * Standalone:  node scripts/check-publish-tree.js
@@ -35,7 +35,6 @@ const ALLOWED_DIRTY_PREFIXES = [
 
 // ...and for these exact paths (local-only artifacts, never packed).
 const ALLOWED_DIRTY_EXACT = new Set([
-  'CLEANUP_PLAN.md',
   'llms.txt',
   'Makefile',
   '.gitignore',

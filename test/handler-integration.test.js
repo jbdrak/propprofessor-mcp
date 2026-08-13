@@ -680,10 +680,32 @@ describe('handler integration: recommended_bets', () => {
       for (const play of league.plays || []) {
         seen += 1;
         assert.notEqual(play._validated, true, 'no play should be validated when validate:false');
+        assert.notEqual(play.finalVerdict, 'CONSIDER', 'skipped validation must not downgrade a screen BET');
+        assert.ok(!play.finalWarnings?.includes('validation-failed'));
       }
     }
     assert.ok(seen > 0, 'should still return plays');
     assert.ok(!result._meta || !result._meta.validation, '_meta.validation should be absent when validate:false');
+  });
+
+  it('downgrades budget-skipped BET plays when validateTop limits validation', async () => {
+    const handlers = createHandlers();
+    const result = await handlers.recommended_bets({
+      leagues: ['NBA'],
+      markets: ['Moneyline'],
+      bankroll: 1000,
+      limit: 10,
+      validateTop: 1,
+      includeResearch: false,
+      hideVerdict: false
+    });
+    assert.equal(result.ok, true);
+    const plays = result.leagues.flatMap((league) => league.plays || []);
+    const budgetSkipped = plays.filter((play) => play.validationFailed && play._validated !== true);
+    assert.ok(budgetSkipped.length > 0, 'fixture must expose a play outside the validation budget');
+    for (const play of budgetSkipped) {
+      assert.notEqual(play.finalVerdict, 'BET', 'an unvalidated screen BET must not remain actionable');
+    }
   });
 });
 

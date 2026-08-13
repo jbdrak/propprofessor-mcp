@@ -1355,6 +1355,8 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.equal(candidates.length, 1);
     assert.equal(candidates[0].finalVerdict, 'BET');
     assert.equal(candidates[0].finalConfidenceTier, 'TIER 1');
+    assert.equal(candidates[0].validationSkipped, true);
+    assert.ok(!candidates[0].finalWarnings?.includes('validation-failed'));
   });
 
   it('quick_screen fans out across multiple leagues (concurrency)', async () => {

@@ -25,6 +25,7 @@ async function resolveValidationLookups(client, ctx, options) {
           gameIds: [gameId],
           books: books.length ? books : undefined,
           lookbackHours,
+          disableTimestampDriftFallback: true,
           ...(args.exactSelectionOnly === true && selection
             ? { selection, exactSelectionOnly: true, enableHistoryLineFallback: false }
             : {})
@@ -123,6 +124,7 @@ async function resolveValidationRow(client, ctx, options) {
           participants: gameIdIdentity.participants,
           books: books.length ? books : undefined,
           lookbackHours,
+          disableTimestampDriftFallback: true,
           relaxedGameIdMatch: true
         });
         const relaxedRows = Array.isArray(relaxed?.result) ? relaxed.result : [];

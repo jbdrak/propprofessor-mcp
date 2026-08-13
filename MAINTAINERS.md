@@ -9,7 +9,7 @@ CI-driven live smoke tests. To run a live smoke check:
 
 1. Ensure you have a valid `auth.json` in `~/.propprofessor/`
 2. Run from the CLI: `pp-query doctor`
-3. Or invoke individual MCP tools via Hermes: `recommended_bets`, `sharp_plays`, etc.
+3. Or invoke individual MCP tools via Hermes: `quick_screen`, `validate_play`, etc.
 
 ## Release Checklist
 

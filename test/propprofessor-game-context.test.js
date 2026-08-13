@@ -2,6 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const cp = require('child_process');
 
 const { parseGameString } = require('../lib/propprofessor-game-context');
 
@@ -73,9 +74,18 @@ describe('getGameContext', () => {
   });
 
   it('routes MLB to MLB handler', async () => {
-    const mod = require('../lib/propprofessor-game-context');
-    const r = await mod.getGameContext({ sport: 'MLB', selection: 'Mets', game: 'Mets vs Phillies' });
-    assert.ok(r.ok || r.riskFlag);
+    const originalExecFile = cp.execFile;
+    cp.execFile = (_file, _args, _options, callback) => {
+      callback(null, JSON.stringify({ dates: [] }), '');
+      return { kill() {} };
+    };
+    try {
+      const mod = require('../lib/propprofessor-game-context');
+      const r = await mod.getGameContext({ sport: 'MLB', selection: 'Mets', game: 'Mets vs Phillies' });
+      assert.ok(r.ok || r.riskFlag);
+    } finally {
+      cp.execFile = originalExecFile;
+    }
   });
 
   it('MLB routing parses game string and passes awayTeam/homeTeam correctly', async () => {

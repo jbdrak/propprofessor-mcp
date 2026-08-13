@@ -6,6 +6,11 @@ const { runSharpPlays } = require('../lib/propprofessor-sharp-plays-service');
 const { buildRankedScreenResponse } = require('../lib/propprofessor-mcp-ranked-screen');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 
+it('wires the extracted tennis screen handler into the production handler map', () => {
+  const handlers = createMcpHandlers({ client: {} });
+  assert.equal(typeof handlers.runTennisScreen, 'function');
+});
+
 /**
  * Aggregate odds-history budget regression.
  *

@@ -55,7 +55,7 @@ async function loginAndSaveAuth(options = {}) {
 
   try {
     logger.log(`Navigating to ${LOGIN_URL}`);
-    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
+    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
 
     logger.log('');
     logger.log('Please log in to PropProfessor in the browser window.');

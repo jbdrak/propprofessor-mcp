@@ -1,3 +1,4 @@
-# local audit/plan artifacts — never ship
+# generated/local documentation artifacts — never ship
 plans/
 cron-prompts/
+openapi.json

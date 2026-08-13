@@ -231,6 +231,24 @@ async function runCompositeAsk(ctx, args = {}) {
   };
 }
 
+function createUnavailableTodayBriefing(userType, error) {
+  return {
+    ok: false,
+    error: {
+      code: error?.code || 'TODAY_BRIEFING_UNAVAILABLE',
+      message: error?.message || 'today briefing unavailable'
+    },
+    asOf: new Date().toISOString(),
+    leagues: [],
+    book: 'NoVigApp',
+    slate: [],
+    pendingPicks: [],
+    stats: null,
+    backtest: null,
+    summary: `Today briefing unavailable for ${userType}`
+  };
+}
+
 async function runCompositeGetStarted(ctx, args = {}) {
   const userType = args.user_type || 'intermediate';
 
@@ -315,14 +333,12 @@ async function runCompositeGetStarted(ctx, args = {}) {
     ]
   };
 
-  // Append a live today-briefing so an agent calling get_started gets the
-  // current slate + pending picks + stats in the same response. Failures
-  // are non-fatal — get_started still returns the workflow.
-  try {
-    out.today_briefing = await ctx.handlers.today({ user_type: userType });
-  } catch (err) {
-    out.today_briefing = { ok: false, error: err.message };
-  }
+  // Keep get_started static: today() fans out live network work and can outlive
+  // a response timeout. Call today() separately when a live briefing is needed.
+  out.today_briefing = createUnavailableTodayBriefing(
+    userType,
+    Object.assign(new Error('live today briefing is not run by get_started'), { code: 'TODAY_BRIEFING_SKIPPED' })
+  );
 
   return out;
 }

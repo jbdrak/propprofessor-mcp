@@ -22,9 +22,10 @@ scripts/_scan-*
 scripts/novig-scan.js
 scripts/check-*
 
-# local audit/plan artifacts — never ship
+# generated/local documentation artifacts — never ship
 docs/plans/
 docs/cron-prompts/
+docs/openapi.json
 
 # repo tooling & meta
 hermes/
@@ -40,7 +41,6 @@ tsconfig.json
 madge*
 Makefile
 llms.txt
-CLEANUP_PLAN.md
 SECURITY.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
