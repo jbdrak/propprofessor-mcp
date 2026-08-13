@@ -7,7 +7,7 @@ PRs welcome! This is a community-driven project — fixes, features, docs, and t
 1. Fork the repo
 2. `git clone` + `npm install`
 3. `cp config.default.json config.json` and add your auth
-4. `npm run install:verify` should pass (53 offline tests, no auth needed)
+4. `npm run install:verify` should pass (offline tests, no auth needed)
 
 ## Development Workflow
 

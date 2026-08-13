@@ -1,6 +1,6 @@
 # PropProfessor MCP
 
-A Model Context Protocol server that gives AI agents access to sharp sports betting signal — live odds across 36 sportsbooks, consensus edge detection, sharp money movement tracking, and player injury research.
+A Model Context Protocol server that gives AI agents access to sharp sports betting signal — live odds through 39 registered screen feeds, consensus edge detection, sharp money movement tracking, and player injury research.
 
 ## Quick start
 - Install from source: `git clone https://github.com/jbdrak/propprofessor-mcp.git && cd propprofessor-mcp && npm ci && npm link`
