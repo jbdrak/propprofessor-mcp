@@ -404,6 +404,67 @@ describe('buildRankedScreenResponse — bounded pre-history shortlist', () => {
     assert.equal(result.resultMeta.preHistoryShortlist.enabled, true);
   });
 
+  it('recovers a skipped standard-market candidate within a bounded recovery budget', async () => {
+    const historyCalls = [];
+    const makeRow = (gameId, edge) => ({
+      ...makeScreenRow(gameId, edge, 'Run Line', 'MLB'),
+      market: 'Run Line',
+      league: 'MLB'
+    });
+    const payload = {
+      rows: [makeRow('game-weak', 0.5), makeRow('game-viable-skipped', 0.1)]
+    };
+    const client = {
+      queryOddsHistory: async (params) => {
+        historyCalls.push(params);
+        return [
+          { odds: -110, line: -1.5, start_ts: 1 },
+          { odds: -130, line: -1.5, start_ts: 2 }
+        ];
+      }
+    };
+    const rankRows = (rows) =>
+      rows.map((row) => ({
+        ...row,
+        ...(row.gameId === 'game-viable-skipped'
+          ? {
+              movementGrade: 'green',
+              movementLabel: 'supportive',
+              recentSharpMoveDirection: 'supportive',
+              fullWindowSharpMoveDirection: 'supportive',
+              clvProxyPct: 1
+            }
+          : {})
+      }));
+
+    const result = await buildRankedScreenResponse({
+      client,
+      payloads: [payload],
+      args: {
+        limit: 1,
+        preHistoryShortlist: true,
+        preHistoryGameBudget: 1,
+        preHistoryRecoveryGameBudget: 1,
+        historySportsbooks: ['Pinnacle']
+      },
+      focusBook: 'NoVigApp',
+      rankRows
+    });
+
+    assert.ok(
+      historyCalls.length <= 4,
+      `expected bounded initial + recovery history calls, got ${historyCalls.length}`
+    );
+    assert.ok(
+      result.result.some((row) => row.gameId === 'game-viable-skipped'),
+      'skipped standard-market candidate should be recovered'
+    );
+    assert.equal(result.resultMeta.preHistoryShortlist.truncated, true);
+    assert.equal(result.resultMeta.preHistoryShortlist.totalRows, 4);
+    assert.ok(result.resultMeta.preHistoryRecovery, 'recovery metadata should be surfaced');
+    assert.equal(result.resultMeta.preHistoryRecovery.recoveredGameCount, 1);
+  });
+
   it('does not treat absent history as supportive and preserves adverse movement as pass data', async () => {
     const payload = { rows: [makeScreenRow('game-no-history'), makeScreenRow('game-adverse')] };
     const result = await buildRankedScreenResponse({

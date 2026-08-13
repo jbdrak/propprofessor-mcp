@@ -259,7 +259,111 @@ describe('quick_screen aggregate odds-history budget', () => {
     assert.equal(result.resultMeta.scanHealth.truncated, true);
     assert.equal(result.resultMeta.perPairDiagnostics.length, 2);
     assert.equal(result.resultMeta.perPairDiagnostics.find((p) => p.league === 'MLB').scannedRowCount, 1);
-    assert.equal(result.resultMeta.perPairDiagnostics.find((p) => p.league === 'NBA').failureReason, 'NBA feed unavailable');
+    assert.equal(
+      result.resultMeta.perPairDiagnostics.find((p) => p.league === 'NBA').failureReason,
+      'NBA feed unavailable'
+    );
+  });
+
+  it('marks a truncated zero-result aggregate scan incomplete and preserves scope diagnostics', async () => {
+    const result = await runSharpPlays(
+      {
+        book: 'NoVigApp',
+        targetBooks: ['NoVigApp'],
+        leagues: ['MLB'],
+        markets: ['Run Line'],
+        limit: 5,
+        quickScreenAggregate: true,
+        aggregatePairCount: 1
+      },
+      {
+        queryLeagueScreen: async () => ({
+          ok: true,
+          result: [],
+          resultMeta: {
+            preHistoryShortlist: {
+              enabled: true,
+              truncated: true,
+              totalRows: 144,
+              shortlistedRows: 16,
+              skippedRowCount: 128
+            },
+            perPairDiagnostics: [
+              {
+                league: 'MLB',
+                market: 'Run Line',
+                scannedRowCount: 16,
+                affectedScope: 'MLB::Run Line'
+              }
+            ]
+          }
+        }),
+        queryTennisScreen: async () => ({ ok: true, result: [] })
+      }
+    );
+
+    assert.equal(result.resultMeta.scanHealth.truncated, true);
+    assert.equal(result.resultMeta.scanHealth.incomplete, true);
+    assert.deepEqual(result.resultMeta.preHistoryShortlist, [
+      {
+        league: 'MLB',
+        market: 'Run Line',
+        totalRows: 144,
+        shortlistedRows: 16,
+        skippedRowCount: 128,
+        truncated: true
+      }
+    ]);
+    assert.equal(result.resultMeta.scanHealth.totalRows, 144);
+    assert.equal(result.resultMeta.scanHealth.shortlistedRows, 16);
+    assert.equal(result.resultMeta.scanHealth.skippedRowCount, 128);
+  });
+
+  it('retains truncated zero-result pair health in quick_screen output', async () => {
+    const { createMcpHandlers } = require('../scripts/server/handlers');
+    const handlers = createMcpHandlers({ client: {} });
+    handlers.runLeagueScreen = async (args) =>
+      args.skipHistory ? { ok: true, result: [{ gameId: 'mlb-probe' }] } : { ok: true, result: [] };
+    handlers.sharp_plays = async () => ({
+      ok: true,
+      result: [],
+      resultMeta: {
+        scanHealth: { truncated: true, incomplete: true, totalRows: 144, shortlistedRows: 16, skippedRowCount: 128 },
+        preHistoryShortlist: [
+          {
+            league: 'MLB',
+            market: 'Run Line',
+            totalRows: 144,
+            shortlistedRows: 16,
+            skippedRowCount: 128,
+            truncated: true
+          }
+        ]
+      }
+    });
+
+    const response = await handlers.quick_screen({
+      leagues: ['MLB'],
+      markets: ['Run Line'],
+      book: 'NoVigApp',
+      validate: false,
+      includeResearch: false,
+      cache: false
+    });
+
+    assert.equal(response.scanHealth.truncated, true);
+    assert.equal(response.scanHealth.incomplete, true);
+    assert.deepEqual(response.scanHealth.preHistoryShortlist, [
+      {
+        league: 'MLB',
+        market: 'Run Line',
+        totalRows: 144,
+        shortlistedRows: 16,
+        skippedRowCount: 128,
+        truncated: true
+      }
+    ]);
+    assert.equal(response.scanHealth.preHistoryShortlist[0].skippedRowCount, 128);
   });
 
   it('keeps screen BETs as diagnostic watch candidates when validation budget is exhausted', async () => {
@@ -290,7 +394,14 @@ describe('quick_screen aggregate odds-history budget', () => {
       resultMeta: {
         scanHealth: { truncated: true },
         preHistoryShortlist: [
-          { league: args.league, market: args.market, totalRows: 2, shortlistedRows: 1, skippedRowCount: 1, truncated: true }
+          {
+            league: args.league,
+            market: args.market,
+            totalRows: 2,
+            shortlistedRows: 1,
+            skippedRowCount: 1,
+            truncated: true
+          }
         ]
       }
     });
@@ -310,6 +421,93 @@ describe('quick_screen aggregate odds-history budget', () => {
     assert.equal(response.watchCandidates.length, 1);
     assert.equal(response.watchCandidates[0].validationBudgetExhausted, true);
     assert.equal(response.watchCandidates[0].official, false);
+  });
+
+  it('preserves unselected BETs as non-official watch candidates during partial validation for MLB/WNBA/NFL shapes', async () => {
+    const { createMcpHandlers } = require('../scripts/server/handlers');
+    const handlers = createMcpHandlers({
+      client: {
+        oddsHistoryBudgetRemaining: () => 40
+      }
+    });
+    const cases = [
+      { league: 'MLB', market: 'Moneyline' },
+      { league: 'WNBA', market: 'Total Points' },
+      { league: 'NFL', market: 'Moneyline' }
+    ];
+
+    handlers.runLeagueScreen = async () => ({ ok: true, result: [{ gameId: 'probe' }] });
+    handlers.sharp_plays = async (args) => ({
+      ok: true,
+      result: [
+        {
+          gameId: `${args.league}-best`,
+          league: args.league,
+          market: args.market,
+          selection: 'known good selection',
+          participant: 'known good selection',
+          kaiCall: 'BET',
+          displayTier: 'BET',
+          confidenceTier: 'TIER 1',
+          screenScore: 100,
+          odds: -110
+        },
+        {
+          gameId: `${args.league}-watch`,
+          league: args.league,
+          market: args.market,
+          selection: 'ranked watch selection',
+          participant: 'ranked watch selection',
+          kaiCall: 'BET',
+          displayTier: 'BET',
+          confidenceTier: 'TIER 1',
+          screenScore: 90,
+          odds: -105
+        }
+      ],
+      resultMeta: { scanHealth: { truncated: false } }
+    });
+    handlers.runValidatePlayImpl = async (_client, args) => ({
+      ok: true,
+      verdict: 'BET',
+      tier: 'TIER 1',
+      verdictSummary: {
+        displayTier: 'BET',
+        movementDisposition: 'supportive_clean',
+        executionQuality: 'playable',
+        riskFlags: [],
+        actionableSummary: 'Known good validated play.'
+      },
+      play: { consensusBookCount: 5, executionQuality: 'playable', odds: -110 },
+      gameId: args.gameId
+    });
+
+    for (const { league, market } of cases) {
+      const response = await handlers.quick_screen({
+        leagues: [league],
+        markets: [market],
+        book: 'NoVigApp',
+        limit: 5,
+        onlyBets: true,
+        includeResearch: false,
+        cache: false
+      });
+
+      assert.equal(response.scanHealth.incomplete, true);
+      assert.equal(response.scanHealth.validation.eligible, 2);
+      assert.equal(response.scanHealth.validation.selected, 1);
+      assert.equal(response.scanHealth.validation.completedCount, 1);
+      assert.equal(
+        response.scanHealth.validation.reason,
+        'validation budget selected fewer candidates than eligible BET candidates'
+      );
+      assert.equal(response.results[0].candidates.length, 1);
+      assert.equal(response.results[0].candidates[0].gameId, `${league}-best`);
+      assert.equal(response.watchCandidates.length, 1);
+      assert.equal(response.watchCandidates[0].gameId, `${league}-watch`);
+      assert.equal(response.watchCandidates[0].official, false);
+      assert.equal(response.watchCandidates[0].validationBudgetExhausted, false);
+    }
   });
 
   it('per-pair budget shrinks with pair count and floors at one game', async () => {

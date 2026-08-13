@@ -609,6 +609,25 @@ describe('formatQuickScreenMinimal', () => {
     assert.equal(out.type, 'no_plays');
   });
 
+  it('preserves incomplete scan health and watch candidates in zero-result minimal output', () => {
+    const out = formatQuickScreenMinimal({
+      results: [],
+      scanHealth: {
+        incomplete: true,
+        truncated: true,
+        preHistoryShortlist: [
+          { league: 'MLB', market: 'Run Line', totalRows: 144, shortlistedRows: 16, skippedRowCount: 128 }
+        ]
+      },
+      watchCandidates: [{ gameId: 'watch-1', official: false }]
+    });
+
+    assert.equal(out.scanHealth.incomplete, true);
+    assert.equal(out.scanHealth.truncated, true);
+    assert.equal(out.scanHealth.preHistoryShortlist[0].skippedRowCount, 128);
+    assert.deepEqual(out.watchCandidates, [{ gameId: 'watch-1', official: false }]);
+  });
+
   it('includes structured plays with movementGrade and no riskScore', () => {
     const out = formatQuickScreenMinimal(sampleResponse);
     assert.equal(out.plays.length, 2);

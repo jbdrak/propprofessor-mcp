@@ -875,6 +875,11 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
   const jsonOut = flags.j || flags.json || false;
   const results = res.data?.results || res.results || [];
   const scanHealth = res.data?.scanHealth || res.scanHealth || null;
+  const watchCandidates = Array.isArray(res.data?.watchCandidates)
+    ? res.data.watchCandidates
+    : Array.isArray(res.watchCandidates)
+      ? res.watchCandidates
+      : null;
   const healthIncomplete = Boolean(scanHealth?.incomplete || scanHealth?.validationBudgetExhausted);
   const healthTruncated = Boolean(scanHealth?.truncated);
   if (healthIncomplete || healthTruncated) {
@@ -949,8 +954,18 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
         : `${windowLabel}: ${fmtDateTime(earliest)} → ${fmtDateTime(latest)}`;
   }
   if (jsonOut) {
-    console.log(JSON.stringify(scanHealth ? { results, scanHealth } : results, null, 2));
+    const output = {
+      results,
+      ...(scanHealth ? { scanHealth } : {}),
+      ...(watchCandidates ? { watchCandidates } : {})
+    };
+    console.log(JSON.stringify(scanHealth || watchCandidates ? output : results, null, 2));
   } else {
+    if (watchCandidates?.length) {
+      console.error(
+        `Diagnostic only: ${watchCandidates.length} watch candidate${watchCandidates.length === 1 ? '' : 's'}; never an official BET.`
+      );
+    }
     if (rangeHeader) console.log(B + rangeHeader + R + '\n');
     console.log(formatScan(results));
     const total = results.reduce((s, r) => s + (r.plays || []).length, 0);

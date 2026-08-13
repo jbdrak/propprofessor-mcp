@@ -902,6 +902,20 @@ function createMcpHandlers({
                   ? { failureBreakdown: spResult.resultMeta.emptyState.failureBreakdown }
                   : {})
               });
+              if (spResult.resultMeta?.scanHealth || spResult.resultMeta?.preHistoryShortlist) {
+                allCandidates.push({
+                  league,
+                  market,
+                  candidates: [],
+                  ...(spResult.resultMeta.scanHealth ? { scanHealth: spResult.resultMeta.scanHealth } : {}),
+                  ...(spResult.resultMeta.preHistoryShortlist
+                    ? { preHistoryShortlist: spResult.resultMeta.preHistoryShortlist }
+                    : {}),
+                  ...(spResult.resultMeta.perPairDiagnostics
+                    ? { perPairDiagnostics: spResult.resultMeta.perPairDiagnostics }
+                    : {})
+                });
+              }
               return;
             }
 
@@ -1081,6 +1095,9 @@ function createMcpHandlers({
       const validateTop = validateAll ? requestedValidateTop : Math.min(requestedValidateTop, validationBudgetCap);
       const validationBudgetExhausted = args.validate !== false && requestedValidateTop > 0 && validateTop === 0;
       const watchCandidates = [];
+      let validationEligibleCount = 0;
+      let validationSelectedCount = 0;
+      let validationPartial = false;
 
       if (args.validate === false) {
         for (const entry of allCandidates) {
@@ -1096,20 +1113,33 @@ function createMcpHandlers({
             .filter((candidate) => candidate.gameId && candidate.selection && !candidate.altLineFiltered)
             .map((candidate) => ({ candidate, entry }))
         );
+        const eligibleBetCandidates = eligibleValidationCandidates.filter(
+          ({ candidate }) => candidate.kaiCall === 'BET'
+        );
+        validationEligibleCount = eligibleBetCandidates.length;
         const selectedValidationCandidates = validateAll
           ? eligibleValidationCandidates
           : [...eligibleValidationCandidates]
-              .sort((a, b) => (b.candidate.screenScore || 0) - (a.candidate.screenScore || 0))
+              .sort((a, b) => {
+                const betPriority = Number(b.candidate.kaiCall === 'BET') - Number(a.candidate.kaiCall === 'BET');
+                return betPriority || (Number(b.candidate.screenScore) || 0) - (Number(a.candidate.screenScore) || 0);
+              })
               .slice(0, validateTop);
         const selectedValidationSet = new Set(selectedValidationCandidates.map(({ candidate }) => candidate));
+        validationSelectedCount = selectedValidationCandidates.filter(
+          ({ candidate }) => candidate.kaiCall === 'BET'
+        ).length;
+        validationPartial = validationSelectedCount < validationEligibleCount;
 
         for (const entry of allCandidates) {
           if (!entry.candidates || !entry.candidates.length) continue;
 
           for (const candidate of entry.candidates) {
             if (!selectedValidationSet.has(candidate) && candidate.kaiCall === 'BET') {
-              candidate.validationFailed = true;
+              candidate.validationBudgetSkipped = true;
+              candidate.validationBudgetExhausted = false;
               candidate.validationFailureReason = 'validation not selected within validation budget';
+              watchCandidates.push({ ...candidate, official: false });
             }
             // validateAll => validate everything; otherwise validate the top N
             // candidates GLOBALLY across the aggregate scan, not N per bucket.
@@ -1298,7 +1328,9 @@ function createMcpHandlers({
             const tierIdx = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4'].indexOf(
               c.finalConfidenceTier || c.confidenceTier || 'TIER 4'
             );
-            return c.finalVerdict === 'BET' && !c.validationBudgetExhausted && tierIdx <= floor;
+            return (
+              c.finalVerdict === 'BET' && !c.validationBudgetExhausted && !c.validationBudgetSkipped && tierIdx <= floor
+            );
           });
         }
       }
@@ -1387,13 +1419,20 @@ function createMcpHandlers({
         emptySlate,
         ...(watchCandidates.length ? { watchCandidates } : {}),
         scanHealth: {
-          incomplete: validationBudgetExhausted || allCandidates.some((entry) => entry.error),
+          incomplete:
+            validationBudgetExhausted ||
+            validationPartial ||
+            allCandidates.some((entry) => entry.error || entry.scanHealth?.incomplete || entry.scanHealth?.truncated),
           validationBudgetExhausted,
           validation: {
             requested: requestedValidateTop,
-            selected: validateTop,
+            eligible: validationEligibleCount,
+            selected: validationSelectedCount,
             completedCount: validatedCount,
-            remainingBeforeValidation
+            remainingBeforeValidation,
+            ...(validationPartial
+              ? { reason: 'validation budget selected fewer candidates than eligible BET candidates' }
+              : {})
           },
           truncated: allCandidates.some((entry) => entry.scanHealth?.truncated),
           preHistoryShortlist: allCandidates

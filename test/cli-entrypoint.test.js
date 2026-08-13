@@ -69,12 +69,56 @@ describe('pp CLI entrypoint', () => {
         cardWindow: 'all',
         limit: 5
       });
-      assert.match(stderr.join('\\n'), /incomplete\/truncated/);
-      assert.match(stderr.join('\\n'), /shared odds-history budget exhausted/);
-      assert.match(stderr.join('\\n'), /pp rank MLB/);
+      assert.match(stderr.join('\n'), /incomplete\/truncated/);
+      assert.match(stderr.join('\n'), /shared odds-history budget exhausted/);
+      assert.match(stderr.join('\n'), /pp rank MLB/);
       const parsed = JSON.parse(stdout[0]);
       assert.equal(parsed.scanHealth.validationBudgetExhausted, true);
       assert.deepEqual(parsed.results, res.results);
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
+    }
+  });
+
+  it('preserves zero-result watch candidates in JSON and human diagnostics', () => {
+    const originalLog = console.log;
+    const originalError = console.error;
+    const stdout = [];
+    const stderr = [];
+    const watchCandidates = [{ gameId: 'watch-1', selection: 'Yankees', official: false }];
+    const res = {
+      results: [],
+      scanHealth: { incomplete: true, validation: { eligible: 1, selected: 0 } },
+      watchCandidates
+    };
+    try {
+      console.log = (value) => stdout.push(value);
+      console.error = (value) => stderr.push(value);
+      renderScanOutput(res, {
+        flags: { json: true },
+        leagues: ['MLB'],
+        marketList: ['Moneyline'],
+        book: 'NoVigApp',
+        targetTiers: ['TIER 1'],
+        cardWindow: 'all',
+        limit: 5
+      });
+      const parsed = JSON.parse(stdout[0]);
+      assert.deepEqual(parsed.watchCandidates, watchCandidates);
+
+      stdout.length = 0;
+      stderr.length = 0;
+      renderScanOutput(res, {
+        flags: {},
+        leagues: ['MLB'],
+        marketList: ['Moneyline'],
+        book: 'NoVigApp',
+        targetTiers: ['TIER 1'],
+        cardWindow: 'all',
+        limit: 5
+      });
+      assert.match(stderr.join('\n'), /diagnostic only: 1 watch candidate/i);
     } finally {
       console.log = originalLog;
       console.error = originalError;
