@@ -79,6 +79,62 @@ function rowMatchesSelectionFilter(row, needle) {
   return collectRowSelectionCandidates(row).includes(needle);
 }
 
+function normalizePayloadRows(payload) {
+  if (Array.isArray(payload)) return payload;
+  for (const key of ['rows', 'game_data', 'data', 'results']) {
+    if (Array.isArray(payload?.[key])) return payload[key];
+  }
+  return [];
+}
+
+function rowContainsExactBookQuote(row, selectionFilter, requestedBook) {
+  const needle = normalizeSelectionText(selectionFilter);
+  const selections = row?.selections && typeof row.selections === 'object' ? row.selections : {};
+  return Object.values(selections).some((nested) => {
+    if (!nested || typeof nested !== 'object') return false;
+    const sides = [
+      { label: nested.selection1, id: nested.selection1Id, line: nested.line1, oddsKey: 'odds1' },
+      { label: nested.selection2, id: nested.selection2Id, line: nested.line2, oddsKey: 'odds2' }
+    ];
+    const side = sides.find((candidate) => {
+      const candidates = [candidate.label, stripSelectionMarketPrefix(candidate.id)];
+      if (candidate.line != null && candidate.label) candidates.push(`${candidate.label} ${candidate.line}`);
+      return candidates.some((value) => normalizeSelectionText(value) === needle);
+    });
+    return Boolean(side && Number.isFinite(Number(nested?.odds?.[requestedBook]?.[side.oddsKey])));
+  });
+}
+
+function mergeExactFocusBookPayload(bestCompsPayload, directPayload, selectionFilter, requestedBook) {
+  const bestRows = normalizePayloadRows(bestCompsPayload);
+  const directRows = normalizePayloadRows(directPayload);
+  const mergedRows = directRows.map((directRow) => {
+    const bestRow = bestRows.find((candidate) => String(candidate?.gameId || candidate?.id || '') === String(directRow?.gameId || directRow?.id || ''));
+    if (!bestRow) return directRow;
+    const bestSelections = bestRow?.selections && typeof bestRow.selections === 'object' ? bestRow.selections : {};
+    const directSelections = directRow?.selections && typeof directRow.selections === 'object' ? directRow.selections : {};
+    const selections = { ...bestSelections };
+    for (const [key, directSelection] of Object.entries(directSelections)) {
+      const bestSelection = bestSelections[key] || {};
+      selections[key] = {
+        ...bestSelection,
+        ...directSelection,
+        odds: {
+          ...(bestSelection.odds || {}),
+          ...(directSelection.odds || {}),
+          ...(directSelection.odds?.[requestedBook]
+            ? { [requestedBook]: directSelection.odds[requestedBook] }
+            : {})
+        }
+      };
+    }
+    return { ...bestRow, ...directRow, selections };
+  });
+  return directRows.some((row) => rowContainsExactBookQuote(row, selectionFilter, requestedBook))
+    ? { ...bestCompsPayload, rows: mergedRows }
+    : directPayload;
+}
+
 function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
   const needle = normalizeSelectionText(selectionFilter);
   const seenGames = new Set();
@@ -94,11 +150,16 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
       return Number.isFinite(Number(quote?.odds1)) || Number.isFinite(Number(quote?.odds2));
     });
   };
-  const exactRows = rows.filter((row) => {
-    if (!rowMatchesSelectionFilter(row, needle) || !hasRequestedBookQuote(row) || seenGames.has(row.gameId)) return false;
-    seenGames.add(row.gameId);
-    return true;
-  });
+  const exactRowsByGame = new Map();
+  for (const row of rows) {
+    if (!rowMatchesSelectionFilter(row, needle) || !hasRequestedBookQuote(row)) continue;
+    const gameKey = row.gameId;
+    const existing = exactRowsByGame.get(gameKey);
+    if (!existing || String(row.book || '').trim() === requestedBook) {
+      exactRowsByGame.set(gameKey, row);
+    }
+  }
+  const exactRows = [...exactRowsByGame.values()];
   if (exactRows.length) return exactRows;
 
   const materialized = [];
@@ -284,7 +345,7 @@ async function queryPlayDetailsResponse({
   let currentPayload = payload;
   if (args.selection && focusBook) {
     try {
-      currentPayload = await client.queryScreenOdds({
+      const directPayload = await client.queryScreenOdds({
         market,
         league,
         games: relaxedGameIdMatch ? [] : gameIds,
@@ -296,6 +357,7 @@ async function queryPlayDetailsResponse({
         books: [focusBook],
         is_live: Boolean(args.live || args.is_live)
       });
+      currentPayload = mergeExactFocusBookPayload(payload, directPayload, args.selection, focusBook);
     } catch {
       currentPayload = { rows: [] };
     }

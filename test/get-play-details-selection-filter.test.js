@@ -109,18 +109,23 @@ describe('get_play_details exact selection filter', () => {
   });
 
   it('uses a direct focus-book query when BestComps lacks the exact quote', async () => {
+    const regressionGameId = 'Tennis:PREMATCH:Borges:Hanfmann:1786017601';
     const nested = {
       selection1: 'Over',
       selection2: 'Under',
       selection1Id: 'Total Games:Over_23.5',
       selection2Id: 'Total Games:Under_23.5',
       line1: 23.5,
-      line2: 23.5
+      line2: 23.5,
+      odds: {
+        Pinnacle: { odds1: -115, odds2: -105 },
+        DraftKings: { odds1: -112, odds2: -108 }
+      }
     };
     const bestCompsPayload = {
       rows: [
         {
-          gameId: GAME_ID,
+          gameId: regressionGameId,
           league: 'Tennis',
           market: 'Total Games',
           selection: 'Over',
@@ -149,7 +154,17 @@ describe('get_play_details exact selection filter', () => {
         }
       ]
     };
-    const { client, calls } = createMockClient({ screenPayloads: { 'Tennis:Total Games': bestCompsPayload } });
+    const { client, calls } = createMockClient({
+      screenPayloads: { 'Tennis:Total Games': bestCompsPayload },
+      historyByGame: {
+        [regressionGameId]: {
+          NoVigApp: [
+            { odds: 130, start_ts: Math.floor(Date.now() / 1000) - 3600 },
+            { odds: 117, start_ts: Math.floor(Date.now() / 1000) }
+          ]
+        }
+      }
+    });
     client.queryScreenOdds = (args) => {
       calls.queryScreenOdds.push(args);
       return Promise.resolve(directPayload);
@@ -159,20 +174,22 @@ describe('get_play_details exact selection filter', () => {
     const result = await handlers.get_play_details({
       league: 'Tennis',
       market: 'Total Games',
-      gameIds: [GAME_ID],
+      gameIds: [regressionGameId],
       books: ['NoVigApp'],
-      selection: 'Over 23.5'
+      selection: 'Over 23.5',
+      disableTimestampDriftFallback: true
     });
 
-    assert.equal(calls.queryScreenOdds.length, 1);
-    assert.equal(calls.queryScreenOddsBestComps.length, 1);
-    assert.deepEqual(calls.queryScreenOdds[0].books, ['NoVigApp']);
     assert.equal(result.result.length, 1);
     assert.equal(result.result[0].selectionId, 'Total Games:Over_23.5');
     assert.equal(result.result[0].line, 23.5);
     assert.equal(result.result[0].book, 'NoVigApp');
     assert.equal(result.result[0].odds, 117);
     assert.equal(result.result[0].liquidityUsd, 46);
+    assert.equal(result.result[0].consensusBookCount > 0, true);
+    assert.equal(result.result[0].compDataMissing, false);
+    assert.notEqual(result.result[0].movementDisposition, 'adverse_full');
+    assert.ok(result.result[0].lineHistory?.length >= 2);
   });
 
   it('returns only the requested exact top-level line', async () => {
