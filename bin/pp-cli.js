@@ -1141,6 +1141,7 @@ async function cmdGame(handlers, positional, flags) {
 
   const args = { league, market, gameIds: [gameId], books: [book] };
   if (selection) args.selection = selection;
+  if (playId.includes('::')) args.playId = playId;
   const res = await handlers.get_play_details(args);
 
   if (jsonOut) {
@@ -1606,6 +1607,7 @@ module.exports = {
   main,
   formatError,
   cmdScan,
+  cmdGame,
   renderScanOutput,
   recordScanResults,
   cmdRecordCard,

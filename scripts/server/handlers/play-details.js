@@ -8,6 +8,7 @@
 const { resolveMarkets } = require('./handler-utils');
 const {
   buildRankedScreenResponse: buildRankedScreenResponseShared,
+  buildCanonicalPlayId,
   normalizeBookList
 } = require('../../../lib/propprofessor-mcp-ranked-screen');
 const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/propprofessor-sharp-books');
@@ -65,31 +66,6 @@ function collectRowSelectionCandidates(row) {
 }
 
 /**
- * Collect normalized candidate labels from a row's nested selections map
- * (selection1/selection2 labels, their ids, and composed label+line pairs).
- * @param {Object} row
- * @returns {string[]}
- */
-function collectNestedSelectionCandidates(row) {
-  const out = [];
-  const push = (v) => {
-    const n = normalizeSelectionText(v);
-    if (n) out.push(n);
-  };
-  const selections = row?.selections && typeof row.selections === 'object' ? row.selections : {};
-  for (const sel of Object.values(selections)) {
-    if (!sel || typeof sel !== 'object') continue;
-    push(sel.selection1);
-    push(sel.selection2);
-    push(stripSelectionMarketPrefix(sel.selection1Id));
-    push(stripSelectionMarketPrefix(sel.selection2Id));
-    if (sel.line1 != null && (sel.selection1 || '').trim()) push(`${sel.selection1} ${sel.line1}`);
-    if (sel.line2 != null && (sel.selection2 || '').trim()) push(`${sel.selection2} ${sel.line2}`);
-  }
-  return out;
-}
-
-/**
  * True when the requested selection text matches the row's OWN selection
  * (top-level label/selectionId, or composed label+line). Nested selections
  * are NOT consulted here: every expanded row of a game shares the same
@@ -101,6 +77,75 @@ function collectNestedSelectionCandidates(row) {
  */
 function rowMatchesSelectionFilter(row, needle) {
   return collectRowSelectionCandidates(row).includes(needle);
+}
+
+function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
+  const needle = normalizeSelectionText(selectionFilter);
+  const seenGames = new Set();
+  const hasRequestedBookQuote = (row) => {
+    if (String(row?.book || '').trim() === requestedBook && Number.isFinite(Number(row?.odds))) return true;
+    if (Array.isArray(row?.sportsbookData)) {
+      return row.sportsbookData.some(
+        (entry) => String(entry?.book || '').trim() === requestedBook && Number.isFinite(Number(entry?.odds ?? entry?.noVigOdds))
+      );
+    }
+    return Object.values(row?.selections || {}).some((nested) => {
+      const quote = nested?.odds?.[requestedBook];
+      return Number.isFinite(Number(quote?.odds1)) || Number.isFinite(Number(quote?.odds2));
+    });
+  };
+  const exactRows = rows.filter((row) => {
+    if (!rowMatchesSelectionFilter(row, needle) || !hasRequestedBookQuote(row) || seenGames.has(row.gameId)) return false;
+    seenGames.add(row.gameId);
+    return true;
+  });
+  if (exactRows.length) return exactRows;
+
+  const materialized = [];
+  seenGames.clear();
+  for (const row of rows) {
+    if (seenGames.has(row.gameId)) continue;
+    const selections = row?.selections && typeof row.selections === 'object' ? row.selections : {};
+    for (const [key, nested] of Object.entries(selections)) {
+      if (!nested || typeof nested !== 'object') continue;
+      const sides = [
+        { index: 1, label: nested.selection1, id: nested.selection1Id, line: nested.line1 },
+        { index: 2, label: nested.selection2, id: nested.selection2Id, line: nested.line2 }
+      ];
+      const side = sides.find((candidate) => {
+        const candidates = [candidate.label, stripSelectionMarketPrefix(candidate.id)];
+        if (candidate.line != null && candidate.label) candidates.push(`${candidate.label} ${candidate.line}`);
+        return candidates.some((value) => normalizeSelectionText(value) === needle);
+      });
+      if (!side) continue;
+      const oddsMap = nested.odds && typeof nested.odds === 'object' ? nested.odds : {};
+      const bookOdds = oddsMap[requestedBook];
+      const oddsKey = side.index === 1 ? 'odds1' : 'odds2';
+      const liquidityKey = side.index === 1 ? 'liquidity1' : 'liquidity2';
+      const odds = Number(bookOdds?.[oddsKey]);
+      if (!bookOdds || !Number.isFinite(odds) || !side.id) continue;
+      const selection = side.label;
+      const materializedRow = {
+        ...row,
+        selection,
+        participant: selection,
+        selectionId: side.id,
+        line: side.line,
+        playId: buildCanonicalPlayId({ ...row, selection }),
+        book: requestedBook,
+        odds,
+        currentOdds: odds,
+        targetBookOdds: odds,
+        liquidityUsd: Number.isFinite(Number(bookOdds[liquidityKey])) ? Number(bookOdds[liquidityKey]) : null,
+        selections: { [key]: nested },
+        defaultKey: key
+      };
+      materialized.push(materializedRow);
+      seenGames.add(row.gameId);
+      break;
+    }
+  }
+  return materialized;
 }
 
 function finalizePlayDetailsResponse({ response, merged, args, gameIds, relaxedGameIdMatch, sharpBookSetDetail }) {
@@ -123,18 +168,7 @@ function finalizePlayDetailsResponse({ response, merged, args, gameIds, relaxedG
     let finalRows = exactRows;
     let selectionMatchedNested = false;
     if (!finalRows.length) {
-      // The exact line may live inside a row's nested selections map even
-      // when no top-level row carries it (ranking can drop individual
-      // lines). Return one row per game that contains the line, preserving
-      // its nested selections.
-      const seenGames = new Set();
-      finalRows = merged.filter((row) => {
-        if (seenGames.has(row.gameId)) return false;
-        if (!collectNestedSelectionCandidates(row).includes(needle)) return false;
-        seenGames.add(row.gameId);
-        return true;
-      });
-      selectionMatchedNested = finalRows.length > 0;
+      finalRows = [];
     }
     if (!finalRows.length) {
       response.result = [];
@@ -247,11 +281,30 @@ async function queryPlayDetailsResponse({
       }
     };
   }
+  let currentPayload = payload;
+  if (args.selection && focusBook) {
+    try {
+      currentPayload = await client.queryScreenOdds({
+        market,
+        league,
+        games: relaxedGameIdMatch ? [] : gameIds,
+        participants: relaxedGameIdMatch
+          ? relaxedParticipants
+          : Array.isArray(args.participants)
+            ? args.participants
+            : [],
+        books: [focusBook],
+        is_live: Boolean(args.live || args.is_live)
+      });
+    } catch {
+      currentPayload = { rows: [] };
+    }
+  }
   let response;
   try {
     response = await buildRankedScreenResponseShared({
       client,
-      payloads: [payload],
+      payloads: [currentPayload],
       args: { ...args, compact: false, skipHistory: false, historySportsbooks: augmentedBooksExcluded },
       // Hydrate only the exact requested selection when this detail call is
       // bundled validation (quick_screen validateTop). The pre-hydration
@@ -261,6 +314,11 @@ async function queryPlayDetailsResponse({
         ? {
             preHydrationFilter: (row) =>
               rowMatchesSelectionFilter(row, normalizeSelectionText(String(args.selection || '')))
+          }
+        : {}),
+      ...(args.selection
+        ? {
+            preRankingTransform: (rows) => materializeExactSelectionRows(rows, args.selection, focusBook)
           }
         : {}),
       league,

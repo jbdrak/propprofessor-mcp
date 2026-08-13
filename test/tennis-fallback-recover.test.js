@@ -195,6 +195,56 @@ function createMockClient(history = TENNIS_HISTORY) {
   return client;
 }
 
+describe('recoverTennisFromScreen — canonical identity', () => {
+  it('preserves the exact side identity separately from the display start', async () => {
+    const gameId = 'Tennis:PREMATCH:Kessler:Mcnally:1786017600';
+    const scheduledStart = '2026-07-30T18:00:00Z';
+    const client = {
+      queryScreenOdds() {
+        return Promise.resolve({
+          game_data: [
+            {
+              gameId,
+              awayTeam: 'Kessler',
+              homeTeam: 'Mcnally',
+              start: scheduledStart,
+              selections: {
+                total_games: {
+                  selection1: 'Over 23.5',
+                  selection1Id: 'Total Games:Over_23.5',
+                  participant1: 'Over 23.5',
+                  selection2: 'Under 23.5',
+                  selection2Id: 'Total Games:Under_23.5',
+                  participant2: 'Under 23.5',
+                  odds: { NoVigApp: { odds1: 117, odds2: -137 } }
+                }
+              }
+            }
+          ]
+        });
+      },
+      queryOddsHistory() {
+        return Promise.resolve({});
+      }
+    };
+
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'NoVigApp',
+      markets: ['Total Games'],
+      skipTimeCorrection: true,
+      maxHistorySelections: 1
+    });
+    const play = plays.find((item) => item.selection === 'Over 23.5');
+
+    assert.ok(play);
+    assert.equal(play.selectionId, 'Total Games:Over_23.5');
+    assert.equal(play.playId, `${gameId}::Total Games::over 23.5`);
+    assert.equal(play.scheduledStart, scheduledStart);
+    assert.equal(play.gameId, gameId);
+  });
+});
+
 describe('recoverTennisFromScreen — canonical movement policy', () => {
   it('uses sharp movement provenance while preserving the requested execution quote', async () => {
     const calls = [];
