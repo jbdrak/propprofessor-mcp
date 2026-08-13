@@ -488,6 +488,43 @@ describe('formatQuickScreenBets', () => {
     assert.deepEqual(out.warnings, sampleResponse.warnings);
   });
 
+  it('preserves compact scan health and diagnostic watch candidates', () => {
+    const response = {
+      ...sampleResponse,
+      scanHealth: {
+        incomplete: true,
+        validationBudgetExhausted: true,
+        validation: { requested: 10, selected: 0, completedCount: 0 },
+        truncated: true
+      },
+      watchCandidates: [
+        {
+          league: 'NBA',
+          market: 'Moneyline',
+          selection: 'Celtics ML',
+          odds: -105,
+          edge: 2.1,
+          kaiCall: 'BET',
+          finalVerdict: 'BET',
+          validationBudgetExhausted: true,
+          validationFailureReason: 'shared odds-history budget exhausted before validation',
+          official: false,
+          lineHistory: { verbose: true }
+        }
+      ]
+    };
+
+    const out = formatQuickScreenBets(response);
+    assert.deepEqual(out.scanHealth, response.scanHealth);
+    assert.equal(out.watchCandidates.length, 1);
+    assert.equal(out.watchCandidates[0].selection, 'Celtics ML');
+    assert.equal(out.watchCandidates[0].official, false);
+    assert.equal(out.watchCandidates[0].validationBudgetExhausted, true);
+    assert.equal(out.watchCandidates[0].validationFailureReason, response.watchCandidates[0].validationFailureReason);
+    assert.equal(out.watchCandidates[0].lineHistory, undefined);
+    assert.equal(out.results[0].plays[0].official, undefined);
+  });
+
   it('carries empty-slate content through verbatim (league, market, reason)', () => {
     const response = {
       ok: true,

@@ -318,4 +318,4 @@ if (require.main === module) {
   run();
 }
 
-module.exports = { parseArgs, filterByDateRange, computeStatsFromPicks };
+module.exports = { parseArgs, filterByDateRange, computeStatsFromPicks, run };

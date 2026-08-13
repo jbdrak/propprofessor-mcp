@@ -214,6 +214,104 @@ describe('quick_screen aggregate odds-history budget', () => {
     );
   });
 
+  it('propagates per-pair shortlist health and preserves empty/failure diagnostics', async () => {
+    const result = await runSharpPlays(
+      {
+        book: 'NoVigApp',
+        targetBooks: ['NoVigApp'],
+        leagues: ['MLB', 'NBA'],
+        markets: ['Moneyline'],
+        limit: 5,
+        quickScreenAggregate: true,
+        aggregatePairCount: 2
+      },
+      {
+        queryLeagueScreen: async (rankedArgs, league) => {
+          if (league === 'NBA') throw new Error('NBA feed unavailable');
+          return {
+            ok: true,
+            result: [{ gameId: 'mlb-1', selection: 'Home', league, market: 'Moneyline' }],
+            resultMeta: {
+              preHistoryShortlist: {
+                enabled: true,
+                truncated: true,
+                totalRows: 4,
+                shortlistedRows: 1,
+                skippedRowCount: 3
+              }
+            }
+          };
+        },
+        queryTennisScreen: async () => ({ ok: true, result: [] })
+      }
+    );
+
+    assert.deepEqual(result.resultMeta.preHistoryShortlist, [
+      {
+        league: 'MLB',
+        market: 'Moneyline',
+        totalRows: 4,
+        shortlistedRows: 1,
+        skippedRowCount: 3,
+        truncated: true
+      }
+    ]);
+    assert.equal(result.resultMeta.scanHealth.truncated, true);
+    assert.equal(result.resultMeta.perPairDiagnostics.length, 2);
+    assert.equal(result.resultMeta.perPairDiagnostics.find((p) => p.league === 'MLB').scannedRowCount, 1);
+    assert.equal(result.resultMeta.perPairDiagnostics.find((p) => p.league === 'NBA').failureReason, 'NBA feed unavailable');
+  });
+
+  it('keeps screen BETs as diagnostic watch candidates when validation budget is exhausted', async () => {
+    const { createMcpHandlers } = require('../scripts/server/handlers');
+    const handlers = createMcpHandlers({
+      client: {
+        oddsHistoryBudgetRemaining: () => 0,
+        queryScreenOddsBestComps: async () => ({ rows: [] })
+      }
+    });
+    handlers.runLeagueScreen = async () => ({ ok: true, result: [{ gameId: 'probe-1' }] });
+    handlers.sharp_plays = async (args) => ({
+      ok: true,
+      result: [
+        {
+          gameId: 'mlb-budget-1',
+          league: args.league,
+          market: args.market,
+          selection: 'Home',
+          participant: 'Home',
+          kaiCall: 'BET',
+          displayTier: 'BET',
+          confidenceTier: 'TIER 1',
+          screenScore: 10,
+          odds: -110
+        }
+      ],
+      resultMeta: {
+        scanHealth: { truncated: true },
+        preHistoryShortlist: [
+          { league: args.league, market: args.market, totalRows: 2, shortlistedRows: 1, skippedRowCount: 1, truncated: true }
+        ]
+      }
+    });
+
+    const response = await handlers.quick_screen({
+      leagues: ['MLB'],
+      markets: ['Moneyline'],
+      book: 'NoVigApp',
+      limit: 5,
+      onlyBets: true,
+      includeResearch: false,
+      cache: false
+    });
+
+    assert.equal(response.scanHealth.validationBudgetExhausted, true);
+    assert.equal(response.results[0]?.candidates?.length || 0, 0);
+    assert.equal(response.watchCandidates.length, 1);
+    assert.equal(response.watchCandidates[0].validationBudgetExhausted, true);
+    assert.equal(response.watchCandidates[0].official, false);
+  });
+
   it('per-pair budget shrinks with pair count and floors at one game', async () => {
     const { getAggregateGameBudget } = require('../lib/propprofessor-sharp-plays-service');
     // Aggregate mode hydrates the strongest side per shortlisted game and

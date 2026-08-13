@@ -837,7 +837,15 @@ function createMcpHandlers({
             if (Array.isArray(probe?.result) && probe.result.length > 0) {
               activeLeagueMarketPairs.push({ league, market });
             } else {
-              emptySlate.push({ league, market, reason: 'no candidates returned' });
+              emptySlate.push({
+                league,
+                market,
+                reason: probe?.resultMeta?.emptyState?.reason || 'no_ranked_rows_scanned',
+                scannedRowCount: probe?.resultMeta?.emptyState?.scannedRowCount || 0,
+                ...(probe?.resultMeta?.emptyState?.failureBreakdown
+                  ? { failureBreakdown: probe.resultMeta.emptyState.failureBreakdown }
+                  : {})
+              });
             }
           } catch {
             // Probe failure: activity is unknown — fail OPEN and let the
@@ -885,7 +893,15 @@ function createMcpHandlers({
 
             const candidates = Array.isArray(spResult?.result) ? spResult.result : [];
             if (!candidates.length) {
-              emptySlate.push({ league, market, reason: 'no candidates returned' });
+              emptySlate.push({
+                league,
+                market,
+                reason: spResult.resultMeta?.emptyState?.reason || 'no_ranked_rows_scanned',
+                scannedRowCount: spResult.resultMeta?.emptyState?.scannedRowCount || 0,
+                ...(spResult.resultMeta?.emptyState?.failureBreakdown
+                  ? { failureBreakdown: spResult.resultMeta.emptyState.failureBreakdown }
+                  : {})
+              });
               return;
             }
 
@@ -893,7 +909,14 @@ function createMcpHandlers({
             allCandidates.push({
               league,
               market,
-              candidates: candidates.slice(0, perMarketCap).map(mapCandidateRow)
+              candidates: candidates.slice(0, perMarketCap).map(mapCandidateRow),
+              ...(spResult.resultMeta?.scanHealth ? { scanHealth: spResult.resultMeta.scanHealth } : {}),
+              ...(spResult.resultMeta?.preHistoryShortlist
+                ? { preHistoryShortlist: spResult.resultMeta.preHistoryShortlist }
+                : {}),
+              ...(spResult.resultMeta?.perPairDiagnostics
+                ? { perPairDiagnostics: spResult.resultMeta.perPairDiagnostics }
+                : {})
             });
           } catch (error) {
             const categorized = categorizeError(error);
@@ -1056,6 +1079,8 @@ function createMcpHandlers({
         ? Math.max(0, Math.floor((remainingBeforeValidation - 20) / 20))
         : requestedValidateTop;
       const validateTop = validateAll ? requestedValidateTop : Math.min(requestedValidateTop, validationBudgetCap);
+      const validationBudgetExhausted = args.validate !== false && requestedValidateTop > 0 && validateTop === 0;
+      const watchCandidates = [];
 
       if (args.validate === false) {
         for (const entry of allCandidates) {
@@ -1188,9 +1213,14 @@ function createMcpHandlers({
       // Every candidate needs an authoritative final verdict, even when the
       // shared validation budget prevented a validate_play call. In that case
       // applyFinalVerdict falls back to the screen's displayTier/kaiCall and
-      // keeps onlyBets from dropping valid screen BET rows.
+      // Budget-exhausted screen BETs remain diagnostic/watch candidates, never official bets.
       for (const entry of allCandidates) {
         for (const candidate of entry.candidates || []) {
+          if (validationBudgetExhausted && candidate.kaiCall === 'BET' && !candidate._validated) {
+            candidate.validationBudgetExhausted = true;
+            candidate.validationFailureReason = 'shared odds-history budget exhausted before validation';
+            watchCandidates.push({ ...candidate, official: false });
+          }
           applyFinalVerdict(candidate);
         }
       }
@@ -1268,7 +1298,7 @@ function createMcpHandlers({
             const tierIdx = ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4'].indexOf(
               c.finalConfidenceTier || c.confidenceTier || 'TIER 4'
             );
-            return c.finalVerdict === 'BET' && tierIdx <= floor;
+            return c.finalVerdict === 'BET' && !c.validationBudgetExhausted && tierIdx <= floor;
           });
         }
       }
@@ -1355,6 +1385,21 @@ function createMcpHandlers({
         totalCandidates: allCandidates.reduce((sum, l) => sum + (l.candidates?.length || 0), 0),
         activeSlate,
         emptySlate,
+        ...(watchCandidates.length ? { watchCandidates } : {}),
+        scanHealth: {
+          incomplete: validationBudgetExhausted || allCandidates.some((entry) => entry.error),
+          validationBudgetExhausted,
+          validation: {
+            requested: requestedValidateTop,
+            selected: validateTop,
+            completedCount: validatedCount,
+            remainingBeforeValidation
+          },
+          truncated: allCandidates.some((entry) => entry.scanHealth?.truncated),
+          preHistoryShortlist: allCandidates
+            .filter((entry) => entry.preHistoryShortlist)
+            .flatMap((entry) => entry.preHistoryShortlist)
+        },
         cardWindow: cardWindowFallthrough || cardWindow,
         ...(cardWindowFallthrough ? { cardWindowFallthrough: true } : {}),
         ...(nextDayMerged ? { nextDayMerged: true, nextDayDate: nextDayMerged } : {}),

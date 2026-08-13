@@ -7,6 +7,20 @@ const { MARKET_ALIASES, resolveMarketName } = require('../lib/propprofessor-shar
 
 const { getAltMarketBooks, getSharpBookComparisonSet } = require('../lib/propprofessor-sharp-books');
 
+const { resolveMarkets } = require('../scripts/server/handlers/handler-utils');
+
+describe('resolveMarkets singular/plural inputs', () => {
+  it('resolves singular NBA total exactly like the equivalent array', () => {
+    assert.deepEqual(resolveMarkets({ market: 'total' }, 'NBA'), resolveMarkets({ markets: ['total'] }, 'NBA'));
+    assert.equal(resolveMarkets({ market: 'total' }, 'NBA').single, 'Total Points');
+  });
+
+  it('resolves singular MLB spread exactly like the equivalent array', () => {
+    assert.deepEqual(resolveMarkets({ market: 'Spread' }, 'MLB'), resolveMarkets({ markets: ['Spread'] }, 'MLB'));
+    assert.equal(resolveMarkets({ market: 'Spread' }, 'MLB').single, 'Run Line');
+  });
+});
+
 describe('MARKET_ALIASES completeness', () => {
   it('has entries for total, spread, and common aliases', () => {
     assert.ok(MARKET_ALIASES.total, 'Missing total alias');

@@ -13,6 +13,43 @@ const {
 } = require('../lib/screen-ranker');
 
 describe('screen-ranker (direct unit tests)', () => {
+  describe('legacy CLV fallback', () => {
+    it('uses positive CLV when a two-point underdog price shortens from +145 to +122', () => {
+      const [ranked] = rankScreenRows(
+        [
+          {
+            book: 'NoVigApp',
+            league: 'NBA',
+            homeTeam: 'Lakers',
+            awayTeam: 'Warriors',
+            participant: 'Lakers',
+            selection: 'Lakers',
+            market: 'Moneyline',
+            selection1: 'Lakers',
+            participant1: 'Lakers',
+            selection1Id: 'Moneyline:Lakers',
+            selection2: 'Warriors',
+            participant2: 'Warriors',
+            selection2Id: 'Moneyline:Warriors',
+            odds: 122,
+            lineHistory: [
+              { odds: 145, time: '2026-08-13T12:00:00Z' },
+              { odds: 122, time: '2026-08-13T18:00:00Z' }
+            ],
+            allBookOdds: {
+              NoVigApp: { book: 'NoVigApp', odds1: 122, odds2: -145 }
+            }
+          }
+        ],
+        { preferredBook: 'NoVigApp', limit: 10, includeAll: true }
+      );
+
+      assert.ok(ranked);
+      assert.ok(ranked.clvProxyPct > 0, `expected positive CLV, got ${ranked.clvProxyPct}`);
+      assert.equal(ranked.movementLabel, 'supportive');
+    });
+  });
+
   describe('expandScreenRow', () => {
     it('expands a row with multi-book odds into a consensus-enriched row', () => {
       const row = {

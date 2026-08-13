@@ -195,6 +195,67 @@ function createMockClient(history = TENNIS_HISTORY) {
   return client;
 }
 
+describe('recoverTennisFromScreen — canonical movement policy', () => {
+  it('uses sharp movement provenance while preserving the requested execution quote', async () => {
+    const calls = [];
+    const client = {
+      queryScreenOdds() {
+        return Promise.resolve({
+          game_data: [
+            {
+              gameId: 'tennis-canonical-policy',
+              awayTeam: 'Novak Djokovic',
+              homeTeam: 'Carlos Alcaraz',
+              start: '2026-07-30T18:00:00Z',
+              selections: {
+                ml: {
+                  selection1: 'Novak Djokovic',
+                  selection1Id: 'Moneyline:Novak_Djokovic',
+                  participant1: 'Novak Djokovic',
+                  selection2: 'Carlos Alcaraz',
+                  selection2Id: 'Moneyline:Carlos_Alcaraz',
+                  participant2: 'Carlos Alcaraz',
+                  odds: { NoVigApp: { odds1: 122, odds2: -145 }, Pinnacle: { odds1: 122, odds2: -145 } }
+                }
+              }
+            }
+          ]
+        });
+      },
+      queryOddsHistory(params) {
+        calls.push(params);
+        return Promise.resolve({
+          NoVigApp: [
+            { odds: 100, time: '2026-07-30T12:00:00Z', book: 'NoVigApp' },
+            { odds: 122, time: '2026-07-30T18:00:00Z', book: 'NoVigApp' }
+          ],
+          Pinnacle: [
+            { odds: 145, time: '2026-07-30T12:00:00Z', book: 'Pinnacle' },
+            { odds: 122, time: '2026-07-30T18:00:00Z', book: 'Pinnacle' }
+          ]
+        });
+      }
+    };
+
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'NoVigApp',
+      markets: ['Moneyline'],
+      skipTimeCorrection: true,
+      maxHistorySelections: 1
+    });
+    const play = plays.find((item) => item.selection === 'Novak Djokovic');
+
+    assert.ok(play);
+    assert.equal(play.book, 'NoVigApp');
+    assert.equal(play.odds, 122);
+    assert.equal(play.movementSourceBook, 'Pinnacle');
+    assert.equal(play.clvProxyPct, Math.round((100 / 222 - 100 / 245) * 1000) / 10);
+    assert.equal(play.verdict, 'CONSIDER');
+    assert.equal(calls[0].lookbackHours, 6);
+  });
+});
+
 describe('recoverTennisFromScreen — opposite sides', () => {
   let client;
 

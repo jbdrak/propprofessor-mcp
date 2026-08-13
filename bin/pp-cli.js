@@ -874,6 +874,27 @@ async function applyTennisScanFallback({
 function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, cardWindow, limit }) {
   const jsonOut = flags.j || flags.json || false;
   const results = res.data?.results || res.results || [];
+  const scanHealth = res.data?.scanHealth || res.scanHealth || null;
+  const healthIncomplete = Boolean(scanHealth?.incomplete || scanHealth?.validationBudgetExhausted);
+  const healthTruncated = Boolean(scanHealth?.truncated);
+  if (healthIncomplete || healthTruncated) {
+    const leaguesWithIssues = (scanHealth?.preHistoryShortlist || [])
+      .filter((pair) => pair.truncated)
+      .map((pair) => pair.league)
+      .filter(Boolean);
+    if (healthTruncated) {
+      console.error(
+        `Warning: scan incomplete/truncated${leaguesWithIssues.length ? ` for ${[...new Set(leaguesWithIssues)].join(', ')}` : ''}; some rows were not hydrated.`
+      );
+    }
+    if (healthIncomplete) {
+      console.error(
+        `Warning: scan validation incomplete${scanHealth?.validationBudgetExhausted ? ' (shared odds-history budget exhausted)' : ''}; BET candidates are diagnostic only.`
+      );
+    }
+    const hintLeague = leaguesWithIssues[0] || scanHealth?.league || leagues[0];
+    if (hintLeague) console.error(`Recovery: run pp rank ${hintLeague} for a focused scan.`);
+  }
 
   // --record-scan: persist this scan + normalized candidates to the tracker
   // ledger. Status goes to stderr; a recording failure must never break the
@@ -928,7 +949,7 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
         : `${windowLabel}: ${fmtDateTime(earliest)} → ${fmtDateTime(latest)}`;
   }
   if (jsonOut) {
-    console.log(JSON.stringify(results, null, 2));
+    console.log(JSON.stringify(scanHealth ? { results, scanHealth } : results, null, 2));
   } else {
     if (rangeHeader) console.log(B + rangeHeader + R + '\n');
     console.log(formatScan(results));
@@ -1585,6 +1606,7 @@ module.exports = {
   main,
   formatError,
   cmdScan,
+  renderScanOutput,
   recordScanResults,
   cmdRecordCard,
   cmdRecord,

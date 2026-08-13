@@ -186,7 +186,8 @@ function buildDoctorReport(healthResult) {
 
 function parseArgs(argv) {
   const args = argv.slice(2);
-  const [command = 'help'] = args;
+  const [rawCommand = 'help'] = args;
+  const command = rawCommand === '--help' || rawCommand === '-h' ? 'help' : rawCommand;
   const opts = {};
 
   for (let i = 1; i < args.length; i += 1) {

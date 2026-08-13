@@ -85,6 +85,61 @@ async function runScan({ handlerResults, flags, positional = ['scan', 'MLB'] }) 
 }
 
 describe('pp-cli --record-scan', () => {
+  it('warns and preserves scan health through the production-shaped bets response', async () => {
+    const scanHealth = {
+      incomplete: true,
+      validationBudgetExhausted: true,
+      truncated: true,
+      validation: { requested: 10, selected: 0, completedCount: 0 }
+    };
+    const watchCandidate = {
+      league: 'MLB',
+      market: 'Moneyline',
+      selection: 'Yankees',
+      odds: -120,
+      edge: 2.5,
+      kaiCall: 'BET',
+      finalVerdict: 'BET',
+      validationBudgetExhausted: true,
+      validationFailureReason: 'shared odds-history budget exhausted before validation',
+      official: false
+    };
+    const handler = {
+      async quick_screen() {
+        const formatted = require('../lib/propprofessor-formatter').formatQuickScreenBets({
+          ok: true,
+          totalCandidates: 1,
+          scanHealth,
+          watchCandidates: [watchCandidate],
+          results: [
+            {
+              league: 'MLB',
+              market: 'Moneyline',
+              candidates: []
+            }
+          ],
+          activeSlate: [],
+          emptySlate: [],
+          warnings: []
+        });
+        return formatted;
+      }
+    };
+    const capture = captureConsole();
+    try {
+      await cli.cmdScan(handler, ['scan', 'MLB'], { json: true }, {});
+    } finally {
+      capture.restore();
+    }
+
+    assert.equal(capture.logs.length, 1);
+    const output = JSON.parse(capture.logs[0]);
+    assert.equal(output.scanHealth.validationBudgetExhausted, true);
+    assert.equal(output.scanHealth.incomplete, true);
+    assert.match(capture.errors.join('\\n'), /scan validation incomplete/);
+    assert.match(capture.errors.join('\\n'), /shared odds-history budget exhausted/);
+  });
+
   it('does not touch the ledger when --record-scan is absent', async (t) => {
     const env = withTempEnv(t);
     const { calls, errors } = await runScan({ handlerResults: makeResults(), flags: {} });

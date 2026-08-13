@@ -36,6 +36,27 @@ describe('UFC card/date filtering helpers', () => {
     );
   });
 
+  it('uses the configured local timezone for today and next card windows', () => {
+    const now = Date.parse('2025-05-10T04:00:00Z');
+    const rows = [
+      { scanLeague: 'UFC', participant: 'Local Next', start: '2025-05-10T05:00:00Z' },
+      { scanLeague: 'UFC', participant: 'Following Day', start: '2025-05-11T05:00:00Z' }
+    ];
+
+    assert.deepEqual(
+      filterUfcRowsForCard(rows, { nowMs: now, cardWindow: 'today', timezone: 'America/Chicago' }).map(
+        (row) => row.participant
+      ),
+      []
+    );
+    assert.deepEqual(
+      filterUfcRowsForCard(rows, { nowMs: now, cardWindow: 'next', timezone: 'America/Chicago' }).map(
+        (row) => row.participant
+      ),
+      ['Local Next']
+    );
+  });
+
   it("filters to today's card window", () => {
     const now = Date.parse('2025-05-09T12:00:00Z');
     const rows = [
@@ -44,7 +65,7 @@ describe('UFC card/date filtering helpers', () => {
       { scanLeague: 'UFC', participant: 'Unknown' }
     ];
 
-    const filtered = filterUfcRowsForCard(rows, { nowMs: now, cardWindow: 'today' });
+    const filtered = filterUfcRowsForCard(rows, { nowMs: now, cardWindow: 'today', timezone: 'UTC' });
     assert.deepEqual(
       filtered.map((row) => row.participant),
       ['Today']
@@ -61,6 +82,7 @@ describe('UFC card/date filtering helpers', () => {
     const filtered = filterUfcRowsForCard(rows, {
       nowMs: Date.parse('2025-05-09T12:00:00Z'),
       eventDate: '2025-05-10',
+      timezone: 'UTC',
       upcomingOnly: true
     });
     assert.deepEqual(
@@ -119,7 +141,7 @@ describe('UFC card/date filtering helpers', () => {
       { scanLeague: 'UFC', participant: 'Malformed', start: 'not-a-date' }
     ];
 
-    const filtered = filterUfcRowsForCard(rows, { nowMs: now, cardWindow: 'next' });
+    const filtered = filterUfcRowsForCard(rows, { nowMs: now, cardWindow: 'next', timezone: 'UTC' });
     assert.deepEqual(
       filtered.map((row) => row.participant),
       ['Next UTC Day']
@@ -544,6 +566,7 @@ describe('sharp play target book helpers', () => {
         limit: 5,
         strict: true,
         eventDate: '2025-05-10',
+        timezone: 'UTC',
         nowMs: Date.parse('2025-05-09T12:00:00Z'),
         upcomingOnly: false
       }
@@ -607,6 +630,7 @@ describe('sharp play target book helpers', () => {
       {
         targetBook: 'NoVigApp',
         cardWindow: 'today',
+        timezone: 'UTC',
         nowMs: Date.parse('2025-05-09T12:00:00Z'),
         limit: 10,
         strict: true,

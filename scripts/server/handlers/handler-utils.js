@@ -42,8 +42,16 @@ function resolveMarkets(args, league, defaultMarket = 'Moneyline') {
     result.array = [];
   } else if (args.market !== undefined && args.market !== null) {
     // Single market was provided
-    result.single = String(args.market).trim();
+    const market = String(args.market).trim();
+    const resolved =
+      market.toLowerCase() === 'moneyline'
+        ? { resolved: market, wasAliased: false }
+        : resolveMarketName(market, leagueKey);
+    result.single = resolved.resolved;
     result.array = [result.single];
+    if (resolved.wasAliased) {
+      result.aliasesUsed.push(`${args.market} → ${resolved.resolved}`);
+    }
   }
 
   // If only markets array provided (no single market explicit), use first resolved
