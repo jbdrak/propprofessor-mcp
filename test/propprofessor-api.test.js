@@ -15,6 +15,7 @@ const {
   normalizeSelectionId,
   parseRetryAfterDelayMs,
   readAuthState,
+  ODDS_HISTORY_REQUEST_BUDGET,
   __getOddsHistoryGateStateForTests
 } = require('../lib/propprofessor-api');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
@@ -529,7 +530,7 @@ describe('createPropProfessorClient', () => {
 
     try {
       const results = await Promise.allSettled(
-        Array.from({ length: 76 }, (_, index) =>
+        Array.from({ length: ODDS_HISTORY_REQUEST_BUDGET + 1 }, (_, index) =>
           client.queryOddsHistory({
             gameId: `game-budget-${index}`,
             selectionId: `Moneyline:Side_${index}`,
@@ -538,12 +539,15 @@ describe('createPropProfessorClient', () => {
           })
         )
       );
-      assert.equal(fetchAttempts, 75);
-      assert.equal(results.filter((result) => result.status === 'fulfilled').length, 75);
+      assert.equal(fetchAttempts, ODDS_HISTORY_REQUEST_BUDGET);
+      assert.equal(
+        results.filter((result) => result.status === 'fulfilled').length,
+        ODDS_HISTORY_REQUEST_BUDGET
+      );
       const rejected = results.find((result) => result.status === 'rejected');
       assert.equal(rejected?.reason?.code, 'ODDS_HISTORY_BUDGET_EXHAUSTED');
       const gateState = __getOddsHistoryGateStateForTests(file);
-      assert.equal(gateState?.requestsStarted, 75);
+      assert.equal(gateState?.requestsStarted, ODDS_HISTORY_REQUEST_BUDGET);
       assert.equal(gateState?.haltedError, null, 'local budget exhaustion must not persist a stale halt error');
       assert.equal(gateState?.haltedUntil, 0, 'local budget exhaustion must rely on the real window rollover');
       await assert.rejects(
@@ -555,7 +559,7 @@ describe('createPropProfessorClient', () => {
         }),
         (error) => error?.code === 'ODDS_HISTORY_BUDGET_EXHAUSTED'
       );
-      assert.equal(fetchAttempts, 75, 'follow-on calls must fail fast without bypassing the real 75-call window');
+      assert.equal(fetchAttempts, ODDS_HISTORY_REQUEST_BUDGET, 'follow-on calls must fail fast without bypassing the real budget window');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

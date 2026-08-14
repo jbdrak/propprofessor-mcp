@@ -136,8 +136,8 @@ describe('pp-cli --record-scan', () => {
     const output = JSON.parse(capture.logs[0]);
     assert.equal(output.scanHealth.validationBudgetExhausted, true);
     assert.equal(output.scanHealth.incomplete, true);
-    assert.match(capture.errors.join('\\n'), /scan validation incomplete/);
-    assert.match(capture.errors.join('\\n'), /shared odds-history budget exhausted/);
+    assert.match(capture.errors.join('\n'), /scan validation budget exhausted/);
+    assert.match(capture.errors.join('\n'), /diagnostic only \(never official bets\)/);
   });
 
   it('does not touch the ledger when --record-scan is absent', async (t) => {

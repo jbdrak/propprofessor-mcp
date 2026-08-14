@@ -19,6 +19,54 @@ const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/li
 const { promoteCards } = require(PROJECT + '/lib/record-card');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
+// ── book alias resolution ──────────────────────────────────────
+// The backend uses canonical book names (e.g. 'OnyxOdds'), but users
+// type common shorthands ('onyx', 'no vig', 'pinnacle'). Resolve to
+// canonical before passing to handlers — otherwise the backend
+// returns 0 rows for an unknown book key. Mirrors the alias map in
+// lib/propprofessor-query-parser.js parseNaturalLanguagePropQuery.
+const BOOK_ALIASES = {
+  novig: 'NoVigApp',
+  novigapp: 'NoVigApp',
+  'no vig': 'NoVigApp',
+  onyx: 'OnyxOdds',
+  onyxodds: 'OnyxOdds',
+  'onyx odds': 'OnyxOdds',
+  pinnacle: 'Pinnacle',
+  fanduel: 'FanDuel',
+  draftkings: 'DraftKings',
+  betmgm: 'BetMGM',
+  betonline: 'BetOnline',
+  circa: 'Circa',
+  bookmaker: 'BookMaker',
+  fliff: 'Fliff',
+  rebet: 'Rebet',
+  prophet: 'Prophet Exchange',
+  thescore: 'theScore',
+  underdog: 'Underdog'
+};
+
+/**
+ * Resolve a user-supplied book name to its canonical backend name.
+ * Exact alias match first, then prefix match (so 'no vig' or 'onyx odds'
+ * with trailing text still resolve), then a squashed case-insensitive
+ * comparison against known canonical names. Unknown names pass through
+ * unchanged so the backend can still reject genuinely invalid books.
+ */
+function resolveBookAlias(raw) {
+  if (!raw) return 'NoVigApp';
+  const trimmed = String(raw).trim();
+  const lower = trimmed.toLowerCase();
+  for (const [alias, canonical] of Object.entries(BOOK_ALIASES)) {
+    if (lower === alias || lower.startsWith(alias + ' ')) return canonical;
+  }
+  const squashed = lower.replace(/[^a-z0-9]/g, '');
+  for (const canonical of new Set(Object.values(BOOK_ALIASES))) {
+    if (canonical.toLowerCase().replace(/[^a-z0-9]/g, '') === squashed) return canonical;
+  }
+  return trimmed;
+}
+
 // ── color support ───────────────────────────────────────────────
 
 const NO_COLOR =
@@ -892,13 +940,19 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
         `Warning: scan incomplete/truncated${leaguesWithIssues.length ? ` for ${[...new Set(leaguesWithIssues)].join(', ')}` : ''}; some rows were not hydrated.`
       );
     }
-    if (healthIncomplete) {
+    // "Diagnostic only" means the shared validation budget was actually
+    // exhausted and BET candidates never got a validate_play call. Plain
+    // shortlist truncation (healthTruncated/incomplete without the budget
+    // flag) only means some weaker rows weren't hydrated — the plays shown
+    // ARE hydrated and carry real CLV/movement evidence, so they are not
+    // demoted to watch candidates.
+    if (scanHealth?.validationBudgetExhausted) {
       console.error(
-        `Warning: scan validation incomplete${scanHealth?.validationBudgetExhausted ? ' (shared odds-history budget exhausted)' : ''}; BET candidates are diagnostic only.`
+        'Warning: scan validation budget exhausted; BET candidates are diagnostic only (never official bets).'
       );
+      const hintLeague = leaguesWithIssues[0] || scanHealth?.league || leagues[0];
+      if (hintLeague) console.error(`Recovery: run pp rank ${hintLeague} for a focused scan.`);
     }
-    const hintLeague = leaguesWithIssues[0] || scanHealth?.league || leagues[0];
-    if (hintLeague) console.error(`Recovery: run pp rank ${hintLeague} for a focused scan.`);
   }
 
   // --record-scan: persist this scan + normalized candidates to the tracker
@@ -989,7 +1043,7 @@ async function cmdScan(handlers, positional, flags, client) {
   const markets = flags.m || flags.market || undefined;
   const marketList = markets ? (Array.isArray(markets) ? markets : markets.split(',')) : undefined;
   const includeProps = flags.props || flags['include-props'] || false;
-  const book = flags.b || flags.book || 'NoVigApp';
+  const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const tier = flags.t || flags.tier || undefined;
   const onlyBets = flags.B || flags['only-bets'] || false;
   const sortBy = flags.sort || 'start';
@@ -1115,7 +1169,7 @@ async function cmdValidate(handlers, positional, flags) {
   const market = derived.market || 'Moneyline';
   const selection = derived.selection || '';
   const gameId = flags.g || flags['game-id'] || playId.replace(/::.*$/, '').replace(/:$/, '');
-  const book = flags.b || flags.book || 'NoVigApp';
+  const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const jsonOut = flags.j || flags.json || false;
 
   console.error('Validating ' + playId.slice(-40) + '...');
@@ -1146,7 +1200,7 @@ async function cmdGame(handlers, positional, flags) {
   const league = derived.league || 'MLB';
   const market = derived.market || flags.m || flags.market || 'Total Runs';
   const selection = derived.selection || '';
-  const book = flags.b || flags.book || 'NoVigApp';
+  const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const jsonOut = flags.j || flags.json || false;
   // Strip any "::market::selection" suffix so the handler queries the bare
   // gameId (the backend rows carry the bare gameId on each row).
@@ -1410,7 +1464,7 @@ async function cmdPrices(handlers, positional, flags) {
 async function cmdRank(handlers, positional, flags) {
   const league = positional[1] || flags.l || flags.league || 'MLB';
   const market = flags.m || flags.market || undefined;
-  const book = flags.b || flags.book || 'NoVigApp';
+  const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const limit = parseInt(flags.n || flags.limit || 20);
   const jsonOut = flags.j || flags.json || false;
 

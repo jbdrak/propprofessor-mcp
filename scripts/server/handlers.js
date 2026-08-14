@@ -1110,10 +1110,22 @@ function createMcpHandlers({
       // A validation can make several history calls while reconciling exact
       // selection/timestamp drift. Bound bundled quick-screen validation by
       // the shared window and reserve capacity for Tennis fallback recovery.
+      // The per-validation estimate is LOW (exact-selection rechecks with
+      // enableHistoryLineFallback:false cost 1-3 calls, not 20) so the cap
+      // actually lets the requested top-N validate instead of rounding every
+      // scan down to a single play.
       const remainingBeforeValidation =
         typeof client.oddsHistoryBudgetRemaining === 'function' ? client.oddsHistoryBudgetRemaining() : null;
+      // Tennis in the requested leagues means the CLI tennis fallback runs
+      // AFTER this scan and needs a slice of the same window to hydrate its
+      // own candidates — reserve it so the fallback isn't starved to zero.
+      const tennisInScan = (leagues || []).some((leagueName) =>
+        String(leagueName || '').toLowerCase() === 'tennis'
+      );
+      const VALIDATION_RESERVE_CALLS = tennisInScan ? 40 : 20;
+      const VALIDATION_ESTIMATED_CALLS = 3;
       const validationBudgetCap = Number.isFinite(remainingBeforeValidation)
-        ? Math.max(0, Math.floor((remainingBeforeValidation - 20) / 20))
+        ? Math.max(0, Math.floor((remainingBeforeValidation - VALIDATION_RESERVE_CALLS) / VALIDATION_ESTIMATED_CALLS))
         : requestedValidateTop;
       const validateTop = validateAll ? requestedValidateTop : Math.min(requestedValidateTop, validationBudgetCap);
       const validationBudgetExhausted = args.validate !== false && requestedValidateTop > 0 && validateTop === 0;

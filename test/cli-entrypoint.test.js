@@ -70,7 +70,7 @@ describe('pp CLI entrypoint', () => {
         limit: 5
       });
       assert.match(stderr.join('\n'), /incomplete\/truncated/);
-      assert.match(stderr.join('\n'), /shared odds-history budget exhausted/);
+      assert.match(stderr.join('\n'), /scan validation budget exhausted/);
       assert.match(stderr.join('\n'), /pp rank MLB/);
       const parsed = JSON.parse(stdout[0]);
       assert.equal(parsed.scanHealth.validationBudgetExhausted, true);

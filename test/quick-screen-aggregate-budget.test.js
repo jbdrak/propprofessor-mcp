@@ -2,9 +2,10 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { runSharpPlays } = require('../lib/propprofessor-sharp-plays-service');
+const { runSharpPlays, getAggregateGameBudget } = require('../lib/propprofessor-sharp-plays-service');
 const { buildRankedScreenResponse } = require('../lib/propprofessor-mcp-ranked-screen');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { ODDS_HISTORY_REQUEST_BUDGET } = require('../lib/propprofessor-api');
 
 it('wires the extracted tennis screen handler into the production handler map', () => {
   const handlers = createMcpHandlers({ client: {} });
@@ -145,10 +146,10 @@ describe('quick_screen aggregate odds-history budget', () => {
     }
 
     // THE regression: total selection-hydration calls across all pairs stay
-    // below the process-wide 75-call odds-history budget.
+    // below the process-wide odds-history budget.
     assert.ok(
-      historyCalls.length < 75,
-      `expected total history calls < 75 across ${pairCount} pairs, got ${historyCalls.length}`
+      historyCalls.length < ODDS_HISTORY_REQUEST_BUDGET,
+      `expected total history calls < ${ODDS_HISTORY_REQUEST_BUDGET} across ${pairCount} pairs, got ${historyCalls.length}`
     );
 
     // Every pair still hydrates at least one strongest current-market side —
@@ -167,7 +168,7 @@ describe('quick_screen aggregate odds-history budget', () => {
 
     // Budget metadata is surfaced for debugging.
     assert.equal(result.resultMeta.historyBudget?.mode, 'aggregate');
-    assert.ok(result.resultMeta.historyBudget.maxSelectionCalls < 75);
+    assert.ok(result.resultMeta.historyBudget.maxSelectionCalls < ODDS_HISTORY_REQUEST_BUDGET);
     assert.equal(result.resultMeta.historyBudget.pairCount, pairCount);
   });
 
@@ -427,7 +428,11 @@ describe('quick_screen aggregate odds-history budget', () => {
     const { createMcpHandlers } = require('../scripts/server/handlers');
     const handlers = createMcpHandlers({
       client: {
-        oddsHistoryBudgetRemaining: () => 40
+        // 24 remaining → validation cap = floor((24-20)/3) = 1, so exactly
+        // one of the two BETs validates and the other becomes a watch
+        // candidate. (Pre-fix math was /20 per validation, which rounded
+        // nearly every scan down to a single play.)
+        oddsHistoryBudgetRemaining: () => 24
       }
     });
     const cases = [
@@ -512,11 +517,13 @@ describe('quick_screen aggregate odds-history budget', () => {
 
   it('per-pair budget shrinks with pair count and floors at one game', async () => {
     const { getAggregateGameBudget } = require('../lib/propprofessor-sharp-plays-service');
+    const { ODDS_HISTORY_REQUEST_BUDGET } = require('../lib/propprofessor-api');
     // Aggregate mode hydrates the strongest side per shortlisted game and
-    // reserves 40 calls for initial ranking.
-    assert.equal(getAggregateGameBudget(36), 1);
-    assert.equal(getAggregateGameBudget(12), 3);
-    assert.equal(getAggregateGameBudget(4), 10);
+    // reserves 60% of the process budget for initial ranking.
+    const allocation = Math.floor(ODDS_HISTORY_REQUEST_BUDGET * 0.6);
+    assert.equal(getAggregateGameBudget(36), Math.max(1, Math.min(24, Math.floor(allocation / 36))));
+    assert.equal(getAggregateGameBudget(12), Math.max(1, Math.min(24, Math.floor(allocation / 12))));
+    assert.equal(getAggregateGameBudget(4), Math.max(1, Math.min(24, Math.floor(allocation / 4))));
     assert.equal(getAggregateGameBudget(1), 24); // capped at the per-call max
     assert.equal(getAggregateGameBudget(0), 24); // degenerate input
   });
@@ -661,7 +668,11 @@ describe('quick_screen aggregate odds-history budget', () => {
       assert.equal(args.activeAggregatePairCount, 2, 'active count must be passed into every invocation');
       assert.equal(args.aggregatePairCount, LEAGUES.length, 'raw total kept for backward compat');
       assert.equal(spResult.resultMeta.historyBudget.pairCount, 2, 'budget meta must reflect ACTIVE pairs');
-      assert.equal(spResult.resultMeta.historyBudget.maxSelectionCalls, 40, '2 active × 20-game budget = 40 max calls');
+      assert.equal(
+        spResult.resultMeta.historyBudget.maxSelectionCalls,
+        2 * getAggregateGameBudget(2),
+        '2 active pairs × per-pair game budget = expected max calls'
+      );
     }
 
     // 3) THE regression: both qualifying rows survive with real movement.
