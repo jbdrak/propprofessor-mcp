@@ -246,7 +246,7 @@ describe('recoverTennisFromScreen — canonical identity', () => {
 });
 
 describe('recoverTennisFromScreen — canonical movement policy', () => {
-  it('uses sharp movement provenance while preserving the requested execution quote', async () => {
+  it('uses the named book own history when available, preserving the execution quote', async () => {
     const calls = [];
     const client = {
       queryScreenOdds() {
@@ -299,8 +299,12 @@ describe('recoverTennisFromScreen — canonical movement policy', () => {
     assert.ok(play);
     assert.equal(play.book, 'NoVigApp');
     assert.equal(play.odds, 122);
-    assert.equal(play.movementSourceBook, 'Pinnacle');
-    assert.equal(play.clvProxyPct, Math.round((100 / 222 - 100 / 245) * 1000) / 10);
+    // Named book has its own 2+ point history, so its own movement wins.
+    assert.equal(play.movementSourceBook, 'NoVigApp');
+    assert.equal(play.movementMode, 'same_book');
+    assert.equal(play.clvProxyPct, -5);
+    // NoVigApp's own trail (100 -> 122) is adverse, so the execution conflict
+    // gate downgrades to CONSIDER even though Pinnacle's trail is supportive.
     assert.equal(play.verdict, 'CONSIDER');
     assert.equal(calls[0].lookbackHours, 6);
   });

@@ -200,7 +200,7 @@ describe('tennis screen ranking helpers', () => {
     assert.equal(americanOddsToImpliedProbability(-120) > americanOddsToImpliedProbability(-105), true);
   });
 
-  it('summarizes same-book movement with explicit quality metadata', () => {
+  it('labels comparison-book movement when the named book lacks its own history', () => {
     const summary = summarizeSharpMovement({
       lineHistory: [
         { book: 'Pinnacle', odds: -142, time: 1 },
@@ -213,8 +213,8 @@ describe('tennis screen ranking helpers', () => {
     });
 
     assert.equal(summary.movementSourceBook, 'Pinnacle');
-    assert.equal(summary.movementMode, 'same_book');
-    assert.equal(summary.movementQuality, 'high');
+    assert.equal(summary.movementMode, 'comparison_book');
+    assert.equal(summary.movementQuality, 'low');
     assert.equal(summary.lineHistoryUsable, true);
     assert.equal(summary.droppedHistoryPointCount, 1);
     assert.equal(summary.movementLabel, 'supportive');

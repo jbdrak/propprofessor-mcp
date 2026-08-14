@@ -83,31 +83,77 @@ describe('propprofessor sharp history helpers', () => {
     });
 
     assert.equal(summary.movementSourceBook, 'Pinnacle');
-    assert.equal(summary.movementMode, 'same_book');
+    assert.equal(summary.movementMode, 'comparison_book');
     assert.equal(summary.movementLabel, 'recent_supportive_only');
     assert.equal(summary.lineHistoryUsable, true);
-    assert.equal(summary.movementQuality, 'high');
+    assert.equal(summary.movementQuality, 'low');
     assert.equal(summary.droppedHistoryPointCount, 1);
     assert.equal(typeof summary.clvProxyPct, 'number');
     assert.equal(typeof summary.recentClvPct, 'number');
   });
 
-  it('prefers a sharp-book time series over target-book history when both exist', () => {
+  it('prefers the named book history over sharp comparison history', () => {
     const summary = summarizeSharpMovement({
       lineHistory: [
-        { book: 'NoVigApp', odds: -104, time: 1 },
-        { book: 'NoVigApp', odds: -112, time: 2 },
+        { book: 'OnyxOdds', odds: 110, time: 1 },
+        { book: 'OnyxOdds', odds: 120, time: 2 },
         { book: 'Pinnacle', odds: -108, time: 1 },
         { book: 'Pinnacle', odds: -120, time: 2 }
+      ],
+      preferredBook: 'OnyxOdds',
+      sharpBooks: ['Pinnacle', '4cx'],
+      options: { recentWindowHours: 6 }
+    });
+
+    assert.equal(summary.movementMode, 'same_book');
+    assert.equal(summary.movementSourceBook, 'OnyxOdds');
+  });
+
+  it('downgrades comparison movement when the named book has no history', () => {
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: -108, time: 1 },
+        { book: 'Pinnacle', odds: -120, time: 2 }
+      ],
+      preferredBook: 'OnyxOdds',
+      sharpBooks: ['Pinnacle'],
+      options: { recentWindowHours: 6 }
+    });
+
+    assert.notEqual(summary.movementMode, 'same_book');
+    assert.equal(summary.movementSourceBook, 'Pinnacle');
+    assert.notEqual(summary.movementQuality, 'high');
+  });
+
+  it('preserves broad sharp-book movement without a named book context', () => {
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: -108, time: 1 },
+        { book: 'Pinnacle', odds: -120, time: 2 }
+      ],
+      sharpBooks: ['Pinnacle'],
+      options: { recentWindowHours: 6 }
+    });
+
+    assert.equal(summary.movementMode, 'same_book');
+    assert.equal(summary.movementSourceBook, 'Pinnacle');
+  });
+
+  it('retains mixed-book fallback when no named trail is usable', () => {
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: -120, time: 1 },
+        { book: 'Circa', odds: -118, time: 2 },
+        { book: 'BetOnline', odds: -112, time: 3 }
       ],
       preferredBook: 'NoVigApp',
       sharpBooks: ['Pinnacle', 'Circa', 'BetOnline'],
       options: { recentWindowHours: 6 }
     });
 
-    assert.equal(summary.movementMode, 'same_book');
-    assert.equal(summary.movementSourceBook, 'Pinnacle');
-    assert.equal(summary.movementQuality, 'high');
+    assert.equal(summary.movementMode, 'mixed_books_fallback');
+    assert.equal(summary.movementQuality, 'low');
+    assert.equal(summary.lineHistoryUsable, true);
   });
 
   it('falls back to mixed-book movement when no same-book trail is usable', () => {

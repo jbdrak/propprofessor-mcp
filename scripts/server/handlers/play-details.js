@@ -152,7 +152,16 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
   };
   const exactRowsByGame = new Map();
   for (const row of rows) {
-    if (!rowMatchesSelectionFilter(row, needle) || !hasRequestedBookQuote(row)) continue;
+    if (
+      !rowMatchesSelectionFilter(row, needle) ||
+      !hasRequestedBookQuote(row) ||
+      ![
+        normalizeSelectionText(stripSelectionMarketPrefix(row?.selectionId)),
+        normalizeSelectionText(row?.selection),
+        normalizeSelectionText(row?.line != null ? `${row.selection} ${row.line}` : '')
+      ].includes(needle)
+    )
+      continue;
     const gameKey = row.gameId;
     const existing = exactRowsByGame.get(gameKey);
     if (!existing || String(row.book || '').trim() === requestedBook) {
@@ -186,8 +195,33 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
       const odds = Number(bookOdds?.[oddsKey]);
       if (!bookOdds || !Number.isFinite(odds) || !side.id) continue;
       const selection = side.label;
+      const inheritedHistoryFields = [
+        'lineHistory',
+        'lineHistoryAvailable',
+        'lineHistorySource',
+        'movementSourceBook',
+        'movementMode',
+        'movementLabel',
+        'movementDisposition',
+        'openingOdds',
+        'currentOdds',
+        'clvProxyPct',
+        'movementSummary',
+        'normalizedSelectionId',
+        'historyMatchKey',
+        'historyGameId',
+        'lineVariantUsed'
+      ];
+      const sourceSelectionId = String(row?.selectionId || '').trim();
       const materializedRow = {
         ...row,
+        ...(sourceSelectionId !== String(side.id).trim()
+          ? Object.fromEntries([
+              ...inheritedHistoryFields.map((field) => [field, undefined]),
+              ['exactLineHistorySuppressed', true],
+              ['lineVariantUsed', 'exact_nested']
+            ])
+          : {}),
         selection,
         participant: selection,
         selectionId: side.id,
@@ -254,6 +288,36 @@ function finalizePlayDetailsResponse({ response, merged, args, gameIds, relaxedG
       selectionFilter,
       ...(selectionMatchedNested ? { selectionMatchedNested: true } : {})
     };
+  }
+
+  for (const row of response.result) {
+    const suppressExactLineHistory =
+      row?.exactLineHistorySuppressed ||
+      row?.rankingProvenance?.exactLineHistorySuppressed ||
+      row?.lineVariantUsed === 'exact_nested' ||
+      (selectionFilter && row?.defaultKey != null && Object.keys(row?.selections || {}).length === 1) ||
+      (selectionFilter && row?.lineHistoryAvailable && !row?.historyMatchKey);
+    if (!suppressExactLineHistory) continue;
+    for (const field of [
+      'lineHistory',
+      'lineHistoryAvailable',
+      'lineHistorySource',
+      'movementSourceBook',
+      'movementMode',
+      'movementLabel',
+      'movementDisposition',
+      'openingOdds',
+      'currentOdds',
+      'clvProxyPct',
+      'movementSummary',
+      'normalizedSelectionId',
+      'historyMatchKey',
+      'historyGameId',
+      'lineVariantUsed',
+      'exactLineHistorySuppressed'
+    ]) {
+      delete row[field];
+    }
   }
 
   for (const row of response.result) {
@@ -398,6 +462,29 @@ async function queryPlayDetailsResponse({
         });
       }
     });
+    for (const row of response.result || []) {
+      if (row?.lineVariantUsed !== 'exact_nested' && !row?.exactLineHistorySuppressed) continue;
+      for (const field of [
+        'lineHistory',
+        'lineHistoryAvailable',
+        'lineHistorySource',
+        'movementSourceBook',
+        'movementMode',
+        'movementLabel',
+        'movementDisposition',
+        'openingOdds',
+        'currentOdds',
+        'clvProxyPct',
+        'movementSummary',
+        'normalizedSelectionId',
+        'historyMatchKey',
+        'historyGameId',
+        'lineVariantUsed',
+        'exactLineHistorySuppressed'
+      ]) {
+        delete row[field];
+      }
+    }
   } catch (err) {
     return {
       ok: true,

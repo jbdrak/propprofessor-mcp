@@ -15,6 +15,7 @@ const {
   getDebugFlag,
   DEFAULT_ODDS_HISTORY_LOOKBACK_HOURS
 } = require('../lib/propprofessor-mcp-ranked-screen');
+const { rankScreenRows } = require('../lib/screen-ranker');
 
 describe('normalizeBookList', () => {
   it('deduplicates book names', () => {
@@ -179,6 +180,51 @@ describe('DEFAULT_ODDS_HISTORY_LOOKBACK_HOURS', () => {
   });
 });
 
+describe('rankScreenRows nested focus-book coverage', () => {
+  it('uses nested focus-book odds without reporting a coverage gap', () => {
+    const { rankScreenRows } = require('../lib/screen-ranker');
+    const rows = rankScreenRows(
+      [
+        {
+          gameId: 'tennis-game',
+          league: 'Tennis',
+          market: 'Total Games',
+          selection: 'Over',
+          selectionId: 'Total Games:Over_22.5',
+          line: 22.5,
+          book: 'Pinnacle',
+          selections: {
+            total: {
+              selection1: 'Over',
+              selection2: 'Under',
+              selection1Id: 'Total Games:Over_22.5',
+              selection2Id: 'Total Games:Under_22.5',
+              line1: 22.5,
+              line2: 22.5,
+              odds: {
+                OnyxOdds: { odds1: 120, odds2: -140 },
+                Pinnacle: { odds1: 110, odds2: -130 }
+              }
+            }
+          }
+        }
+      ],
+      {
+        preferredBooks: ['OnyxOdds', 'Pinnacle'],
+        focusBook: 'OnyxOdds',
+        requirePreferredBook: true,
+        includeAll: true,
+        debug: false
+      }
+    );
+
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].book, 'OnyxOdds');
+    assert.deepEqual(rows.coverageGaps, []);
+    assert.equal(rows.focusBookMissingRows, undefined);
+  });
+});
+
 describe('buildRankedScreenResponse', () => {
   it('builds a ranked response with correct shape', async () => {
     const stubClient = { getOddsHistory: async () => [] };
@@ -211,6 +257,91 @@ describe('buildRankedScreenResponse', () => {
     assert.ok(result.resultMeta);
     assert.equal(result.resultMeta.lookbackHoursUsed, 2);
     assert.equal(result.resultMeta.debugEnabled, false);
+  });
+
+  it('keeps rationale in sync with the recomputed movementDisposition (yellow→green grade upgrade)', async () => {
+    // Regression: the ranker builds `rationale` from the rank-time
+    // movementDisposition, which is computed from the RAW movementGrade
+    // (buildRankedIntermediateRow). buildRankedScreenResponse then
+    // recomputes movementDisposition from the expanded row, whose
+    // movementGrade was re-derived by gradeMovementQuality — which upgrades
+    // yellow→green here (steam-exempt: 4 books + positive CLV + best exec).
+    // Without the fix the rationale still said supportive_bouncy while the
+    // structured field said supportive_clean — a direct contradiction.
+    const nowMs = Date.now();
+    const payload = {
+      rows: [
+        {
+          league: 'MLB',
+          market: 'Moneyline',
+          book: 'NoVigApp',
+          participant: 'Cubs',
+          selection: 'Cubs',
+          movementGrade: 'yellow',
+          selections: {
+            null: {
+              selection1: 'Cubs',
+              participant1: 'Cubs',
+              selectionType1: 'team',
+              selection1Id: 'mlb-cubs',
+              selection2: 'Cardinals',
+              participant2: 'Cardinals',
+              selectionType2: 'team',
+              selection2Id: 'mlb-cardinals',
+              line1: null,
+              line2: null,
+              odds: {
+                NoVigApp: { odds1: -110, odds2: 100 },
+                Pinnacle: { odds1: -115, odds2: 105 },
+                Circa: { odds1: -112, odds2: 104 },
+                DraftKings: { odds1: -114, odds2: 106 },
+                BetMGM: { odds1: -113, odds2: 103 }
+              }
+            }
+          },
+          lineHistory: [
+            { book: 'NoVigApp', odds: -95, time: nowMs - 4 * 60 * 60 * 1000 },
+            { book: 'NoVigApp', odds: -100, time: nowMs - 2 * 60 * 60 * 1000 },
+            { book: 'NoVigApp', odds: -105, time: nowMs - 30 * 60 * 1000 }
+          ]
+        }
+      ]
+    };
+    const result = await buildRankedScreenResponse({
+      client: null,
+      payloads: [payload],
+      args: { skipHistory: true, debug: false, limit: 5 },
+      rankRows: (hydratedRows, { debug } = {}) => rankScreenRows(hydratedRows, { limit: 5, includeAll: true, debug })
+    });
+
+    assert.equal(result.ok, true);
+    const cubs = result.result.find((row) => String(row.selection || row.participant || '').includes('Cubs'));
+    assert.ok(cubs, 'Cubs row should be present in the ranked result');
+    // The scenario: raw yellow grade upgrades to green via gradeMovementQuality.
+    assert.equal(cubs.movementGrade, 'green');
+    assert.equal(cubs.movementDisposition, 'supportive_clean');
+    // The stale-rationale regression: the human-readable text must agree
+    // with the structured field.
+    assert.ok(
+      !String(cubs.rationale).includes('supportive_bouncy'),
+      `rationale must not keep the stale rank-time disposition: ${cubs.rationale}`
+    );
+    assert.ok(
+      String(cubs.rationale).includes('supportive_clean'),
+      `rationale must reflect the recomputed disposition: ${cubs.rationale}`
+    );
+    // Invariant across every row in the response: any disposition token in a
+    // rationale must match the row's structured movementDisposition.
+    for (const row of result.result) {
+      const match = /supportive_(clean|bouncy)|adverse_(recent|full)/.exec(String(row.rationale || ''));
+      if (match) {
+        assert.equal(
+          match[0],
+          row.movementDisposition,
+          `rationale contradicts movementDisposition for ${row.selection || row.participant || row.playId}: ${row.rationale}`
+        );
+      }
+    }
   });
 
   it('filters wrong-day scheduled rows for today scans before ranking', async () => {

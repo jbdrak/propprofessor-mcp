@@ -224,6 +224,51 @@ describe('get_play_details exact selection filter', () => {
     assert.equal(row.liquidityUsd, 18);
   });
 
+  it('does not inherit movement from the top-level line when materializing a nested exact line', async () => {
+    const nested = {
+      selection1: 'Over',
+      selection2: 'Under',
+      selection1Id: 'Total Games:Over_22.5',
+      selection2Id: 'Total Games:Under_22.5',
+      line1: 22.5,
+      line2: 22.5,
+      odds: { NoVigApp: { odds1: -120, odds2: 100, liquidity1: 18, liquidity2: 12 } }
+    };
+    const row = {
+      gameId: GAME_ID,
+      league: 'Tennis',
+      market: 'Total Games',
+      selection: 'Over',
+      line: 23.5,
+      selectionId: 'Total Games:Over_23.5',
+      book: 'Pinnacle',
+      odds: -110,
+      lineHistory: [
+        { book: 'Pinnacle', odds: -120 },
+        { book: 'Pinnacle', odds: -110 }
+      ],
+      lineHistoryAvailable: true,
+      movementSourceBook: 'Pinnacle',
+      movementMode: 'same_book',
+      selections: { over22: nested }
+    };
+    const { client } = createMockClient({ screenPayloads: { 'Tennis:Total Games': { rows: [row] } } });
+    const result = await createMcpHandlers({ client }).get_play_details({
+      league: 'Tennis',
+      market: 'Total Games',
+      gameIds: [GAME_ID],
+      books: ['NoVigApp'],
+      selection: 'Over 22.5'
+    });
+
+    assert.equal(result.result.length, 1);
+    assert.equal(result.result[0].selectionId, 'Total Games:Over_22.5');
+    assert.equal(result.result[0].lineHistoryAvailable, undefined);
+    assert.equal(result.result[0].lineHistory, undefined);
+    assert.equal(result.result[0].movementSourceBook, undefined);
+    assert.equal(result.result[0].movementMode, undefined);
+  });
+
   it('preserves broad game lookup when no selection is supplied', async () => {
     const result = await makeHandlers().get_play_details({
       league: 'Tennis',
