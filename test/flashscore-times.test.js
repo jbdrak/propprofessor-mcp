@@ -21,6 +21,7 @@ const TEST_CACHE = {
     {
       id: 'abc123',
       time: '22:10',
+      foundOn: '2026-07-30',
       status: 'scheduled',
       home: 'Shapovalov D.',
       away: 'Pacheco Mendez R.',
@@ -135,6 +136,11 @@ describe('flashscore-times', () => {
   });
 
   describe('lookupMatchTime', () => {
+    it('uses the match foundOn date when the cache spans multiple days', () => {
+      const m = mod.lookupMatchTime('Shapovalov', 'Pacheco Mendez');
+      assert.equal(m.date, '2026-07-30');
+    });
+
     it('finds match by player names', () => {
       const m = mod.lookupMatchTime('Shapovalov', 'Pacheco Mendez');
       assert.ok(m, 'should find match');
