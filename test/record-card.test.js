@@ -41,6 +41,28 @@ function makeLedger() {
     startDisplay: 'Aug 4, 6:40 PM',
     startSource: 'pp_schedule',
     startConfidence: 'high',
+    featureSnapshot: {
+      schemaVersion: 1,
+      capturedAt: '2026-08-04T01:00:00.000Z',
+      signalTier: 'TIER 2',
+      confidenceTier: 'TIER 2',
+      signalQualityScore: 7.5,
+      verdict: 'BET',
+      movementDisposition: 'supportive_clean',
+      movementGrade: 'A',
+      consensusEdgePct: 3.1,
+      clvProxyPct: 2.1,
+      sharpBookCount: 4,
+      consensusBookCount: 4,
+      marketBookCount: 9,
+      executionQuality: 'best',
+      targetBookOdds: -110,
+      bestAvailableOdds: -112,
+      marketFairProbability: 0.52,
+      modelWinProbability: null,
+      modelMarketEdgePct: null,
+      tennis: { surface: null, tour: null, elo: null, coverage: null, freshness: null, modelVersion: null }
+    },
     status: 'unreviewed',
     reviewNote: null
   });
@@ -127,6 +149,47 @@ describe('record-card: BET promotion', () => {
     });
     assert.equal(result.ok, true);
     assert.equal(result.bet.scheduledStart, '2026-08-04T23:40:00.000Z');
+  });
+
+  it('carries the candidate featureSnapshot into the official bet', () => {
+    const current = makeLedger();
+    const result = recordCard.promoteCard(current, baseCard(), { now: () => '2026-08-04T02:30:00.000Z' });
+    assert.equal(result.ok, true);
+    const bet = current.bets[0];
+    assert.deepEqual(bet.featureSnapshot, current.candidates[0].featureSnapshot);
+    assert.equal(bet.featureSnapshot.schemaVersion, 1);
+    assert.equal(bet.featureSnapshot.capturedAt, '2026-08-04T01:00:00.000Z');
+    assert.equal(bet.featureSnapshot.signalTier, 'TIER 2');
+    assert.equal(bet.featureSnapshot.consensusEdgePct, 3.1);
+  });
+
+  it('keeps the bet featureSnapshot immutable: mutating the bet does not alter the candidate and vice versa', () => {
+    const current = makeLedger();
+    const result = recordCard.promoteCard(current, baseCard(), { now: () => '2026-08-04T02:30:00.000Z' });
+    const bet = current.bets[0];
+    // Mutating the bet snapshot must not alter the stored candidate snapshot.
+    bet.featureSnapshot.signalTier = 'MUTATED';
+    bet.featureSnapshot.tennis.surface = 'clay';
+    assert.equal(current.candidates[0].featureSnapshot.signalTier, 'TIER 2');
+    assert.equal(current.candidates[0].featureSnapshot.tennis.surface, null);
+    // Mutating the candidate after promotion must not alter the stored bet snapshot.
+    current.candidates[0].featureSnapshot.signalQualityScore = 1;
+    current.candidates[0].featureSnapshot.tennis.tour = 'WTA';
+    assert.equal(bet.featureSnapshot.signalQualityScore, 7.5);
+    assert.equal(bet.featureSnapshot.tennis.tour, null);
+    // Mutating the returned bet object must not alter the stored bet record either.
+    result.bet.featureSnapshot.executionQuality = 'MUTATED';
+    assert.equal(bet.featureSnapshot.executionQuality, 'best');
+  });
+
+  it('promotes candidates without a featureSnapshot with a null snapshot', () => {
+    const current = makeLedger();
+    delete current.candidates[0].featureSnapshot;
+    const result = recordCard.promoteCard(current, baseCard(), { now: () => '2026-08-04T02:30:00.000Z' });
+    assert.equal(result.ok, true);
+    assert.equal(current.bets[0].featureSnapshot, null);
+    // Candidate status behavior is unchanged.
+    assert.equal(current.candidates[0].status, 'promoted');
   });
 
   it('rejects BET cards with a missing or invalid price', () => {

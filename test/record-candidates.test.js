@@ -165,6 +165,7 @@ describe('normalizeScanCandidates', () => {
       'clvProxyPct',
       'consensusBookCount',
       'edge',
+      'featureSnapshot',
       'game',
       'gameId',
       'league',
@@ -225,6 +226,291 @@ describe('normalizeScanCandidates', () => {
     );
     assert.equal(out[0].league, 'Tennis');
     assert.equal(out[0].market, 'Set Handicap');
+  });
+});
+
+describe('featureSnapshot', () => {
+  it('is present on every normalized candidate with schemaVersion 1 and capturedAt only when supplied', () => {
+    const out = normalizeScanCandidates(
+      [{ league: 'NBA', market: 'Spread', plays: [{ gameId: 'g1', selection: 'Lakers', odds: -110 }] }],
+      { scanId: 'scan-snap', capturedAt: '2026-08-14T12:00:00.000Z' }
+    );
+    const snap = out[0].featureSnapshot;
+    assert.equal(snap.schemaVersion, 1);
+    assert.equal(snap.capturedAt, '2026-08-14T12:00:00.000Z');
+
+    const noCapture = normalizeScanCandidates(
+      [{ league: 'NBA', market: 'Spread', plays: [{ gameId: 'g2', selection: 'Celtics', odds: -110 }] }],
+      { scanId: 'scan-nocap' }
+    )[0].featureSnapshot;
+    assert.equal(noCapture.capturedAt, null);
+  });
+
+  it('resolves signalTier via row.signalTier ?? row.confidenceTier ?? row.tier and aliases confidenceTier', () => {
+    const fromSignal = normalizeScanCandidates(
+      [
+        {
+          league: 'NBA',
+          market: 'Spread',
+          plays: [{ selection: 'A', signalTier: 'TIER 1', confidenceTier: 'TIER 2', tier: 'TIER 3' }]
+        }
+      ],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    assert.equal(fromSignal.signalTier, 'TIER 1');
+    assert.equal(fromSignal.confidenceTier, 'TIER 1');
+
+    const fromConfidence = normalizeScanCandidates(
+      [{ league: 'NBA', market: 'Spread', plays: [{ selection: 'B', confidenceTier: 'TIER 2', tier: 'TIER 3' }] }],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    assert.equal(fromConfidence.signalTier, 'TIER 2');
+    assert.equal(fromConfidence.confidenceTier, 'TIER 2');
+
+    const fromTier = normalizeScanCandidates(
+      [{ league: 'NBA', market: 'Spread', plays: [{ selection: 'C', tier: 'TIER 3' }] }],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    assert.equal(fromTier.signalTier, 'TIER 3');
+    assert.equal(fromTier.confidenceTier, 'TIER 3');
+
+    const none = normalizeScanCandidates([{ league: 'NBA', market: 'Spread', plays: [{ selection: 'D' }] }], {
+      scanId: 's'
+    })[0].featureSnapshot;
+    assert.equal(none.signalTier, null);
+    assert.equal(none.confidenceTier, null);
+  });
+
+  it('maps signal quality, verdict, movement, edge, books, odds and execution fields per spec', () => {
+    const row = {
+      selection: 'Lakers',
+      odds: -115,
+      signalQualityScore: 8.5,
+      screenScore: 7.0,
+      finalVerdict: 'BET',
+      verdict: 'CONSIDER',
+      kaiCall: 'LEAN',
+      movementDisposition: 'supportive_clean',
+      movementGrade: 'A',
+      consensusEdge: 4.2,
+      edge: 1.1,
+      clvProxyPct: 2.5,
+      sharpBookCount: 6,
+      supportBookCount: 3,
+      consensusBookCount: 9,
+      marketBookCount: 14,
+      executionQuality: 'best',
+      targetBookOdds: -118,
+      bestAvailableOdds: -120
+    };
+    const snap = normalizeScanCandidates([{ league: 'NBA', market: 'Spread', plays: [row] }], { scanId: 's' })[0]
+      .featureSnapshot;
+    assert.equal(snap.signalQualityScore, 8.5);
+    assert.equal(snap.verdict, 'BET');
+    assert.equal(snap.movementDisposition, 'supportive_clean');
+    assert.equal(snap.movementGrade, 'A');
+    assert.equal(snap.consensusEdgePct, 4.2);
+    assert.equal(snap.clvProxyPct, 2.5);
+    assert.equal(snap.sharpBookCount, 6);
+    assert.equal(snap.consensusBookCount, 9);
+    assert.equal(snap.marketBookCount, 14);
+    assert.equal(snap.executionQuality, 'best');
+    assert.equal(snap.targetBookOdds, -118);
+    assert.equal(snap.bestAvailableOdds, -120);
+  });
+
+  it('falls back through alias fields when primary fields are missing', () => {
+    const row = {
+      selection: 'Astros',
+      odds: -105,
+      screenScore: 7.0,
+      verdict: 'CONSIDER',
+      edge: 2.2,
+      supportBookCount: 4,
+      books: 5
+    };
+    const snap = normalizeScanCandidates([{ league: 'MLB', market: 'Moneyline', plays: [row] }], { scanId: 's' })[0]
+      .featureSnapshot;
+    assert.equal(snap.signalQualityScore, 7.0);
+    assert.equal(snap.verdict, 'CONSIDER');
+    assert.equal(snap.consensusEdgePct, 2.2);
+    assert.equal(snap.sharpBookCount, 4);
+    assert.equal(snap.consensusBookCount, 5);
+    assert.equal(snap.targetBookOdds, -105);
+  });
+
+  it('preserves explicitly present probabilities and never derives missing ones', () => {
+    const withProbs = normalizeScanCandidates(
+      [
+        {
+          league: 'MLB',
+          market: 'Moneyline',
+          plays: [{ selection: 'A', marketFairProbability: 0.52, modelWinProbability: 0.55, modelMarketEdgePct: 3.1 }]
+        }
+      ],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    assert.equal(withProbs.marketFairProbability, 0.52);
+    assert.equal(withProbs.modelWinProbability, 0.55);
+    assert.equal(withProbs.modelMarketEdgePct, 3.1);
+
+    const without = normalizeScanCandidates(
+      [
+        {
+          league: 'MLB',
+          market: 'Moneyline',
+          plays: [{ selection: 'B', edge: 2.0, noVigProbability: 0.6, odds: -110 }]
+        }
+      ],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    // No-vig / edge-derived values must not leak into the explicit-only fields.
+    assert.equal(without.marketFairProbability, null);
+    assert.equal(without.modelWinProbability, null);
+    assert.equal(without.modelMarketEdgePct, null);
+  });
+
+  it('normalizes explicitly undefined probabilities to null while retaining the keys', () => {
+    // Wave B1 regression: own properties set to `undefined` must survive the
+    // JSON-safe clone as explicit keys with null values, not be dropped.
+    const withUndefined = normalizeScanCandidates(
+      [
+        {
+          league: 'MLB',
+          market: 'Moneyline',
+          plays: [
+            {
+              selection: 'C',
+              marketFairProbability: undefined,
+              modelWinProbability: undefined,
+              modelMarketEdgePct: undefined
+            }
+          ]
+        }
+      ],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    // Keys are retained (not dropped by JSON.stringify) and normalized to null.
+    assert.equal(Object.prototype.hasOwnProperty.call(withUndefined, 'marketFairProbability'), true);
+    assert.equal(withUndefined.marketFairProbability, null);
+    assert.equal(Object.prototype.hasOwnProperty.call(withUndefined, 'modelWinProbability'), true);
+    assert.equal(withUndefined.modelWinProbability, null);
+    assert.equal(Object.prototype.hasOwnProperty.call(withUndefined, 'modelMarketEdgePct'), true);
+    assert.equal(withUndefined.modelMarketEdgePct, null);
+
+    // Numeric 0 is a real probability and must survive the normalization.
+    const withZero = normalizeScanCandidates(
+      [
+        {
+          league: 'MLB',
+          market: 'Moneyline',
+          plays: [{ selection: 'D', marketFairProbability: 0, modelWinProbability: 0, modelMarketEdgePct: 0 }]
+        }
+      ],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    assert.equal(withZero.marketFairProbability, 0);
+    assert.equal(withZero.modelWinProbability, 0);
+    assert.equal(withZero.modelMarketEdgePct, 0);
+  });
+
+  it('builds a tennis context subobject from explicit values only', () => {
+    const withTennis = normalizeScanCandidates(
+      [
+        {
+          league: 'Tennis',
+          market: 'Moneyline',
+          plays: [
+            {
+              selection: 'Djokovic N',
+              surface: 'clay',
+              tour: 'ATP',
+              elo: { selected: { rating: 1820 }, opponent: { rating: 1790 } },
+              coverage: 'verified',
+              freshness: '2026-08-14T10:00:00.000Z',
+              modelVersion: 'elo-v3'
+            }
+          ]
+        }
+      ],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    assert.deepEqual(withTennis.tennis, {
+      surface: 'clay',
+      tour: 'ATP',
+      elo: { selected: { rating: 1820 }, opponent: { rating: 1790 } },
+      coverage: 'verified',
+      freshness: '2026-08-14T10:00:00.000Z',
+      modelVersion: 'elo-v3'
+    });
+
+    const sparse = normalizeScanCandidates(
+      [{ league: 'Tennis', market: 'All Markets', plays: [{ selection: 'Nakashima' }] }],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    assert.deepEqual(sparse.tennis, {
+      surface: null,
+      tour: null,
+      elo: null,
+      coverage: null,
+      freshness: null,
+      modelVersion: null
+    });
+  });
+
+  it('deep-clones the snapshot: mutating the source row after normalize must not alter it', () => {
+    const source = {
+      gameId: 'g1',
+      selection: 'Yankees',
+      odds: -120,
+      signalTier: 'TIER 1',
+      consensusEdge: 3.4,
+      movementDisposition: 'supportive_clean',
+      surface: 'clay',
+      tour: 'ATP',
+      elo: { selected: { rating: 1820 }, opponent: { rating: 1790 } },
+      books: ['Pinnacle', 'DraftKings']
+    };
+    const candidate = normalizeScanCandidates([{ league: 'Tennis', market: 'Moneyline', plays: [source] }], {
+      scanId: 'scan-features',
+      capturedAt: '2026-08-14T12:00:00.000Z'
+    })[0];
+    const snapshot = candidate.featureSnapshot;
+    assert.equal(snapshot.signalTier, 'TIER 1');
+    assert.equal(snapshot.consensusEdgePct, 3.4);
+    assert.deepEqual(snapshot.tennis.elo, { selected: { rating: 1820 }, opponent: { rating: 1790 } });
+
+    // Mutate the source row after normalization.
+    source.elo.selected.rating = 1;
+    source.books.push('MutatedBook');
+    source.signalTier = 'MUTATED';
+    assert.equal(snapshot.tennis.elo.selected.rating, 1820);
+    assert.equal(snapshot.signalTier, 'TIER 1');
+
+    // Mutating the snapshot must not leak back into the source row.
+    snapshot.tennis.elo.opponent.rating = 2;
+    snapshot.consensusEdgePct = 99;
+    assert.equal(source.elo.opponent.rating, 1790);
+  });
+
+  it('keeps sparse inputs fully null rather than fabricated', () => {
+    const snap = normalizeScanCandidates([{ league: 'NBA', market: 'Spread', plays: [{ selection: 'Lakers' }] }], {
+      scanId: 'scan-sparse'
+    })[0].featureSnapshot;
+    assert.equal(snap.schemaVersion, 1);
+    assert.equal(snap.signalTier, null);
+    assert.equal(snap.signalQualityScore, null);
+    assert.equal(snap.verdict, null);
+    assert.equal(snap.movementDisposition, null);
+    assert.equal(snap.movementGrade, null);
+    assert.equal(snap.consensusEdgePct, null);
+    assert.equal(snap.clvProxyPct, null);
+    assert.equal(snap.sharpBookCount, null);
+    assert.equal(snap.consensusBookCount, null);
+    assert.equal(snap.marketBookCount, null);
+    assert.equal(snap.executionQuality, null);
+    assert.equal(snap.targetBookOdds, null);
+    assert.equal(snap.bestAvailableOdds, null);
   });
 });
 

@@ -204,3 +204,42 @@ describe('assessRiskFlag', () => {
     assert.equal(result.riskTrigger, null);
   });
 });
+
+describe('portable watchlist path', () => {
+  const os = require('os');
+  const path = require('path');
+
+  it('derives the default watchlist path from os.homedir(), not a hardcoded fallback', () => {
+    const saved = process.env.PP_SPORTS_WATCHLIST_PATH;
+    delete process.env.PP_SPORTS_WATCHLIST_PATH;
+    try {
+      const mod = freshRequire();
+      assert.equal(
+        mod.WATCHLIST_PATH,
+        path.join(os.homedir(), '.hermes/skills/pp-sports/references/beat-reporter-watchlists.md')
+      );
+    } finally {
+      if (saved !== undefined) process.env.PP_SPORTS_WATCHLIST_PATH = saved;
+    }
+  });
+
+  it('degrades safely when HOME is unset (no crash, empty watchlists)', () => {
+    const savedHome = process.env.HOME;
+    const savedOverride = process.env.PP_SPORTS_WATCHLIST_PATH;
+    delete process.env.HOME;
+    delete process.env.PP_SPORTS_WATCHLIST_PATH;
+    try {
+      const mod = freshRequire();
+      assert.equal(typeof mod.WATCHLIST_PATH, 'string');
+      assert.deepEqual(mod.loadWatchlists(), {});
+    } finally {
+      if (savedHome !== undefined) process.env.HOME = savedHome;
+      if (savedOverride !== undefined) process.env.PP_SPORTS_WATCHLIST_PATH = savedOverride;
+    }
+  });
+
+  it('source contains no author-machine absolute path', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'propprofessor-source-authority.js'), 'utf8');
+    assert.ok(!src.includes('/Users/jamesdrake'), 'source must not hardcode /Users/jamesdrake');
+  });
+});

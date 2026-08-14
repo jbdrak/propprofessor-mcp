@@ -12,7 +12,7 @@ The system assigns every play a **tier** (1–4) and a **risk score** (1–10). 
 4. **Apply hysteresis** (prevent tier thrashing)
 5. **Cross-reference sharp books** (filter target-book noise)
 
-After all 5 steps, the play is exposed via 27 MCP tools with the tier, risk score, kaiCall (`BET` / `CONSIDER` / `PASS`), and a human-readable rationale string.
+After all 5 steps, the play is exposed via 31 MCP tools with the tier, risk score, kaiCall (`BET` / `CONSIDER` / `PASS`), and a human-readable rationale string.
 
 ---
 

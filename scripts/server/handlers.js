@@ -35,6 +35,12 @@ const {
 } = require('../../lib/propprofessor-shared-utils');
 const { getLocalTimezone, localDateKey } = require('../../lib/mcp-runtime-config');
 const { getPropMarketsForSport } = require('../../lib/propprofessor-market-registry');
+const { DEFAULT_HISTORY_MIN_INTERVAL_MS } = require('../../lib/propprofessor-screen-history');
+// Shared validate/cache/timeout/apply pipeline used by BOTH quick_screen and
+// recommended_bets (plan Task 4.1). Required via the namespace (not destructured)
+// so handler regression tests can wrap runValidationPipeline with a spy after
+// module load.
+const validationPipeline = require('../../lib/propprofessor-validation-pipeline');
 
 /**
  * Get default markets for a given league and book.
@@ -407,21 +413,27 @@ function promoteFinalVerdictToDisplay(target) {
 function stripLiteResponse(response) {
   // 1. Collapse research into candidates: look up each row's risk info
   //    and attach it inline, then drop the separate research array.
+  //    Composite key is game|player|market so the same selection across
+  //    markets (Moneyline vs Total Games) joins to the right research row
+  //    and its Elo shadow context never bleeds across markets.
   const researchByGame = new Map();
   for (const r of response.research || []) {
     if (r.player && r.game) {
-      researchByGame.set(`${r.game}:${r.player.toLowerCase()}`, r);
+      researchByGame.set(`${r.game}:${r.player.toLowerCase()}:${(r.market || '').toLowerCase()}`, r);
     }
   }
   for (const entry of response.results || []) {
     for (const c of entry.candidates || []) {
       const player = (c.selection || '').toLowerCase();
       const game = c.game || '';
-      const key = `${game}:${player}`;
+      const key = `${game}:${player}:${String(c.market || entry.market || '').toLowerCase()}`;
       const research = researchByGame.get(key);
       if (research) {
         c.riskFlag = research.riskFlag || c.riskFlag || null;
         c.riskSummary = research.riskSummary || c.riskSummary || null;
+        // Elo is additive game-context context — overlay it verbatim so
+        // record-candidates can read play.elo into featureSnapshot.
+        if (research.elo) c.elo = research.elo;
       }
       // Strip heavy validated bloat — actionableSummary already captures the signal.
       delete c.validatedGameContext;
@@ -459,7 +471,8 @@ function stripLiteResponse(response) {
 function createMcpHandlers({
   client = createPropProfessorClient(),
   gameContextFn = getGameContext,
-  recommendedBetsScreenTimeoutMs = 25_000
+  recommendedBetsScreenTimeoutMs = 25_000,
+  historyMinIntervalMs: historyMinIntervalMsOption = DEFAULT_HISTORY_MIN_INTERVAL_MS
 } = {}) {
   // Clamp the screen timeout so a bad injected value can never disable the
   // per-market stall guard. Production default stays 25s.
@@ -467,6 +480,16 @@ function createMcpHandlers({
     Number.isFinite(recommendedBetsScreenTimeoutMs) && recommendedBetsScreenTimeoutMs > 0
       ? recommendedBetsScreenTimeoutMs
       : 25_000;
+  // Test seam for odds-history pacing: the hydration gate in
+  // lib/propprofessor-screen-history.js spaces /odds_history_new calls
+  // DEFAULT_HISTORY_MIN_INTERVAL_MS apart. Production keeps that default;
+  // tests inject 0 to drop the artificial pacing. Negative/NaN values fall
+  // back to the production default so a bad injection can never disable
+  // pacing entirely.
+  const historyMinIntervalMs =
+    Number.isFinite(Number(historyMinIntervalMsOption)) && Number(historyMinIntervalMsOption) >= 0
+      ? Number(historyMinIntervalMsOption)
+      : DEFAULT_HISTORY_MIN_INTERVAL_MS;
   const ctx = createHandlerContext({ client });
   const { getCacheTtlMs, getCacheMaxEntries, getCacheMaxEntrySizeBytes } = require('../../lib/mcp-runtime-config');
   const { LruCache } = require('../../lib/propprofessor-lru-cache');
@@ -1106,138 +1129,75 @@ function createMcpHandlers({
       }
 
       if (validateAll || validateTop > 0) {
-        const validationCache = new Map(); // gameId → validated result, shared across candidates
-        const validationPromises = [];
-        const eligibleValidationCandidates = allCandidates.flatMap((entry) =>
-          (entry.candidates || [])
-            .filter((candidate) => candidate.gameId && candidate.selection && !candidate.altLineFiltered)
-            .map((candidate) => ({ candidate, entry }))
-        );
-        const eligibleBetCandidates = eligibleValidationCandidates.filter(
-          ({ candidate }) => candidate.kaiCall === 'BET'
-        );
-        validationEligibleCount = eligibleBetCandidates.length;
-        const selectedValidationCandidates = validateAll
-          ? eligibleValidationCandidates
-          : [...eligibleValidationCandidates]
-              .sort((a, b) => {
-                const betPriority = Number(b.candidate.kaiCall === 'BET') - Number(a.candidate.kaiCall === 'BET');
-                return betPriority || (Number(b.candidate.screenScore) || 0) - (Number(a.candidate.screenScore) || 0);
-              })
-              .slice(0, validateTop);
-        const selectedValidationSet = new Set(selectedValidationCandidates.map(({ candidate }) => candidate));
-        validationSelectedCount = selectedValidationCandidates.filter(
-          ({ candidate }) => candidate.kaiCall === 'BET'
-        ).length;
-        validationPartial = validationSelectedCount < validationEligibleCount;
-
-        for (const entry of allCandidates) {
-          if (!entry.candidates || !entry.candidates.length) continue;
-
-          for (const candidate of entry.candidates) {
-            if (!selectedValidationSet.has(candidate) && candidate.kaiCall === 'BET') {
-              candidate.validationBudgetSkipped = true;
-              candidate.validationBudgetExhausted = false;
-              candidate.validationFailureReason = 'validation not selected within validation budget';
-              watchCandidates.push({ ...candidate, official: false });
-            }
-            // validateAll => validate everything; otherwise validate the top N
-            // candidates GLOBALLY across the aggregate scan, not N per bucket.
-            if (!selectedValidationSet.has(candidate)) continue;
-            if (!candidate.gameId || !candidate.selection) continue;
-            // Skip alt-line rows already downgraded to TIER 4 by resolveAlternateLines
-            // in the screen ranker. Validating them re-derives a fresh tier that
-            // overwrites the downgrade — wasting API calls and surfacing noise.
-            if (candidate.altLineFiltered) continue;
-
-            // Per-gameId+selection+market cache: same game + same selection shares one validate_play call.
-            // The original key (gameId::market) incorrectly shared Over/Under validation on the same game.
-            const qsCacheKey = `${candidate.gameId}::${candidate.selection}::${entry.market}`;
-            if (validationCache.has(qsCacheKey)) {
-              const cached = validationCache.get(qsCacheKey);
-              if (cached) {
-                applyValidatedFields(candidate, cached);
-                candidate._validated = true;
-                applyFinalVerdict(candidate);
-                promoteFinalVerdictToDisplay(candidate);
-              }
-              continue;
-            }
-
-            validationPromises.push(
-              (async () => {
-                try {
-                  const VALIDATION_TIMEOUT_MS = 15000;
-                  const validatePromise = ctx.handlers.runValidatePlayImpl(client, {
-                    league: entry.league,
-                    gameId: candidate.gameId,
-                    selection: candidate.selection,
-                    // Recheck only this exact selection (pre-hydration filter).
-                    exactSelectionOnly: true,
-                    playId: candidate.playId,
-                    market: entry.market,
-                    skipResearch: true,
-                    lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : 6,
-                    screenTier: candidate.confidenceTier,
-                    screenKaiCall: candidate.kaiCall,
-                    // Pass the screen snapshot's consensus/exec so the validator
-                    // can detect drift (e.g. 5 books on screen → 1 book on re-fetch)
-                    // and downgrade a phantom BET. Without this, consensusDrift can
-                    // never fire in the bundled validate path.
-                    screenConsensusBookCount: candidate.consensusBookCount,
-                    screenExecutionQuality: candidate.executionQuality,
-                    screenConsensusEdge: candidate.edge,
-                    // The aggregate screen already chose the exact line.
-                    // Recheck only that selection and do not amplify one
-                    // validation into adjacent-line history requests.
-                    enableHistoryLineFallback: false,
-                    // Carry sharpBookMovementConfirmed so the re-fetched row
-                    // doesn't lose the sharp-book confirmation and downgrade
-                    // movementDisposition to 'insufficient'.
-                    screenSharpBookConfirmed: candidate.sharpBookMovementConfirmed || false
-                  });
-                  let timeoutId;
-                  const timeoutPromise = new Promise((_, reject) => {
-                    timeoutId = setTimeout(
-                      () => reject(new Error(`Validation timeout for ${candidate.gameId}:${candidate.selection}`)),
-                      VALIDATION_TIMEOUT_MS
-                    );
-                  });
-                  try {
-                    const result = await Promise.race([validatePromise, timeoutPromise]);
-                    if (candidate.gameId && result && result.ok) {
-                      validationCache.set(qsCacheKey, result);
-                    }
-                    return { candidate, result };
-                  } finally {
-                    clearTimeout(timeoutId);
-                  }
-                } catch (err) {
-                  candidate.validationFailed = true;
-                  candidate.validationFailureReason = err.message;
-                  return { candidate, result: null, error: err.message };
-                }
-              })()
-            );
-          }
-        }
-
-        const validationResults = await mapWithConcurrency(validationPromises, async (p) => p, { concurrency: 5 });
-
-        for (const vr of validationResults) {
-          const validation = vr.result?.data?.verdictSummary ? vr.result.data : vr.result;
-          if (!validation || !validation.ok || !validation.verdictSummary) {
-            vr.candidate.validationFailed = true;
-            continue;
-          }
-          applyValidatedFields(vr.candidate, validation);
-          vr.candidate._validated = true;
-          applyFinalVerdict(vr.candidate);
-          // Promote the authoritative validated call into the agent-facing
-          // display fields so the tier filters below and downstream consumers
-          // see the merged verdict, not the raw screen snapshot.
-          promoteFinalVerdictToDisplay(vr.candidate);
-        }
+        // Selection policy: validateAll => validate everything; otherwise
+        // validate the top N candidates GLOBALLY across the aggregate scan,
+        // not N per bucket (selectTopGlobal). Marking/cache/timeout/apply
+        // semantics live in the shared pipeline module (plan Task 4.1).
+        const validationOutcome = await validationPipeline.runValidationPipeline({
+          validate: (vargs) => ctx.handlers.runValidatePlayImpl(client, vargs),
+          buildArgs: (candidate, entry) => ({
+            league: entry.league,
+            gameId: candidate.gameId,
+            selection: candidate.selection,
+            // Recheck only this exact selection (pre-hydration filter).
+            exactSelectionOnly: true,
+            playId: candidate.playId,
+            market: entry.market,
+            skipResearch: true,
+            lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : 6,
+            screenTier: candidate.confidenceTier,
+            screenKaiCall: candidate.kaiCall,
+            // Pass the screen snapshot's consensus/exec so the validator
+            // can detect drift (e.g. 5 books on screen → 1 book on re-fetch)
+            // and downgrade a phantom BET. Without this, consensusDrift can
+            // never fire in the bundled validate path.
+            screenConsensusBookCount: candidate.consensusBookCount,
+            screenExecutionQuality: candidate.executionQuality,
+            screenConsensusEdge: candidate.edge,
+            // The aggregate screen already chose the exact line.
+            // Recheck only that selection and do not amplify one
+            // validation into adjacent-line history requests.
+            enableHistoryLineFallback: false,
+            // Carry sharpBookMovementConfirmed so the re-fetched row
+            // doesn't lose the sharp-book confirmation and downgrade
+            // movementDisposition to 'insufficient'.
+            screenSharpBookConfirmed: candidate.sharpBookMovementConfirmed || false
+          }),
+          // Per-gameId+selection+market cache: same game + same selection shares
+          // one cache slot. The original key (gameId::market) incorrectly shared
+          // Over/Under validation on the same game.
+          buildCacheKey: (candidate, entry) => `${candidate.gameId}::${candidate.selection}::${entry.market}`,
+          rows: allCandidates.flatMap((entry) =>
+            (entry.candidates || []).map((candidate) => ({ target: candidate, entry }))
+          ),
+          // Skip alt-line rows already downgraded to TIER 4 by resolveAlternateLines
+          // in the screen ranker. Validating them re-derives a fresh tier that
+          // overwrites the downgrade — wasting API calls and surfacing noise.
+          isEligible: (candidate) => Boolean(candidate.gameId && candidate.selection && !candidate.altLineFiltered),
+          isBet: (candidate) => candidate.kaiCall === 'BET',
+          selectTargets: validationPipeline.selectTopGlobal,
+          onNotSelected: (candidate) => {
+            candidate.validationBudgetSkipped = true;
+            candidate.validationBudgetExhausted = false;
+            candidate.validationFailureReason = 'validation not selected within validation budget';
+            watchCandidates.push({ ...candidate, official: false });
+          },
+          applyValidated: (candidate, validation) => {
+            applyValidatedFields(candidate, validation);
+            candidate._validated = true;
+            applyFinalVerdict(candidate);
+            // Promote the authoritative validated call into the agent-facing
+            // display fields so the tier filters below and downstream consumers
+            // see the merged verdict, not the raw screen snapshot.
+            promoteFinalVerdictToDisplay(candidate);
+          },
+          validateAll,
+          validateTop,
+          mapWithConcurrency
+        });
+        validationEligibleCount = validationOutcome.eligibleCount;
+        validationSelectedCount = validationOutcome.selectedCount;
+        validationPartial = validationOutcome.partial;
       }
 
       // Every candidate needs an authoritative final verdict, even when the
@@ -1385,8 +1345,37 @@ function createMcpHandlers({
               riskFlag: r.riskFlag,
               riskSummary: r.riskSummary || null,
               contextType: r.contextType || 'player',
+              market: r.market || null,
+              // Elo rides on game-context research rows only (additive
+              // context — never verdict/tier/edge fields).
+              ...(r.elo ? { elo: r.elo } : {}),
               ...(r.topTweet ? { topTweet: r.topTweet.slice(0, 120) } : {})
             });
+          }
+        }
+      }
+
+      // === Elo shadow-context overlay (pre-format) ===
+      // Copy elo from research rows onto the candidate objects BEFORE any
+      // verbosity formatting runs. formatQuickScreenBets/formatBetsCompact
+      // whitelist fields and drop the research array, so without this the
+      // bets-mode plays would lose elo. Composite (player, game, market)
+      // matching keeps Moneyline elo off Total Games rows and vice versa.
+      if (researchResults.length) {
+        for (const entry of allCandidates) {
+          for (const c of entry.candidates || []) {
+            if (c.elo) continue;
+            const player = String(c.selection || '').toLowerCase();
+            const game = c.game || '';
+            const market = String(c.market || entry.market || '').toLowerCase();
+            const research = researchResults.find(
+              (r) =>
+                r.elo &&
+                String(r.player || '').toLowerCase() === player &&
+                (r.game || '') === game &&
+                String(r.market || '').toLowerCase() === market
+            );
+            if (research) c.elo = research.elo;
           }
         }
       }
@@ -1700,8 +1689,18 @@ function createMcpHandlers({
                 downgradedCount: downgraded,
                 plays: recommended.map((row) => {
                   const playerName = String(row.selection || row.participant || '');
+                  const gameName = String(
+                    row.game || (row.awayTeam && row.homeTeam ? `${row.awayTeam} @ ${row.homeTeam}` : '')
+                  );
+                  const marketName = String(row._market || row.market || row.screenMarket || '').toLowerCase();
+                  // Exact composite (player, game, market) join so a
+                  // Moneyline research row (with Elo) never bleeds onto a
+                  // Total Games play from the same game.
                   const research = researchResults.find(
-                    (r) => String(r.player || '').toLowerCase() === playerName.toLowerCase()
+                    (r) =>
+                      String(r.player || '').toLowerCase() === playerName.toLowerCase() &&
+                      String(r.game || '') === gameName &&
+                      String(r.market || '').toLowerCase() === marketName
                   );
                   // Route every play through mapCandidateRow so recommended_bets
                   // matches quick_screen's field shape (startCST, hoursUntilStart,
@@ -1712,6 +1711,8 @@ function createMcpHandlers({
                     mapped.riskFlag = research.riskFlag;
                     mapped.riskSummary = research.riskSummary;
                     mapped.topTweet = research.topTweet;
+                    // Elo is additive game-context context — carry it verbatim.
+                    if (research.elo) mapped.elo = research.elo;
                   }
                   return mapped;
                 })
@@ -1747,109 +1748,60 @@ function createMcpHandlers({
       }
 
       if (validateAllRB || validateTopRB > 0) {
-        const validationCache = new Map();
-        const validationPromises = [];
-
-        for (const leagueEntry of allRecommended) {
-          if (!leagueEntry.plays || !leagueEntry.plays.length) continue;
-          const sorted = validateAllRB
-            ? leagueEntry.plays
-            : [...leagueEntry.plays].sort((a, b) => (b.screenScore || 0) - (a.screenScore || 0));
-          const topN = sorted.slice(0, validateTopRB);
-
-          for (const play of leagueEntry.plays) {
-            if (!validateAllRB && !topN.includes(play) && play.kaiCall === 'BET') {
-              play.validationFailed = true;
-              play.validationFailureReason = 'validation not selected within validation budget';
-            }
-            // validateAllRB => validate everything; otherwise only top-N (capped)
-            if (!validateAllRB && !topN.includes(play)) continue;
-
-            if (!play.gameId || !play.selection) continue;
-            // Skip alt-line rows already downgraded to TIER 4 by resolveAlternateLines
-            // in the screen ranker. Validating them re-derives a fresh tier that
-            // overwrites the downgrade — wasting API calls and surfacing noise.
-            if (play.altLineFiltered) continue;
-
-            // Per-gameId+selection+market cache: plays from the same game+selection
-            // share one validate_play call. The key MUST include the selection —
-            // gameId::market alone would share an Over validation across the
-            // opposing Under line on the same game (and vice versa).
-            const rbCacheKey = `${play.gameId}::${play.selection}::${play.market || 'Moneyline'}`;
-            if (validationCache.has(rbCacheKey)) {
-              const cached = validationCache.get(rbCacheKey);
-              if (cached) {
-                applyValidatedFields(play, cached);
-                play._validated = true;
-                applyFinalVerdict(play);
-                promoteFinalVerdictToDisplay(play);
-              }
-              continue;
-            }
-
-            validationPromises.push(
-              (async () => {
-                try {
-                  const VALIDATION_TIMEOUT_MS = 15000;
-                  const validatePromise = ctx.handlers.runValidatePlayImpl(client, {
-                    league: leagueEntry.league,
-                    gameId: play.gameId,
-                    selection: play.selection,
-                    playId: play.playId,
-                    market: play.market || 'Moneyline',
-                    skipResearch: true,
-                    lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : 6,
-                    screenTier: play.confidenceTier,
-                    screenKaiCall: play.kaiCall,
-                    // Pass the screen snapshot's consensus/exec so the validator
-                    // can detect drift and downgrade a phantom BET.
-                    screenConsensusBookCount: play.consensusBookCount,
-                    screenExecutionQuality: play.executionQuality,
-                    screenConsensusEdge: play.edge,
-                    // Carry sharpBookMovementConfirmed so the re-fetched row
-                    // doesn't lose the sharp-book confirmation and downgrade
-                    // movementDisposition to 'insufficient'.
-                    screenSharpBookConfirmed: play.sharpBookMovementConfirmed || false
-                  });
-                  let timeoutId;
-                  const timeoutPromise = new Promise((_, reject) => {
-                    timeoutId = setTimeout(
-                      () => reject(new Error(`Validation timeout for ${play.gameId}:${play.selection}`)),
-                      VALIDATION_TIMEOUT_MS
-                    );
-                  });
-                  try {
-                    const result = await Promise.race([validatePromise, timeoutPromise]);
-                    if (play.gameId && result && result.ok) {
-                      validationCache.set(rbCacheKey, result);
-                    }
-                    return { play, result };
-                  } finally {
-                    clearTimeout(timeoutId);
-                  }
-                } catch (err) {
-                  play.validationFailed = true;
-                  play.validationFailureReason = err.message;
-                  return { play, result: null, error: err.message };
-                }
-              })()
-            );
-          }
-        }
-
-        const validationResults = await mapWithConcurrency(validationPromises, async (p) => p, { concurrency: 5 });
-
-        for (const vr of validationResults) {
-          const validation = vr.result?.data?.verdictSummary ? vr.result.data : vr.result;
-          if (!validation || !validation.ok || !validation.verdictSummary) {
-            vr.play.validationFailed = true;
-            continue;
-          }
-          applyValidatedFields(vr.play, validation);
-          vr.play._validated = true;
-          applyFinalVerdict(vr.play);
-          promoteFinalVerdictToDisplay(vr.play);
-        }
+        // Selection policy: validateAllRB => validate everything; otherwise
+        // validate the top-N plays per league bucket by screenScore
+        // (selectTopPerBucket). Marking/cache/timeout/apply semantics live in
+        // the shared pipeline module (plan Task 4.1).
+        await validationPipeline.runValidationPipeline({
+          validate: (vargs) => ctx.handlers.runValidatePlayImpl(client, vargs),
+          buildArgs: (play, leagueEntry) => ({
+            league: leagueEntry.league,
+            gameId: play.gameId,
+            selection: play.selection,
+            playId: play.playId,
+            market: play.market || 'Moneyline',
+            skipResearch: true,
+            lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : 6,
+            screenTier: play.confidenceTier,
+            screenKaiCall: play.kaiCall,
+            // Pass the screen snapshot's consensus/exec so the validator
+            // can detect drift and downgrade a phantom BET.
+            screenConsensusBookCount: play.consensusBookCount,
+            screenExecutionQuality: play.executionQuality,
+            screenConsensusEdge: play.edge,
+            // Carry sharpBookMovementConfirmed so the re-fetched row
+            // doesn't lose the sharp-book confirmation and downgrade
+            // movementDisposition to 'insufficient'.
+            screenSharpBookConfirmed: play.sharpBookMovementConfirmed || false
+          }),
+          // Per-gameId+selection+market cache: plays from the same game+selection
+          // share one cache slot. The key MUST include the selection — gameId::market
+          // alone would share an Over validation across the opposing Under line on
+          // the same game (and vice versa).
+          buildCacheKey: (play) => `${play.gameId}::${play.selection}::${play.market || 'Moneyline'}`,
+          rows: allRecommended.flatMap((leagueEntry) =>
+            (leagueEntry.plays || []).map((play) => ({ target: play, entry: leagueEntry }))
+          ),
+          // Skip alt-line rows already downgraded to TIER 4 by resolveAlternateLines
+          // in the screen ranker. Validating them re-derives a fresh tier that
+          // overwrites the downgrade — wasting API calls and surfacing noise.
+          isEligible: (play) => Boolean(play.gameId && play.selection && !play.altLineFiltered),
+          isBet: (play) => play.kaiCall === 'BET',
+          selectTargets: validationPipeline.selectTopPerBucket,
+          onNotSelected: (play) => {
+            play.validationFailed = true;
+            play.validationFailureReason = 'validation not selected within validation budget';
+          },
+          applyValidated: (play, validation) => {
+            applyValidatedFields(play, validation);
+            play._validated = true;
+            applyFinalVerdict(play);
+            promoteFinalVerdictToDisplay(play);
+          },
+          validateAll: validateAllRB,
+          validateTop: validateTopRB,
+          mapWithConcurrency
+        });
       }
 
       // Apply the fail-closed policy to plays that weren't selected within a
@@ -2111,6 +2063,30 @@ function createMcpHandlers({
   Object.assign(handlers, createValidatePlayHandlers(client, ctx));
   Object.assign(handlers, createScreenLeaguesHandlers(client, ctx));
   Object.assign(handlers, createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }));
+
+  // Test seam plumbing: when the factory was given a non-default
+  // historyMinIntervalMs, inject it into the args of every screen/validation
+  // impl that reaches buildRankedScreenResponse → hydrateScreenRowsWithHistory
+  // so the hydration gate uses the injected interval. The key is unknown to
+  // all ranking/verdict logic; it only feeds the gate's minIntervalMs.
+  // Production (default 50ms) skips this entirely — impls receive their args
+  // unchanged, preserving the production pacing byte-for-byte.
+  if (historyMinIntervalMs !== DEFAULT_HISTORY_MIN_INTERVAL_MS) {
+    const withHistoryMinInterval = (args = {}) =>
+      args && typeof args === 'object' ? { ...args, historyMinIntervalMs } : args;
+    const wrapClientArgs = (impl) =>
+      typeof impl === 'function'
+        ? (client, args = {}, ...rest) => impl(client, withHistoryMinInterval(args), ...rest)
+        : impl;
+    const wrapArgs = (impl) =>
+      typeof impl === 'function' ? (args = {}, ...rest) => impl(withHistoryMinInterval(args), ...rest) : impl;
+    handlers.runScreenRankedImpl = wrapClientArgs(handlers.runScreenRankedImpl);
+    handlers.runGetPlayDetailsImpl = wrapClientArgs(handlers.runGetPlayDetailsImpl);
+    handlers.runValidatePlayImpl = wrapClientArgs(handlers.runValidatePlayImpl);
+    handlers.runLeagueScreen = wrapArgs(handlers.runLeagueScreen);
+    handlers.runUfcCard = wrapArgs(handlers.runUfcCard);
+    handlers.runTennisScreen = wrapArgs(handlers.runTennisScreen);
+  }
 
   // Set handlers reference on ctx so extracted modules can cross-call.
   ctx.handlers = handlers;

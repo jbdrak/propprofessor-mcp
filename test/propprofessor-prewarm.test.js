@@ -22,68 +22,8 @@ describe('propprofessor-prewarm', () => {
     resetModules();
   });
 
-  describe('getPreWarmConfig', () => {
-    it('skips when PROPPROFESSOR_MCP_PREWARM=0', () => {
-      process.env.PROPPROFESSOR_MCP_PREWARM = '0';
-      const { getPreWarmConfig } = require('../lib/mcp-runtime-config');
-      const config = getPreWarmConfig();
-      assert.equal(config.enabled, false);
-    });
-
-    it('returns enabled by default', () => {
-      delete process.env.PROPPROFESSOR_MCP_PREWARM;
-      const { getPreWarmConfig } = require('../lib/mcp-runtime-config');
-      const config = getPreWarmConfig();
-      assert.equal(config.enabled, true);
-    });
-
-    it('parses PROPPROFESSOR_MCP_PREWARM_LEAGUES', () => {
-      process.env.PROPPROFESSOR_MCP_PREWARM_LEAGUES = 'NBA,MLB,NHL';
-      const { getPreWarmConfig } = require('../lib/mcp-runtime-config');
-      const config = getPreWarmConfig();
-      assert.deepEqual(config.leagues, ['NBA', 'MLB', 'NHL']);
-    });
-
-    it('defaults to all supported leagues', () => {
-      delete process.env.PROPPROFESSOR_MCP_PREWARM_LEAGUES;
-      const { getPreWarmConfig } = require('../lib/mcp-runtime-config');
-      const config = getPreWarmConfig();
-      const expectedLeagues = [
-        'NBA',
-        'NBASL',
-        'MLB',
-        'NFL',
-        'NHL',
-        'WNBA',
-        'NCAAB',
-        'NCAAF',
-        'Soccer',
-        'MLS',
-        'Tennis',
-        'UFC'
-      ];
-      assert.deepEqual(config.leagues, expectedLeagues);
-    });
-
-    it('parses PROPPROFESSOR_MCP_PREWARM_TIMEOUT_MS', () => {
-      process.env.PROPPROFESSOR_MCP_PREWARM_TIMEOUT_MS = '5000';
-      const { getPreWarmConfig } = require('../lib/mcp-runtime-config');
-      const config = getPreWarmConfig();
-      assert.equal(config.timeoutMs, 5000);
-    });
-
-    it('defaults timeout to 10000ms', () => {
-      delete process.env.PROPPROFESSOR_MCP_PREWARM_TIMEOUT_MS;
-      const { getPreWarmConfig } = require('../lib/mcp-runtime-config');
-      const config = getPreWarmConfig();
-      assert.equal(config.timeoutMs, 10000);
-    });
-  });
-
   describe('prewarmOddsHistoryCache', () => {
     it('skips when enabled is false', async () => {
-      process.env.PROPPROFESSOR_MCP_PREWARM = '0';
-      const { getPreWarmConfig } = require('../lib/mcp-runtime-config');
       const { prewarmOddsHistoryCache } = require('../lib/propprofessor-prewarm');
 
       const mockClient = {
@@ -92,7 +32,7 @@ describe('propprofessor-prewarm', () => {
         }
       };
 
-      const config = getPreWarmConfig();
+      const config = { enabled: false, leagues: [], timeoutMs: 10000 };
       const result = await prewarmOddsHistoryCache({
         client: mockClient,
         runtimeConfig: config,
@@ -264,6 +204,76 @@ describe('propprofessor-prewarm', () => {
 
       assert.equal(result.leaguesProcessed, 5);
       assert.ok(maxConcurrent <= 3, `Expected max concurrency <= 3, got ${maxConcurrent}`);
+    });
+  });
+
+  describe('server startup is passive (no automatic prewarm)', () => {
+    it('serveStdio makes zero screen/odds-history calls at startup', async () => {
+      // Regression: MCP server startup must never fire PropProfessor screen
+      // requests. Legacy behavior prewarmed the cache via setImmediate after
+      // startup, enabled by default when PROPPROFESSOR_MCP_PREWARM is unset.
+      delete process.env.PROPPROFESSOR_MCP_PREWARM;
+      process.env.PROPPROFESSOR_MCP_PREWARM_TIMEOUT_MS = '200';
+      process.env.PROPPROFESSOR_MCP_NDJSON = 'true';
+
+      const { serveStdio } = require('../scripts/propprofessor-mcp-server');
+
+      let screenCalls = 0;
+      let historyCalls = 0;
+      const mockClient = {
+        queryScreenOddsBestComps: async () => {
+          screenCalls += 1;
+          return { game_data: [] };
+        },
+        queryOddsHistory: async () => {
+          historyCalls += 1;
+          return {};
+        }
+      };
+
+      // Intercept stdin handlers so serveStdio runs in-process without
+      // touching the real process stdin (and without process.exit on 'end').
+      const stdin = process.stdin;
+      const origOn = stdin.on.bind(stdin);
+      const origResume = stdin.resume.bind(stdin);
+      const stdinHandlers = new Map();
+      stdin.on = (event, cb) => {
+        stdinHandlers.set(event, cb);
+        return stdin;
+      };
+      stdin.resume = () => {};
+
+      try {
+        await serveStdio({ client: mockClient });
+        // Flush macrotask turns so a (regressed) setImmediate-scheduled
+        // prewarm has every chance to fire before we assert.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        assert.equal(screenCalls, 0, 'server startup must not fire screen requests');
+        assert.equal(historyCalls, 0, 'server startup must not fire odds-history requests');
+      } finally {
+        stdin.on = origOn;
+        stdin.resume = origResume;
+      }
+    });
+  });
+
+  describe('prewarm timer hygiene', () => {
+    it('clears its timeout timer once prewarm completes (no leaked handle)', async () => {
+      const { prewarmOddsHistoryCache } = require('../lib/propprofessor-prewarm');
+
+      const mockClient = {
+        queryScreenOddsBestComps: async () => ({ game_data: [] })
+      };
+      const config = { enabled: true, leagues: ['NBA'], timeoutMs: 100 };
+
+      const countTimeouts = () => process.getActiveResourcesInfo().filter((name) => name === 'Timeout').length;
+
+      const before = countTimeouts();
+      await prewarmOddsHistoryCache({ client: mockClient, runtimeConfig: config, logger: null });
+      const after = countTimeouts();
+
+      assert.equal(after, before, 'prewarm must not leave a pending timeout handle behind');
     });
   });
 });

@@ -14,7 +14,7 @@ PRs welcome! This is a community-driven project — fixes, features, docs, and t
 1. **Make changes** in `lib/`, `scripts/`, or `bin/`
 2. **Run offline tests:** `npm run install:verify` — must pass before committing
 3. **Lint:** `npm run lint` — ESLint must be clean
-4. **Full suite:** `npm test` (slower, needs auth)
+4. **Full suite:** `npm test` (full deterministic suite — offline, no auth needed)
 5. **Check README consistency:** `npm run check:claims` — verifies tool counts match
 
 ### CLI development

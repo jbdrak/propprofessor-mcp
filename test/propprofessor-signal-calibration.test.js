@@ -1,36 +1,37 @@
 'use strict';
 
-const { test } = require('node:test');
+const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 
-// Isolate test calibration from real data
-const TEST_CALIBRATION_FILE = path.join(os.homedir(), '.propprofessor', 'signal-calibration.json');
-const backup = (() => {
-  try {
-    return fs.readFileSync(TEST_CALIBRATION_FILE, 'utf8');
-  } catch {
-    return null;
-  }
-})();
+// Isolate test calibration from real data: point the module at a throwaway
+// tmp dir BEFORE requiring it (the module reads the env var at load time).
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pp-mcp-calibration-test-'));
+process.env.PP_SIGNAL_CALIBRATION_FILE = path.join(tmpDir, 'signal-calibration.json');
 
-// Reload with test-isolated path
 const mod = require('../lib/propprofessor-signal-calibration');
 
-// Restore after test
-process.on('exit', () => {
-  if (backup) {
-    fs.mkdirSync(path.dirname(TEST_CALIBRATION_FILE), { recursive: true });
-    fs.writeFileSync(TEST_CALIBRATION_FILE, backup, 'utf8');
-  } else {
-    try {
-      fs.unlinkSync(TEST_CALIBRATION_FILE);
-    } catch {
-      // unlink may fail if the file was never written — safe to ignore
-    }
-  }
+// Cleanup only removes the tmp dir — the real calibration file is never touched.
+after(() => {
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+test('PP_SIGNAL_CALIBRATION_FILE overrides the default calibration path', () => {
+  mod.save({});
+
+  mod.recordResolution({
+    status: 'won',
+    confidenceTier: 'TIER 1',
+    movementGrade: 'green',
+    league: 'NBA',
+    market: 'Moneyline'
+  });
+
+  // The module must write to the override path, not ~/.propprofessor
+  const written = JSON.parse(fs.readFileSync(path.join(tmpDir, 'signal-calibration.json'), 'utf8'));
+  assert.equal(written['TIER 1:green:NBA:Moneyline'].wins, 1);
 });
 
 test('record and retrieve calibration', () => {

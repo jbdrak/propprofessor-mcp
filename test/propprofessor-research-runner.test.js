@@ -227,4 +227,106 @@ describe('runResearchOnTopRows', () => {
     assert.equal(results[0].riskSummary, 'no game context handler');
     assert.equal(results[0].contextType, 'game');
   });
+
+  it('preserves elo from game-context results only (player contexts never carry it)', async () => {
+    const eloPayload = {
+      available: true,
+      coverage: 'full',
+      selectedProbability: 0.62,
+      probabilities: { player1: 0.62, player2: 0.38 }
+    };
+    const gameContextFn = async () => ({
+      riskFlag: 'low',
+      riskSummary: 'game context ok',
+      cached: true,
+      elo: eloPayload
+    });
+    const playerContextFn = async () => ({
+      riskFlag: 'low',
+      tweets: [],
+      news: [],
+      cached: true,
+      elo: { available: true, coverage: 'full' } // player contexts must NOT leak this
+    });
+    const { results } = await runResearchOnTopRows({
+      rows: [
+        { selection: 'Los Angeles Lakers', screenScore: 9, league: 'NBA', game: 'Lakers @ Celtics' },
+        { selection: 'Stephen Curry', screenScore: 8, league: 'NBA', game: 'Warriors @ Nuggets' }
+      ],
+      limit: 2,
+      playerContextFn,
+      gameContextFn
+    });
+    const gameResult = results.find((r) => r.contextType === 'game');
+    const playerResult = results.find((r) => r.contextType === 'player');
+    assert.ok(gameResult, 'game-context row must exist');
+    assert.ok(playerResult, 'player-context row must exist');
+    assert.deepEqual(gameResult.elo, eloPayload, 'game-context results must preserve ctx.elo');
+    assert.equal(playerResult.elo, undefined, 'player-context results must not carry elo');
+    assert.equal(gameResult.riskFlag, 'low', 'elo must not change riskFlag');
+    assert.equal(gameResult.riskSummary, 'game context ok', 'elo must not change riskSummary');
+  });
+
+  it('routes Tennis Moneyline player-name selections to game context so Elo can fire', async () => {
+    const eloPayload = {
+      available: true,
+      coverage: 'full',
+      selectedProbability: 0.62,
+      probabilities: { player1: 0.62, player2: 0.38 }
+    };
+    const gameCalls = [];
+    const gameContextFn = async (args) => {
+      gameCalls.push(args);
+      return { riskFlag: 'low', riskSummary: 'tennis context ok', cached: true, elo: eloPayload };
+    };
+    const playerCalls = [];
+    const playerContextFn = async (args) => {
+      playerCalls.push(args);
+      return { riskFlag: 'low', tweets: [], news: [], cached: true };
+    };
+    const { results } = await runResearchOnTopRows({
+      rows: [
+        // Bare player name + Tennis + Moneyline MUST route to game context
+        // (the Elo shadow model is Moneyline-only and lives on game context).
+        {
+          selection: 'Ada Player',
+          screenScore: 9,
+          league: 'Tennis',
+          market: 'Moneyline',
+          game: 'Ada Player vs Bea Player'
+        },
+        // Control: non-tennis player name stays on player context.
+        { selection: 'Stephen Curry', screenScore: 8, league: 'NBA', market: 'Moneyline', game: 'Warriors @ Nuggets' }
+      ],
+      limit: 2,
+      playerContextFn,
+      gameContextFn
+    });
+    assert.equal(gameCalls.length, 1, 'tennis ML must route to game context');
+    assert.equal(playerCalls.length, 1, 'non-tennis player stays on player context');
+    assert.equal(gameCalls[0].market, 'Moneyline');
+    assert.equal(gameCalls[0].sport, 'Tennis');
+    const tennisResult = results.find((r) => r.league === 'Tennis');
+    const nbaResult = results.find((r) => r.league === 'NBA');
+    assert.equal(tennisResult.contextType, 'game');
+    assert.deepEqual(tennisResult.elo, eloPayload, 'tennis ML game-context result must carry elo');
+    assert.equal(nbaResult.contextType, 'player');
+    assert.equal(nbaResult.elo, undefined, 'non-tennis player result must not carry elo');
+  });
+
+  it('does not fabricate elo on error results', async () => {
+    const gameContextFn = async () => {
+      throw new Error('boom');
+    };
+    const playerContextFn = async () => ({ riskFlag: 'low', tweets: [], news: [] });
+    const { results } = await runResearchOnTopRows({
+      rows: [{ selection: 'Boston Celtics', screenScore: 9, league: 'NBA', game: 'Celtics @ Heat' }],
+      limit: 1,
+      playerContextFn,
+      gameContextFn
+    });
+    assert.equal(results.length, 1);
+    assert.equal(results[0].riskFlag, 'error');
+    assert.equal(results[0].elo, undefined, 'error rows must not fabricate elo');
+  });
 });

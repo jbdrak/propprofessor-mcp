@@ -235,6 +235,16 @@ Key properties:
 - **Results file provenance is required** — the results file must be an object with non-empty top-level `provider` and `sourceUrl` plus an `events` array; bare event arrays are no longer accepted. A same-ID event never settles on its ID alone: it must also match the bet's participants and fall inside the scheduled date window, and event-specific source URLs are kept only when the top-level provenance is valid. Missing provenance is a CLI usage error (the ledger is never touched), and library callers receive pending records with a precise reason instead of a settlement.
 - **`PP_RECORD_LEDGER` overrides the ledger path** — every command above reads/writes `$PP_RECORD_LEDGER` when set, otherwise the default `~/.propprofessor/tracker/ledger.json`.
 
+### Offline record → settle → evaluate example
+
+Run the complete lifecycle without credentials, network calls, or user-file writes:
+
+```bash
+node examples/record-settle-evaluate.js
+```
+
+The synthetic fixture records an immutable probability/Elo snapshot, promotes a reviewed card, settles it from supplied result data, and derives calibration from the v2 ledger. Its one-bet report is explicitly marked insufficient for accuracy or uplift claims. See [Project status and evaluation roadmap](docs/STATUS.md) for shipped capabilities, hard limits, and the evidence gates required before Elo could leave shadow mode.
+
 ## 🏛 Architecture
 
 PropProfessor MCP follows a layered data pipeline:
@@ -383,8 +393,8 @@ Or manually: add `propprofessor` to your `mcp_servers` in config.yaml. The `get_
 ### Sharp-money alerts
 
 PropProfessor is manual-only. There is no supported cron, scheduled workflow,
-or background polling mode. Run `sharp_plays` or `quick_screen` on demand when
-you want a fresh result.
+or background polling mode. Run `quick_screen` on demand when you want a fresh
+result.
 
 ## 🎯 The Natural Language Flow
 
@@ -593,10 +603,10 @@ node scripts/backtest.js --metrics data/snapshots.jsonl
 ```
 
 The pipeline (`daily-snapshot.js` → settle games → `resolve-outcomes.js` →
-`backtest.js --metrics`) is built and tested (8 pipeline tests, 0 fail). What's
-missing: **real settled-results data**. The synthetic tier-validation run shows
-a TIER 1 hit rate of **51.4% over N=296 simulated samples** — these validate
-the ranking engine, they do NOT prove profitability.
+`backtest.js --metrics`) is built and tested (full deterministic pipeline suite
+passes). What's missing: **real settled-results data**. The synthetic
+tier-validation run shows a TIER 1 hit rate of **51.4% over N=296 simulated
+samples** — these validate the ranking engine, they do NOT prove profitability.
 
 > **Honesty:** tier/kaiCall/edge/screenScore are signal-quality ratings, not
 > win-probability predictions. Profitability is UNPROVEN — no settled-results

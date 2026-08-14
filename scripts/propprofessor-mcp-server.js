@@ -32,8 +32,6 @@ const {
 const { redactSecrets } = require('../lib/propprofessor-redact');
 const { clearTierCache } = require('../lib/propprofessor-risk-score');
 const { validateArgs, normalizeArgs } = require('../lib/mcp-arg-validator');
-const { getPreWarmConfig } = require('../lib/mcp-runtime-config');
-const { prewarmOddsHistoryCache } = require('../lib/propprofessor-prewarm');
 const { RateLimiter } = require('../lib/rate-limiter');
 
 const mapWithConcurrency = mapWithConcurrencyFromHandlers;
@@ -266,18 +264,11 @@ async function serveStdio(options = {}) {
     }
   });
 
-  // Schedule pre-warm after the server is created but before stdin processing
-  // uses setImmediate to avoid blocking the initialize response
-  setImmediate(() => {
-    const preWarmConfig = getPreWarmConfig();
-    prewarmOddsHistoryCache({
-      client,
-      runtimeConfig: preWarmConfig,
-      logger: process.stderr.write.bind(process.stderr)
-    }).catch(() => {
-      // Pre-warm is best-effort; swallow errors
-    });
-  });
+  // NOTE: startup is intentionally passive. The server makes zero automatic
+  // PropProfessor requests at startup — it only talks to the backend in
+  // response to explicit tool calls. (The former setImmediate prewarm was
+  // removed; prewarmOddsHistoryCache remains available in
+  // lib/propprofessor-prewarm.js for explicit/manual use.)
 
   process.stdin.on('data', (chunk) => {
     Promise.resolve()

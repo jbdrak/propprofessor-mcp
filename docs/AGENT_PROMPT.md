@@ -12,7 +12,7 @@ A favorable line at a single soft book is not an edge — it could be a stale li
 
 The PropProfessor tools are built around this principle:
 
-- `sharp_plays` only returns a "Bet candidate" when a **non-target** sharp book confirms the movement.
+- `quick_screen({mode: 'sharp'})` only returns a "Bet candidate" when a **non-target** sharp book confirms the movement.
 - `quick_screen` (with `targetTiers`) requires green movement quality (supportive label + high quality + strong consensus + positive CLV) for TIER 1.
 - `sharp_consensus` checks 6 time windows (1h–48h) for sustained agreement across all sharp books.
 - `quick_screen` bundles sharp consensus + target-book price + player research into one call — the recommended starting point for any agent.
@@ -143,7 +143,7 @@ Player context: Tatum (BOS) — no injury concerns, played yesterday.
 
 1. `screen_ranked` with `verbosity: "full"` — complete ranked data
 2. `sharp_consensus` — multi-window sharp movement analysis
-3. `sharp_plays` — plays with independent sharp support
+3. `quick_screen({mode: 'sharp'})` — plays with independent sharp support
 4. `get_play_details` — line history for specific game IDs
 5. `staking_plan` — Kelly sizing
 6. `player_context` — injury risk on final picks
@@ -153,7 +153,7 @@ Player context: Tatum (BOS) — no injury concerns, played yesterday.
 **Example response:**
 
 ```
-sharp_plays (Fliff, NBA Moneyline): 3 candidates
+quick_screen(mode: 'sharp') (Fliff, NBA Moneyline): 3 candidates
 
 1. Celtics ML @ -150 (Fliff) | Best: -148 (Pinnacle)
    Edge: 2.4% | Movement: supportive | Quality: high (0.92)
@@ -245,11 +245,11 @@ When presenting any play with riskScore ≥ 7:
 
 The MCP exposes both clean canonical names and legacy aliases for backward compatibility. Prefer the canonical forms when writing new code:
 
-| Canonical (prefer) | Legacy alias                                    | Where                                               |
-| ------------------ | ----------------------------------------------- | --------------------------------------------------- |
-| `live`             | `is_live`                                       | 13 tools — backend still uses `is_live` on the wire |
-| `gameIds`          | `game_ids`                                      | `get_play_details` only                             |
-| `targetBooks`      | `book`, `books`, `targetBook`, `targetBooksCsv` | `sharp_plays` only — all 4 still accepted           |
+| Canonical (prefer) | Legacy alias    | Where                                               |
+| ------------------ | --------------- | --------------------------------------------------- |
+| `live`             | `is_live`       | 13 tools — backend still uses `is_live` on the wire |
+| `gameIds`          | `game_ids`      | `get_play_details` only                             |
+| `targetBooks`      | `book`, `books` | `quick_screen` — both still accepted                |
 
 Old callers keep working unchanged.
 

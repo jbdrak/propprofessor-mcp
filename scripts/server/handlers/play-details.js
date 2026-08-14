@@ -109,10 +109,14 @@ function mergeExactFocusBookPayload(bestCompsPayload, directPayload, selectionFi
   const bestRows = normalizePayloadRows(bestCompsPayload);
   const directRows = normalizePayloadRows(directPayload);
   const mergedRows = directRows.map((directRow) => {
-    const bestRow = bestRows.find((candidate) => String(candidate?.gameId || candidate?.id || '') === String(directRow?.gameId || directRow?.id || ''));
+    const bestRow = bestRows.find(
+      (candidate) =>
+        String(candidate?.gameId || candidate?.id || '') === String(directRow?.gameId || directRow?.id || '')
+    );
     if (!bestRow) return directRow;
     const bestSelections = bestRow?.selections && typeof bestRow.selections === 'object' ? bestRow.selections : {};
-    const directSelections = directRow?.selections && typeof directRow.selections === 'object' ? directRow.selections : {};
+    const directSelections =
+      directRow?.selections && typeof directRow.selections === 'object' ? directRow.selections : {};
     const selections = { ...bestSelections };
     for (const [key, directSelection] of Object.entries(directSelections)) {
       const bestSelection = bestSelections[key] || {};
@@ -122,9 +126,7 @@ function mergeExactFocusBookPayload(bestCompsPayload, directPayload, selectionFi
         odds: {
           ...(bestSelection.odds || {}),
           ...(directSelection.odds || {}),
-          ...(directSelection.odds?.[requestedBook]
-            ? { [requestedBook]: directSelection.odds[requestedBook] }
-            : {})
+          ...(directSelection.odds?.[requestedBook] ? { [requestedBook]: directSelection.odds[requestedBook] } : {})
         }
       };
     }
@@ -142,7 +144,8 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
     if (String(row?.book || '').trim() === requestedBook && Number.isFinite(Number(row?.odds))) return true;
     if (Array.isArray(row?.sportsbookData)) {
       return row.sportsbookData.some(
-        (entry) => String(entry?.book || '').trim() === requestedBook && Number.isFinite(Number(entry?.odds ?? entry?.noVigOdds))
+        (entry) =>
+          String(entry?.book || '').trim() === requestedBook && Number.isFinite(Number(entry?.odds ?? entry?.noVigOdds))
       );
     }
     return Object.values(row?.selections || {}).some((nested) => {

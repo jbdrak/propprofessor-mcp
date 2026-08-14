@@ -9,7 +9,8 @@ const {
   hydrateScreenRowsWithHistory,
   extractLineFromPick,
   generateLineVariants,
-  rebuildPickWithLine
+  rebuildPickWithLine,
+  DEFAULT_HISTORY_MIN_INTERVAL_MS
 } = require('../lib/propprofessor-screen-history');
 
 function makeClient(queryFn) {
@@ -565,5 +566,15 @@ describe('hydrateScreenRowsWithHistory — throttle/circuit fail-soft', () => {
     const [result] = results;
     assert.equal(result.historyErrorCode, 'CIRCUIT_BREAKER_OPEN');
     assert.equal(result.historyErrorStatus, null);
+  });
+});
+
+describe('hydrateScreenRowsWithHistory — production pacing default', () => {
+  it('pins DEFAULT_HISTORY_MIN_INTERVAL_MS at 50ms', () => {
+    // The handler factory (scripts/server/handlers.js) keeps its default in
+    // lock-step with this constant, and the ranked-screen seam relaxes it
+    // only under explicit test injection. Pinning the exact value here
+    // guarantees the 50ms production pacing is never silently relaxed.
+    assert.equal(DEFAULT_HISTORY_MIN_INTERVAL_MS, 50);
   });
 });

@@ -26,6 +26,7 @@ scripts/check-*
 docs/plans/
 docs/cron-prompts/
 docs/openapi.json
+docs/STATUS.md
 
 # repo tooling & meta
 hermes/

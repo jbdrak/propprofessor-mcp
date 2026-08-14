@@ -183,4 +183,106 @@ describe('getGameContext', () => {
     assert.equal(r1.riskFlag, 'unknown');
     assert.equal(r2.riskFlag, 'unknown');
   });
+
+  it('cache key includes market — Moneyline then Total Games do not share a cached result', async () => {
+    const mod = require('../lib/propprofessor-game-context');
+    // Same matchup/start/selection, only the market differs. The Moneyline
+    // call computes (and caches) Tennis Elo shadow context; the Total Games
+    // call must NOT inherit that cached result — Elo is Moneyline-only.
+    const base = {
+      sport: 'Tennis',
+      selection: 'CacheBleedTest',
+      game: 'Wimbledon',
+      start: '2025-01-01T12:00:00.000Z'
+    };
+    const ml = await mod.getGameContext({ ...base, market: 'Moneyline' });
+    const tg = await mod.getGameContext({ ...base, market: 'Total Games' });
+    assert.equal(ml.cached, false);
+    assert.equal(tg.cached, false, 'Total Games must not reuse the cached Moneyline result');
+    assert.equal(tg.elo.coverage, 'unsupported_market', 'Total Games must not inherit Moneyline Elo coverage');
+  });
+
+  it('cache key includes market — Total Games then Moneyline do not share a cached result', async () => {
+    const mod = require('../lib/propprofessor-game-context');
+    // Reverse order: the non-Elo market is cached first. The Moneyline call
+    // must recompute (and populate Elo coverage), not reuse the Total Games
+    // result that has elo.available=false.
+    // NOTE: distinct selection from the forward test above — the module-level
+    // game-context cache is shared across tests in this file, so a second pass
+    // over the identical key would return the forward test's cached entry.
+    const base = {
+      sport: 'Tennis',
+      selection: 'CacheBleedTestRev',
+      game: 'Wimbledon',
+      start: '2025-01-01T12:00:00.000Z'
+    };
+    const tg = await mod.getGameContext({ ...base, market: 'Total Games' });
+    const ml = await mod.getGameContext({ ...base, market: 'Moneyline' });
+    assert.equal(tg.cached, false);
+    assert.equal(ml.cached, false, 'Moneyline must not reuse the cached Total Games result');
+    // Wimbledon is a Grand Slam with no ATP/WTA hint → tour_unknown before any snapshot I/O.
+    assert.equal(ml.elo.coverage, 'tour_unknown', 'Moneyline must not inherit Total Games Elo coverage');
+  });
+
+  it('cache is shared within the same market (cache true only for identical key)', async () => {
+    const mod = require('../lib/propprofessor-game-context');
+    const args = {
+      sport: 'Tennis',
+      selection: 'CacheBleedTest',
+      game: 'Wimbledon',
+      start: '2025-01-01T12:00:00.000Z',
+      market: 'Moneyline'
+    };
+    await mod.getGameContext(args);
+    const second = await mod.getGameContext(args);
+    assert.equal(second.cached, true, 'identical market+matchup+start must hit the game-context cache');
+  });
+
+  it('threads selection into getTennisContext so exact-resolver selectedProbability can populate', async () => {
+    // getGameContext must forward `selection` (not just the parsed player1/2)
+    // to getTennisContext — otherwise Elo selectedProbability can never match
+    // the bet's side. Spy on the tennis-context module before game-context loads.
+    const tennisPath = require.resolve('../lib/propprofessor-tennis-context');
+    const gamePath = require.resolve('../lib/propprofessor-game-context');
+    const original = require.cache[tennisPath];
+    const captured = [];
+    require.cache[tennisPath] = {
+      id: tennisPath,
+      filename: tennisPath,
+      loaded: true,
+      exports: {
+        getTennisContext: async (opts) => {
+          captured.push(opts);
+          return {
+            ok: true,
+            sport: 'Tennis',
+            riskFlag: 'clean',
+            riskSummary: null,
+            signals: {},
+            cached: false,
+            fetchedAt: new Date().toISOString(),
+            elo: { available: false, coverage: 'snapshot_unavailable', reason: 'test-stub' }
+          };
+        }
+      }
+    };
+    delete require.cache[gamePath];
+    try {
+      const mod = require('../lib/propprofessor-game-context');
+      await mod.getGameContext({
+        sport: 'Tennis',
+        selection: 'Djokovic',
+        game: 'Wimbledon',
+        start: '2025-01-01T12:00:00.000Z',
+        market: 'Moneyline'
+      });
+      assert.equal(captured.length, 1);
+      assert.equal(captured[0].selection, 'Djokovic', 'getGameContext must forward selection');
+      assert.equal(captured[0].market, 'Moneyline');
+    } finally {
+      if (original) require.cache[tennisPath] = original;
+      else delete require.cache[tennisPath];
+      delete require.cache[gamePath];
+    }
+  });
 });

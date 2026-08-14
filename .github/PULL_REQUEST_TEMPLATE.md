@@ -17,7 +17,7 @@
 
 <!-- Be specific. Don't say "tests pass" — say WHICH tests and what they cover. -->
 
-- [ ] `npm test` (966 tests)
+- [ ] `npm test` (full suite)
 - [ ] `npm run check:claims` (catches tool/test drift)
 - [ ] `npm run lint`
 - [ ] `npm run check:secrets`

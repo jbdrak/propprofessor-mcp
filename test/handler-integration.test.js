@@ -20,6 +20,7 @@ const assert = require('node:assert/strict');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
 const { isPlayerSelection } = require('../lib/propprofessor-selection-type');
+const { DEFAULT_HISTORY_MIN_INTERVAL_MS } = require('../lib/propprofessor-screen-history');
 
 function createHandlers(overrides = {}, handlerOptions = {}) {
   const { client } = createMockClient(overrides);
@@ -28,6 +29,11 @@ function createHandlers(overrides = {}, handlerOptions = {}) {
     // Keep the per-market stall guard bounded in fixtures. The production
     // default itself is asserted in recommended-bets-resilience.
     recommendedBetsScreenTimeoutMs: 5000,
+    // Fixtures use instant mock history — the artificial 50ms pacing between
+    // /odds_history_new calls would only slow the suite. The production
+    // default (DEFAULT_HISTORY_MIN_INTERVAL_MS=50) is untouched and asserted
+    // by the screen-history module tests plus the pacing-injection block.
+    historyMinIntervalMs: 0,
     ...handlerOptions
   });
   // Stub player_context so research doesn't hit Nitter/network and hang.
@@ -37,6 +43,91 @@ function createHandlers(overrides = {}, handlerOptions = {}) {
   handlers.player_context = async () => ({ riskFlag: 'clean', tweets: [], news: [] });
   return handlers;
 }
+
+// ─── odds-history pacing injection ────────────────────────────────
+
+describe('handler integration: odds-history pacing injection', () => {
+  const screenArgs = {
+    league: 'NBA',
+    market: 'Moneyline',
+    books: ['NoVigApp'],
+    limit: 5,
+    includeAll: true,
+    debug: false
+  };
+
+  // Measure pacing on the *gap between consecutive /odds_history_new calls*
+  // rather than total wall-clock elapsed. The hydration gate spaces request
+  // starts ≥ minIntervalMs apart, so per-call gaps are the deterministic
+  // signal: a total-elapsed ceiling would be coupled to the fixture shape
+  // (row count × interval / concurrency) and to the rest of the pipeline.
+  function recordHistoryCallTimes() {
+    const historyCallTimes = [];
+    const { client } = createMockClient({
+      onCall: (method) => {
+        if (method === 'queryOddsHistory') historyCallTimes.push(Date.now());
+      }
+    });
+    return { client, historyCallTimes };
+  }
+
+  function gapsBetween(times) {
+    return times.slice(1).map((t, i) => t - times[i]);
+  }
+
+  it('injected historyMinIntervalMs: 0 removes the 50ms artificial pacing between history calls', async () => {
+    const historyCallTimes = [];
+    const handlers = createHandlers(
+      {
+        onCall: (method) => {
+          if (method === 'queryOddsHistory') historyCallTimes.push(Date.now());
+        }
+      },
+      { historyMinIntervalMs: 0 }
+    );
+    const result = await handlers.screen_ranked(screenArgs);
+    assert.equal(result.ok, true);
+    assert.ok(
+      historyCallTimes.length >= 2,
+      `expected the fixture to resolve history for several rows, got ${historyCallTimes.length}`
+    );
+    const maxGap = Math.max(...gapsBetween(historyCallTimes));
+    // With the injected 0ms interval the gate never sleeps, so consecutive
+    // calls land back-to-back (~0-1ms apart). Requiring every gap to stay
+    // well under the production 50ms pacing proves the injected 0 actually
+    // reached the gate — a 50ms-paced run shows ~50ms gaps instead.
+    assert.ok(
+      maxGap < DEFAULT_HISTORY_MIN_INTERVAL_MS - 10,
+      `expected unpaced gaps well below ${DEFAULT_HISTORY_MIN_INTERVAL_MS}ms, saw max ${maxGap}ms`
+    );
+  });
+
+  it('factory default keeps the 50ms production pacing (no injection)', async () => {
+    // Bypass the createHandlers fixture (which injects 0) to prove the plain
+    // factory default still paces at 50ms.
+    const { client, historyCallTimes } = recordHistoryCallTimes();
+    const handlers = createMcpHandlers({ client, recommendedBetsScreenTimeoutMs: 5000 });
+    const result = await handlers.screen_ranked(screenArgs);
+    assert.equal(result.ok, true);
+    assert.ok(
+      historyCallTimes.length >= 2,
+      `expected the fixture to resolve history for several rows, got ${historyCallTimes.length}`
+    );
+    const gaps = gapsBetween(historyCallTimes);
+    const meanGap = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    // The gate spaces request starts ≥ DEFAULT_HISTORY_MIN_INTERVAL_MS apart
+    // in gate time, but a timer that lands a few ms late shaves the *minimum*
+    // observed gap below 50. The mean gap stays ≈50 regardless (measured
+    // 50.2-50.6ms), so assert on that. Requiring it near the pinned 50ms
+    // default proves the production pacing is NOT weakened by the injectable
+    // test seam; the exact default value itself is pinned at 50 by the
+    // screen-history module test.
+    assert.ok(
+      meanGap >= DEFAULT_HISTORY_MIN_INTERVAL_MS - 10,
+      `expected ~${DEFAULT_HISTORY_MIN_INTERVAL_MS}ms paced gaps, saw mean ${meanGap.toFixed(1)}ms`
+    );
+  });
+});
 
 // ─── screen_ranked ─────────────────────────────────────────────────
 
@@ -561,6 +652,132 @@ describe('handler integration: quick_screen research scoping', () => {
     assert.equal(result.ok, true);
     assert.ok(Array.isArray(result.research), 'research should be an array');
     assert.equal(result.research.length, 0, 'research should be empty when disabled');
+  });
+});
+
+// ─── quick_screen Elo overlay ────────────────────────────────────
+
+describe('handler integration: quick_screen elo overlay', () => {
+  // Shadow Elo payload tagged with the research args so tests can prove
+  // composite (player, game, market) joins — never cross-game/market bleed.
+  const eloFor = (args) => ({
+    available: true,
+    coverage: 'full',
+    selectedProbability: 0.62,
+    market: args.market || null,
+    game: args.game || null,
+    selection: args.selection || null
+  });
+
+  function makeHandlers(gameContextFn) {
+    const handlers = createHandlers({}, { gameContextFn });
+    handlers.player_context = async () => ({ riskFlag: 'clean', tweets: [], news: [] });
+    return handlers;
+  }
+
+  it('carries elo + market on game-context research entries without leaking verdict fields', async () => {
+    const handlers = makeHandlers(async (args) => ({
+      riskFlag: 'clean',
+      riskSummary: 'fixture game context',
+      cached: true,
+      elo: eloFor(args)
+    }));
+    const result = await handlers.quick_screen({
+      leagues: ['NBA'],
+      markets: ['Moneyline'],
+      limit: 5,
+      validate: false,
+      cache: false
+    });
+    const gameEntries = (result.research || []).filter((r) => r.contextType === 'game');
+    assert.ok(gameEntries.length > 0, 'team/line research entries should exist');
+    for (const r of gameEntries) {
+      assert.ok(r.elo, `research entry ${r.player} should carry elo`);
+      assert.equal(r.elo.market, 'Moneyline');
+      assert.ok(r.market, 'research entry should carry market for the composite join');
+      // Invariant: no ranker/verdict fields may leak onto research entries.
+      assert.equal(r.consensusEdge, undefined);
+      assert.equal(r.kaiCall, undefined);
+      assert.equal(r.displayTier, undefined);
+      assert.equal(r.finalVerdict, undefined);
+    }
+  });
+
+  it('overlays elo onto lite-mode candidates via the research seam without changing verdict/tier/edge', async () => {
+    const handlers = makeHandlers(async (args) => ({
+      riskFlag: 'clean',
+      riskSummary: 'fixture game context',
+      cached: true,
+      elo: eloFor(args)
+    }));
+    const baseArgs = { leagues: ['NBA'], markets: ['Moneyline'], limit: 5, validate: false, cache: false };
+    const baseline = await handlers.quick_screen(baseArgs);
+    const lite = await handlers.quick_screen({ ...baseArgs, lite: true });
+
+    const liteCandidates = [];
+    for (const entry of lite.results || []) {
+      for (const c of entry.candidates || []) {
+        if (!isPlayerSelection(String(c.selection || ''))) liteCandidates.push(c);
+      }
+    }
+    assert.ok(liteCandidates.length > 0, 'fixture should include team/line candidates');
+    for (const c of liteCandidates) {
+      assert.ok(c.elo, `lite candidate ${c.selection} should carry elo`);
+      assert.equal(c.elo.market, 'Moneyline');
+      const base = (baseline.results || [])
+        .flatMap((e) => e.candidates || [])
+        .find((b) => b.gameId === c.gameId && b.selection === c.selection);
+      assert.ok(base, `baseline candidate ${c.selection} must exist`);
+      // Invariant: the elo overlay must not change any verdict/tier/edge field.
+      assert.equal(c.kaiCall, base.kaiCall);
+      assert.equal(c.displayTier, base.displayTier);
+      assert.equal(c.finalVerdict, base.finalVerdict);
+      assert.equal(c.confidenceTier, base.confidenceTier);
+      assert.equal(c.edge, base.edge);
+    }
+  });
+
+  it('overlays elo onto bets-mode plays in lite mode (recordable row seam)', async () => {
+    const eloHandlers = makeHandlers(async (args) => ({
+      riskFlag: 'clean',
+      riskSummary: 'fixture game context',
+      cached: true,
+      elo: eloFor(args)
+    }));
+    const plainHandlers = makeHandlers(async () => ({
+      riskFlag: 'clean',
+      riskSummary: 'fixture game context',
+      cached: true
+    }));
+    const baseArgs = {
+      leagues: ['NBA'],
+      markets: ['Moneyline'],
+      limit: 5,
+      validate: false,
+      cache: false,
+      verbosity: 'bets',
+      lite: true
+    };
+    const baseline = await plainHandlers.quick_screen(baseArgs);
+    const withElo = await eloHandlers.quick_screen(baseArgs);
+
+    const baselinePlays = (baseline.results || []).flatMap((e) => e.plays || []);
+    const eloPlays = (withElo.results || []).flatMap((e) => e.plays || []);
+    assert.ok(baselinePlays.length > 0, 'bets mode should return plays');
+    assert.ok(eloPlays.length > 0, 'bets mode should return plays with elo');
+
+    const eloTeamPlays = eloPlays.filter((p) => !isPlayerSelection(String(p.selection || '')));
+    assert.ok(eloTeamPlays.length > 0, 'team plays should carry elo through bets+lite');
+    for (const p of eloTeamPlays) {
+      assert.ok(p.elo, `play ${p.selection} should carry elo`);
+      assert.equal(p.elo.market, 'Moneyline');
+      const base = baselinePlays.find((b) => b.selection === p.selection && b.game === p.game);
+      assert.ok(base, `baseline play ${p.selection} must exist`);
+      // Invariant: verdict/tier/edge unchanged by the elo overlay.
+      assert.equal(p.verdict, base.verdict);
+      assert.equal(p.tier, base.tier);
+      assert.equal(p.edge, base.edge);
+    }
   });
 });
 

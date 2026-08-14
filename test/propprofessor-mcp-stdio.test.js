@@ -308,3 +308,42 @@ describe('createStdioMessageReader', () => {
     assert.equal(messages[1].n, 2);
   });
 });
+
+describe('portable public recovery paths', () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  it('AUTH_EXPIRED recovery contains no author-machine absolute path', () => {
+    const result = categorizeError({ message: 'nope', status: 401 });
+    assert.equal(result.code, 'AUTH_EXPIRED');
+    assert.ok(!result.recovery.includes('/Users/'), 'recovery must not contain an absolute /Users path');
+    assert.ok(!result.recovery.includes('/Users/jamesdrake'));
+    assert.ok(result.recovery.includes('scripts/pp-login.js'), 'recovery must point at package-relative pp-login.js');
+  });
+
+  it('AUTH_REQUIRED recovery contains no author-machine absolute path', () => {
+    const result = categorizeError(new Error('Authentication required'));
+    assert.equal(result.code, 'AUTH_REQUIRED');
+    assert.ok(!result.recovery.includes('/Users/'), 'recovery must not contain an absolute /Users path');
+    assert.ok(!result.recovery.includes('/Users/jamesdrake'));
+    assert.ok(result.recovery.includes('scripts/pp-login.js'), 'recovery must point at package-relative pp-login.js');
+  });
+
+  it('TOKEN_REFRESH_FAILED_BOTH_PATHS recovery is portable, not a private ~/.hermes script', () => {
+    const result = categorizeError({
+      code: 'TOKEN_REFRESH_FAILED_BOTH_PATHS',
+      message: 'token refresh failed both paths: http 401'
+    });
+    assert.equal(result.code, 'AUTH_EXPIRED');
+    assert.ok(!result.recovery.includes('~/.hermes'), 'recovery must not reference private ~/.hermes scripts');
+    assert.ok(!result.recovery.includes('pp-fresh-auth'));
+    assert.ok(!result.recovery.includes('/Users/'), 'recovery must not contain an absolute /Users path');
+    assert.ok(result.recovery.includes('scripts/pp-login.js'), 'recovery must point at package-relative pp-login.js');
+  });
+
+  it('recovery source contains no author-machine paths', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'propprofessor-mcp-stdio.js'), 'utf8');
+    assert.ok(!src.includes('/Users/jamesdrake'), 'source must not hardcode /Users/jamesdrake');
+    assert.ok(!src.includes('pp-fresh-auth'), 'source must not reference private ~/.hermes scripts');
+  });
+});
