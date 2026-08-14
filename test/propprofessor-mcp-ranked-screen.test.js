@@ -302,7 +302,7 @@ describe('buildRankedScreenResponse', () => {
           lineHistory: [
             { book: 'NoVigApp', odds: -95, time: nowMs - 4 * 60 * 60 * 1000 },
             { book: 'NoVigApp', odds: -100, time: nowMs - 2 * 60 * 60 * 1000 },
-            { book: 'NoVigApp', odds: -105, time: nowMs - 30 * 60 * 1000 }
+            { book: 'NoVigApp', odds: -105, time: nowMs - 2 * 60 * 1000 }
           ]
         }
       ]

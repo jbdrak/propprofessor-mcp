@@ -17,6 +17,49 @@ describe('computeMovementDisposition', () => {
     );
   });
 
+  it('downgrades a stale supportive quote to insufficient (last point > 10 min old)', () => {
+    // Regression: 2026-08-14 Broncos ML -178 was quoted supportive_clean from
+    // a 17-min-old history point while the live market had moved to -163/-160.
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'green',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        peakAdverseClvPct: 0.5,
+        lastPointAgeMs: 17 * 60 * 1000
+      }),
+      'insufficient'
+    );
+  });
+
+  it('keeps a fresh supportive quote clean (last point under 10 min old)', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'green',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        peakAdverseClvPct: 0.5,
+        lastPointAgeMs: 3 * 60 * 1000
+      }),
+      'supportive_clean'
+    );
+  });
+
+  it('keeps adverse on a stale quote (adverse is a pass either way)', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'red',
+        movementLabel: 'adverse',
+        recentSharpMoveDirection: 'adverse',
+        fullWindowSharpMoveDirection: 'adverse',
+        lastPointAgeMs: 30 * 60 * 1000
+      }),
+      'adverse_full'
+    );
+  });
+
   it('returns supportive_bouncy for green grade + V-shaped recovery', () => {
     assert.equal(
       computeMovementDisposition({

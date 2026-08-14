@@ -1182,6 +1182,16 @@ async function cmdGame(handlers, positional, flags) {
         '  |  disposition: ' +
         movementColor(r.movementDisposition)
     );
+    const quoteAgeMs = Number(r.lastPointAgeMs);
+    if (Number.isFinite(quoteAgeMs) && quoteAgeMs > 10 * 60 * 1000) {
+      console.log(
+        Y +
+          '⚠ quote is ' +
+          Math.round(quoteAgeMs / 60000) +
+          ' min old — verify current price before betting' +
+          R
+      );
+    }
     if (selection) {
       console.log('selection: ' + (r.selection || r.pick || '') + '  [' + (r.selectionId || '') + ']');
     }

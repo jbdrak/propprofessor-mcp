@@ -92,6 +92,33 @@ describe('propprofessor sharp history helpers', () => {
     assert.equal(typeof summary.recentClvPct, 'number');
   });
 
+  it('exposes lastPointAgeMs as the age of the newest history point', () => {
+    const nowMs = Date.UTC(2026, 4, 6, 12, 0, 0);
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'NoVigApp', odds: -174, time: nowMs - 17 * 60 * 1000 },
+        { book: 'NoVigApp', odds: -178, time: nowMs - 2 * 60 * 1000 }
+      ],
+      preferredBook: 'NoVigApp',
+      options: { nowMs, recentWindowHours: 6 }
+    });
+
+    assert.equal(summary.lastPointAgeMs, 2 * 60 * 1000);
+  });
+
+  it('sets lastPointAgeMs to null when history points carry no timestamps', () => {
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'NoVigApp', odds: -174 },
+        { book: 'NoVigApp', odds: -178 }
+      ],
+      preferredBook: 'NoVigApp',
+      options: { recentWindowHours: 6 }
+    });
+
+    assert.equal(summary.lastPointAgeMs, null);
+  });
+
   it('prefers the named book history over sharp comparison history', () => {
     const summary = summarizeSharpMovement({
       lineHistory: [
