@@ -1562,17 +1562,28 @@ describe('getTennisContext — Elo integration', () => {
   describe('elo available false with missing snapshot (default load)', () => {
     it('returns snapshot_unavailable when default loadSnapshot finds no file', async () => {
       mockCurlSuccess(EMPTY_RSS);
-      const { getTennisContext } = require('../lib/propprofessor-tennis-context');
-      const r = await getTennisContext({
-        player1: 'Player A',
-        player2: 'Player B',
-        tournament: 'Wimbledon',
-        start: '2025-01-01T12:00:00Z',
-        tour: 'atp',
-        market: 'Moneyline'
-      });
-      assert.equal(r.elo.available, false);
-      assert.equal(r.elo.coverage, 'snapshot_unavailable');
+      // Hermetic: pin the snapshot path to a nonexistent file so this test
+      // does not depend on ambient machine state (a real snapshot on disk
+      // makes the default load succeed and resolvePlayer return
+      // 'player_unresolved' for the fake players instead).
+      const prev = process.env.PP_TENNIS_ELO_SNAPSHOT;
+      process.env.PP_TENNIS_ELO_SNAPSHOT = '/nonexistent/tennis-elo-snapshot.json';
+      try {
+        const { getTennisContext } = require('../lib/propprofessor-tennis-context');
+        const r = await getTennisContext({
+          player1: 'Player A',
+          player2: 'Player B',
+          tournament: 'Wimbledon',
+          start: '2025-01-01T12:00:00Z',
+          tour: 'atp',
+          market: 'Moneyline'
+        });
+        assert.equal(r.elo.available, false);
+        assert.equal(r.elo.coverage, 'snapshot_unavailable');
+      } finally {
+        if (prev === undefined) delete process.env.PP_TENNIS_ELO_SNAPSHOT;
+        else process.env.PP_TENNIS_ELO_SNAPSHOT = prev;
+      }
     });
   });
 });

@@ -41,6 +41,44 @@ npm run tennis:elo:refresh -- \
   --model-version tennis-elo@1.1.0 --dry-run
 ```
 
+## Two-step build from raw archives (Sackmann + current-year source)
+
+The refresh CLI consumes the flat importer schema (`date,tour,surface,winner,loser,status`).
+If your source is Jeff Sackmann's `tennis_atp` archive (or a compatible per-year
+source), use the transform script to produce that schema from the raw per-year
+files, then refresh:
+
+1. Drop raw per-year ATP files into a data dir named
+   `atp_main_<year>.csv` (main tour) and `atp_qual_<year>.csv` (challengers +
+   qualifiers). Verified sources (2026-08-14):
+   - History 2010-2025: `Aneeshers/tennis-sackmann-archive` on HuggingFace
+     (CC BY-NC-SA 4.0 mirror of `JeffSackmann/tennis_atp`). GitHub API/raw
+     fetches 404'd from this machine at build time; the HF mirror worked.
+   - Current year: `stats.tennismylife.org/data/<year>.csv` (main) and
+     `<year>_challenger.csv` (challengers) — updated through the current week,
+     which the HF mirror lags by months.
+   - Files are matched by the `atp_(main|qual)_<year>.csv` glob; replace the
+     current year's files with the fresher source before rebuilding.
+2. Transform:
+   ```bash
+   ELO_DATA_DIR=~/data/tennis-elo \
+     npm run tennis:elo:transform
+   ```
+   Writes `combined_atp.csv` (importer schema) into the same data dir. The
+   transform also canonicalizes case-variant name collisions (e.g.
+   `de Minaur` vs `De Minaur` from mixed sources) — required, the importer
+   rejects duplicated normalized names otherwise.
+3. Refresh:
+   ```bash
+   npm run tennis:elo:refresh -- \
+     --input ~/data/tennis-elo/combined_atp.csv \
+     --license "CC BY-NC-SA 4.0 (Jeff Sackmann tennis_atp via HF mirror; current year via TennisMyLife)" \
+     --as-of 2026-08-14 \
+     --imported-at 2026-08-14T12:00:00Z \
+     --model-version tennis-elo@1.1.0
+   ```
+
+
 ---
 
 ## CSV schema (exact)

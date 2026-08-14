@@ -75,6 +75,7 @@
     "query": "node scripts/query-propprofessor.js",
     "export-screen": "node scripts/export-ranked-screen.js",
     "exe": "node scripts/prop-professor.exe.js",
+    "tennis:elo:transform": "node scripts/transform-sackmann-elo.js",
     "tennis:elo:refresh": "node scripts/refresh-tennis-elo.js",
     "backtest:tennis:elo": "node scripts/backtest-tennis-elo.js",
     "check:version": "node scripts/check-version-consistency.js",
