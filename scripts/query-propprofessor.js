@@ -5,6 +5,7 @@ const os = require('node:os');
 const fs = require('node:fs');
 const path = require('node:path');
 const { DEFAULT_LEAGUES } = require('../lib/propprofessor-shared-utils');
+const { getMarketsForSport } = require('../lib/propprofessor-market-registry');
 
 const {
   createPropProfessorClient,
@@ -604,7 +605,7 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
   } else if (screenCommand.command === 'screen') {
     payload = await client.queryScreenOddsBestComps({
       league: screenCommand.league,
-      market: opts.market || 'Moneyline',
+      market: opts.market || getMarketsForSport(screenCommand.league)[0] || 'Moneyline',
       books: opts.books
         ? String(opts.books)
             .split(',')
@@ -676,14 +677,17 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
       : opts.league
         ? [opts.league]
         : Array.from(DEFAULT_LEAGUES);
-    const markets = opts.markets
-      ? String(opts.markets)
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : opts.market
-        ? [opts.market]
-        : ['Moneyline', 'Spread', 'Total'];
+    const markets = resolveSharpPlaysMarkets({
+      leagues,
+      book: targetBook,
+      markets: opts.markets
+        ? String(opts.markets)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined,
+      market: opts.market
+    });
     const { createMcpHandlers } = require('./propprofessor-mcp-server');
     const handlers = createMcpHandlers({ client });
     const result = await handlers.sharp_plays({
@@ -895,6 +899,33 @@ if (require.main === module) {
   });
 }
 
+/**
+ * Resolve default markets for the sharp-plays command.
+ *
+ * Single league: use the per-league registry default (e.g. Tennis →
+ * Moneyline / Total Games / Set Handicap). Multi-league: return undefined so
+ * the sharp_plays service resolves each league independently. Explicit
+ * --markets / --market always win.
+ *
+ * @param {Object} opts
+ * @param {string[]} [opts.leagues]
+ * @param {string[]} [opts.markets]
+ * @param {string} [opts.market]
+ * @param {string} [opts.book]
+ * @returns {string[]|undefined}
+ */
+function resolveSharpPlaysMarkets({ leagues, markets, market, book } = {}) {
+  if (Array.isArray(markets) && markets.length) {
+    return markets.map((m) => String(m).trim()).filter(Boolean);
+  }
+  if (market) return [String(market).trim()];
+  const leagueList = Array.isArray(leagues) ? leagues.filter(Boolean) : leagues ? [leagues] : [];
+  if (leagueList.length === 1) {
+    return getMarketsForSport(String(leagueList[0]).trim(), book);
+  }
+  return undefined;
+}
+
 module.exports = {
   buildDoctorReport,
   buildHelpText,
@@ -902,6 +933,7 @@ module.exports = {
   getCommandInventory,
   parseArgs,
   resolveScreenCommand,
+  resolveSharpPlaysMarkets,
   extractRows,
   main
 };

@@ -17,6 +17,9 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
 const { isPlayerSelection } = require('../lib/propprofessor-selection-type');
@@ -948,6 +951,66 @@ describe('handler integration: staking_plan', () => {
       assert.ok(stake.selection, 'Stake has selection');
       assert.ok(stake.tier, 'Stake has tier');
       assert.ok(typeof stake.stakeDollars === 'number', 'Stake has stakeDollars');
+    }
+  });
+});
+
+// ─── composite handlers: registry-driven market defaults ──────────
+
+describe('composite handlers: registry-driven market defaults', () => {
+  function createCompositesTestHandlers() {
+    const { client, calls } = createMockClient();
+    const handlers = createMcpHandlers({
+      client,
+      recommendedBetsScreenTimeoutMs: 5000,
+      historyMinIntervalMs: 0
+    });
+    // Stub player_context so research never hits Nitter/network.
+    handlers.player_context = async () => ({ riskFlag: 'clean', tweets: [], news: [] });
+    return { client, calls, handlers };
+  }
+
+  function queriedMarkets(calls) {
+    return [...calls.queryScreenOddsBestComps, ...calls.queryScreenOdds].map((c) => c.market);
+  }
+
+  it('staking_plan screens per-league registry markets when markets are not provided', async () => {
+    const { calls, handlers } = createCompositesTestHandlers();
+
+    const result = await handlers.staking_plan({ leagues: ['Soccer'], bankroll: 1000, limit: 5 });
+
+    assert.equal(result.ok, true);
+    const markets = queriedMarkets(calls);
+    assert.ok(markets.includes('Draw No Bet'), `soccer draw-no-bet market queried (got: ${markets.join(', ')})`);
+    assert.ok(markets.includes('Match Handicap'), `soccer match-handicap market queried (got: ${markets.join(', ')})`);
+    assert.ok(markets.includes('Total Goals'), `soccer total-goals market queried (got: ${markets.join(', ')})`);
+    assert.ok(
+      !markets.some((m) => m === 'Spread' || m === 'Total'),
+      `generic markets should not be queried (got: ${markets.join(', ')})`
+    );
+  });
+
+  it('get_alerts fans out per-league registry markets via screen_ranked', async () => {
+    const checkpointPath = path.join(os.homedir(), '.propprofessor', 'alerts-checkpoint.json');
+    const prevCheckpoint = fs.existsSync(checkpointPath) ? fs.readFileSync(checkpointPath, 'utf8') : null;
+
+    try {
+      const { calls, handlers } = createCompositesTestHandlers();
+
+      const result = await handlers.get_alerts({ leagues: ['UFC'], lookbackHours: 6, minSteamBooks: 5 });
+
+      assert.equal(result.ok, true);
+      assert.deepEqual(result.leaguesChecked, ['UFC']);
+      const markets = queriedMarkets(calls);
+      assert.ok(markets.includes('Moneyline'), `ufc moneyline queried (got: ${markets.join(', ')})`);
+      assert.ok(markets.includes('Total Rounds'), `ufc total rounds queried (got: ${markets.join(', ')})`);
+      assert.ok(!markets.includes('Spread'), `no generic Spread market (got: ${markets.join(', ')})`);
+    } finally {
+      if (prevCheckpoint === null) {
+        fs.rmSync(checkpointPath, { force: true });
+      } else {
+        fs.writeFileSync(checkpointPath, prevCheckpoint, 'utf8');
+      }
     }
   });
 });

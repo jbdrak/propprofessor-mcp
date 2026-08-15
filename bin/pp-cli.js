@@ -18,6 +18,7 @@ const { loadLedger, saveLedger, addRecord, defaultLedgerPath } = require(PROJECT
 const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/lib/record-candidates');
 const { promoteCards } = require(PROJECT + '/lib/record-card');
 const { enrichScanElo } = require(PROJECT + '/lib/propprofessor-elo-overlay');
+const { formatScanDiagnostics } = require(PROJECT + '/lib/scan-diagnostics');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
 // ── book alias resolution ──────────────────────────────────────
@@ -928,8 +929,10 @@ async function applyTennisScanFallback({
             if (res.data) {
               res.data.results = filtered;
               res.data.totalCount = (res.data.totalCount || 0) + filteredPlays.length;
+              res.data.tennisFallbackApplied = true;
             } else {
               res.results = filtered;
+              res.tennisFallbackApplied = true;
             }
           }
         }
@@ -959,31 +962,23 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
       // Enrichment must never break scan output.
     }
   }
-  const healthIncomplete = Boolean(scanHealth?.incomplete || scanHealth?.validationBudgetExhausted);
-  const healthTruncated = Boolean(scanHealth?.truncated);
-  if (healthIncomplete || healthTruncated) {
-    const leaguesWithIssues = (scanHealth?.preHistoryShortlist || [])
-      .filter((pair) => pair.truncated)
-      .map((pair) => pair.league)
-      .filter(Boolean);
-    if (healthTruncated) {
-      console.error(
-        `Warning: scan incomplete/truncated${leaguesWithIssues.length ? ` for ${[...new Set(leaguesWithIssues)].join(', ')}` : ''}; some rows were not hydrated.`
-      );
-    }
-    // "Diagnostic only" means the shared validation budget was actually
-    // exhausted and BET candidates never got a validate_play call. Plain
-    // shortlist truncation (healthTruncated/incomplete without the budget
-    // flag) only means some weaker rows weren't hydrated — the plays shown
-    // ARE hydrated and carry real CLV/movement evidence, so they are not
-    // demoted to watch candidates.
-    if (scanHealth?.validationBudgetExhausted) {
-      console.error(
-        'Warning: scan validation budget exhausted; BET candidates are diagnostic only (never official bets).'
-      );
-      const hintLeague = leaguesWithIssues[0] || scanHealth?.league || leagues[0];
-      if (hintLeague) console.error(`Recovery: run pp rank ${hintLeague} for a focused scan.`);
-    }
+  // Surface existing diagnostics on the human path: truncated rows, empty
+  // league×market pairs, and the tennis-fallback-on-mixed-scan caveat. The
+  // pure helper keeps the text testable and shared with JSON consumers.
+  const emptySlate = res.data?.emptySlate || res.emptySlate || [];
+  const tennisFallbackApplied = Boolean(res.data?.tennisFallbackApplied || res.tennisFallbackApplied);
+  const mixedScan = leagues.length > 1 && leagues.some((l) => String(l || '').toLowerCase() !== 'tennis');
+  // Preserve the original recovery-hint fallback: prefer a truncated league,
+  // then scanHealth.league, then the first requested league.
+  const healthForDiagnostics =
+    scanHealth && !scanHealth.league && leagues.length ? { ...scanHealth, league: leagues[0] } : scanHealth;
+  for (const line of formatScanDiagnostics({
+    mixedScan,
+    tennisFallbackApplied,
+    emptySlate,
+    scanHealth: healthForDiagnostics
+  })) {
+    console.error(line);
   }
 
   // --record-scan: persist this scan + normalized candidates to the tracker
@@ -1042,9 +1037,17 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
     const output = {
       results,
       ...(scanHealth ? { scanHealth } : {}),
-      ...(watchCandidates ? { watchCandidates } : {})
+      ...(watchCandidates ? { watchCandidates } : {}),
+      ...(emptySlate && emptySlate.length ? { emptySlate } : {}),
+      ...(tennisFallbackApplied ? { tennisFallbackApplied } : {})
     };
-    console.log(JSON.stringify(scanHealth || watchCandidates ? output : results, null, 2));
+    console.log(
+      JSON.stringify(
+        scanHealth || watchCandidates || emptySlate?.length || tennisFallbackApplied ? output : results,
+        null,
+        2
+      )
+    );
   } else {
     if (watchCandidates?.length) {
       console.error(
@@ -1059,7 +1062,7 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
 }
 
 async function cmdScan(handlers, positional, flags, client) {
-  const FAST_LEAGUES = ['MLB', 'Tennis', 'NBA', 'WNBA', 'Soccer'];
+  const FAST_LEAGUES = ['MLB', 'Tennis', 'UFC', 'NBA', 'WNBA'];
   let leagues =
     positional.length > 1
       ? positional.slice(1)
@@ -1270,11 +1273,7 @@ async function cmdGame(handlers, positional, flags) {
     const quoteAgeMs = Number(r.lastPointAgeMs);
     if (Number.isFinite(quoteAgeMs) && quoteAgeMs > 10 * 60 * 1000) {
       console.log(
-        Y +
-          '⚠ quote is ' +
-          Math.round(quoteAgeMs / 60000) +
-          ' min old — verify current price before betting' +
-          R
+        Y + '⚠ quote is ' + Math.round(quoteAgeMs / 60000) + ' min old — verify current price before betting' + R
       );
     }
     if (selection) {

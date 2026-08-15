@@ -8,6 +8,9 @@ const {
   buildUfcShortlist,
   filterUfcRowsForCard,
   parseRowStartMs,
+  resolveSharpPlayMarkets,
+  resolveSharpPlayMarketsByLeague,
+  resolveSharpPlayMarketsForLeague,
   resolveTargetBook,
   resolveTargetBooks,
   summarizeSharpPlayRows
@@ -1062,5 +1065,60 @@ describe('end-to-end regression fixtures for verified live cases', () => {
     });
 
     assert.equal(classification.verdict, 'Bet candidate');
+  });
+});
+
+describe('sharp play per-league market resolution', () => {
+  it('resolves per-league registry defaults when no explicit markets are given', () => {
+    assert.deepEqual(resolveSharpPlayMarkets({ league: 'Tennis' }), ['Moneyline', 'Total Games', 'Set Handicap']);
+    assert.deepEqual(resolveSharpPlayMarkets({ league: 'UFC' }), ['Moneyline', 'Total Rounds']);
+    assert.deepEqual(resolveSharpPlayMarkets({ league: 'MLB' }), ['Moneyline', 'Run Line', 'Total Runs']);
+    assert.deepEqual(resolveSharpPlayMarkets({ league: 'Soccer', book: 'NoVigApp' }), [
+      'Draw No Bet',
+      'Match Handicap',
+      'Total Goals'
+    ]);
+  });
+
+  it('uses a single-element leagues array as league context', () => {
+    assert.deepEqual(resolveSharpPlayMarkets({ leagues: ['Tennis'] }), ['Moneyline', 'Total Games', 'Set Handicap']);
+  });
+
+  it('keeps the generic Moneyline/Spread/Total fallback when no league context exists', () => {
+    assert.deepEqual(resolveSharpPlayMarkets({}), ['Moneyline', 'Spread', 'Total']);
+  });
+
+  it('honors explicit markets even with league context', () => {
+    assert.deepEqual(resolveSharpPlayMarkets({ league: 'Tennis', markets: ['Moneyline'] }), ['Moneyline']);
+    assert.deepEqual(resolveSharpPlayMarkets({ league: 'MLB', market: 'Run Line' }), ['Run Line']);
+  });
+
+  it('normalizes league names case-insensitively for per-league defaults', () => {
+    assert.deepEqual(resolveSharpPlayMarkets({ league: 'tennis' }), ['Moneyline', 'Total Games', 'Set Handicap']);
+  });
+
+  it('resolveSharpPlayMarketsForLeague resolves one league with book-aware defaults', () => {
+    assert.deepEqual(resolveSharpPlayMarketsForLeague({ book: 'NoVigApp' }, 'Soccer'), [
+      'Draw No Bet',
+      'Match Handicap',
+      'Total Goals'
+    ]);
+    assert.deepEqual(resolveSharpPlayMarketsForLeague({}, 'Tennis'), ['Moneyline', 'Total Games', 'Set Handicap']);
+    assert.deepEqual(resolveSharpPlayMarketsForLeague({ markets: ['Moneyline'] }, 'UFC'), ['Moneyline']);
+  });
+
+  it('resolveSharpPlayMarketsByLeague maps every league to its own default markets', () => {
+    assert.deepEqual(resolveSharpPlayMarketsByLeague({ book: 'NoVigApp' }, ['NBA', 'Tennis', 'Soccer']), {
+      NBA: ['Moneyline', 'Point Spread', 'Total Points'],
+      Tennis: ['Moneyline', 'Total Games', 'Set Handicap'],
+      Soccer: ['Draw No Bet', 'Match Handicap', 'Total Goals']
+    });
+  });
+
+  it('resolveSharpPlayMarketsByLeague honors explicit markets for every league', () => {
+    assert.deepEqual(resolveSharpPlayMarketsByLeague({ markets: ['Moneyline'] }, ['Tennis', 'UFC']), {
+      Tennis: ['Moneyline'],
+      UFC: ['Moneyline']
+    });
   });
 });

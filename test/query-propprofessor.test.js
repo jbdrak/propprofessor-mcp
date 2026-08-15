@@ -13,7 +13,8 @@ const {
   getCommandInventory,
   main,
   parseArgs,
-  resolveScreenCommand
+  resolveScreenCommand,
+  resolveSharpPlaysMarkets
 } = require('../scripts/query-propprofessor');
 
 describe('query-propprofessor CLI parsing', () => {
@@ -364,6 +365,88 @@ describe('query-propprofessor CLI command execution', () => {
       assert.equal(payload.league, expectedLeague);
     });
   }
+
+  it('defaults screen markets to the league registry default when --market is omitted (Soccer → Draw No Bet)', async () => {
+    const { logger } = createLogger();
+    const calls = [];
+
+    await main({
+      argv: ['node', 'query', 'soccer'],
+      client: {
+        queryScreenOddsBestComps: async (filters) => {
+          calls.push(filters);
+          return { game_data: [] };
+        }
+      },
+      logger
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].league, 'Soccer');
+    assert.equal(calls[0].market, 'Draw No Bet');
+  });
+
+  it('defaults screen markets to the league registry default when --market is omitted (NBA → Moneyline)', async () => {
+    const { logger } = createLogger();
+    const calls = [];
+
+    await main({
+      argv: ['node', 'query', 'nba'],
+      client: {
+        queryScreenOddsBestComps: async (filters) => {
+          calls.push(filters);
+          return { game_data: [] };
+        }
+      },
+      logger
+    });
+
+    assert.equal(calls[0].market, 'Moneyline');
+  });
+
+  it('honors an explicit --market over the league registry default', async () => {
+    const { logger } = createLogger();
+    const calls = [];
+
+    await main({
+      argv: ['node', 'query', 'soccer', '--market', 'Total Goals'],
+      client: {
+        queryScreenOddsBestComps: async (filters) => {
+          calls.push(filters);
+          return { game_data: [] };
+        }
+      },
+      logger
+    });
+
+    assert.equal(calls[0].market, 'Total Goals');
+  });
+
+  it('resolves sharp-plays default markets from the registry for a single league', () => {
+    assert.deepEqual(resolveSharpPlaysMarkets({ leagues: ['Tennis'], book: 'NoVigApp' }), [
+      'Moneyline',
+      'Total Games',
+      'Set Handicap'
+    ]);
+    assert.deepEqual(resolveSharpPlaysMarkets({ leagues: ['NBA'], book: 'NoVigApp' }), [
+      'Moneyline',
+      'Point Spread',
+      'Total Points'
+    ]);
+  });
+
+  it('leaves sharp-plays markets to the service default for multi-league scans', () => {
+    assert.equal(resolveSharpPlaysMarkets({ leagues: ['NBA', 'Soccer'], book: 'NoVigApp' }), undefined);
+  });
+
+  it('honors explicit sharp-plays markets over registry defaults', () => {
+    assert.deepEqual(resolveSharpPlaysMarkets({ leagues: ['NBA'], book: 'NoVigApp', markets: ['Player Points'] }), [
+      'Player Points'
+    ]);
+    assert.deepEqual(resolveSharpPlaysMarkets({ leagues: ['NBA'], book: 'NoVigApp', market: 'Total Rounds' }), [
+      'Total Rounds'
+    ]);
+  });
 
   it('smoke-runs the documented health command', async () => {
     const { logger, lines } = createLogger();

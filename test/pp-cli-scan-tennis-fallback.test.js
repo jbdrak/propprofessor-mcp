@@ -300,6 +300,78 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     assert.equal(tennisGroup, undefined, 'Tennis fallback should NOT be injected');
   });
 
+  it('--fast scopes the scan to the fast list including UFC', async () => {
+    let request;
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Guardians', odds: -106 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = {
+      quick_screen: async (args) => {
+        request = args;
+        return res;
+      }
+    };
+    const orig = suppressConsole();
+    try {
+      // Real CLI: positional[0] is the command word. 'pp scan --fast'
+      // yields positional=['scan'], length 1, so FAST_LEAGUES applies.
+      await cmdScan(handlers, ['scan'], { fast: true }, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    assert.ok(request, 'quick_screen should have been called');
+    assert.ok(request.leagues.includes('UFC'), `--fast should include UFC, got: ${request.leagues.join(', ')}`);
+    assert.ok(
+      !request.leagues.includes('Soccer'),
+      `--fast should drop Soccer from the list, got: ${request.leagues.join(', ')}`
+    );
+  });
+
+  it('flags tennisFallbackApplied on res when fallback fills a mixed scan', async () => {
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    assert.equal(res.data.tennisFallbackApplied, true, 'fallback injection should set the flag');
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis fallback group should be injected');
+  });
+
+  it('does not flag tennisFallbackApplied when tennis already has plays', async () => {
+    const res = {
+      data: {
+        results: [
+          { league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] },
+          { league: 'Tennis', market: 'Moneyline', plays: [{ selection: 'Djokovic', odds: -150 }] }
+        ],
+        totalCount: 2
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    assert.equal(res.data.tennisFallbackApplied, undefined, 'no fallback, no flag');
+  });
+
   it('does not affect scans that do not include tennis', async () => {
     const res = {
       data: {

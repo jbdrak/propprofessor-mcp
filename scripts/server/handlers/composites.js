@@ -9,6 +9,7 @@
  */
 
 const { DEFAULT_LEAGUES } = require('../../../lib/propprofessor-shared-utils');
+const { getMarketsForSport } = require('../../../lib/propprofessor-market-registry');
 const { ok } = require('../../../lib/response-envelope');
 const { getBacktestSummary, readCheckpoint, writeCheckpoint } = require('../../../lib/propprofessor-picks');
 const { suggestStakes } = require('../../../lib/propprofessor-risk-score');
@@ -508,10 +509,7 @@ async function runCompositeGetAlerts(ctx, args = {}) {
   const errors = [];
   for (const league of leagues) {
     try {
-      const defaultMarkets =
-        league.toUpperCase() === 'SOCCER'
-          ? ['Draw No Bet', 'Match Handicap', 'Total Goals']
-          : ['Moneyline', 'Spread', 'Total'];
+      const defaultMarkets = getMarketsForSport(league);
       // Fan out across per-league default markets instead of Moneyline-only
       const allRows = [];
       for (const market of defaultMarkets) {
@@ -616,11 +614,7 @@ async function runCompositeStakingPlan(ctx, args = {}) {
   const bankroll = Number.isFinite(Number(args.bankroll)) ? Number(args.bankroll) : 1000;
   const leagues = Array.isArray(args.leagues) && args.leagues.length ? args.leagues : undefined;
   const markets =
-    Array.isArray(args.markets) && args.markets.length
-      ? args.markets
-      : args.market
-        ? [args.market]
-        : ['Moneyline', 'Spread', 'Total'];
+    Array.isArray(args.markets) && args.markets.length ? args.markets : args.market ? [args.market] : undefined;
   const targetTiers =
     Array.isArray(args.targetTiers) && args.targetTiers.length ? args.targetTiers : ['TIER 1', 'TIER 2'];
   const limit = Number.isFinite(Number(args.limit)) ? Number(args.limit) : 10;

@@ -488,6 +488,30 @@ if (authClaimIssues === 0) {
   ok('no false full-suite-auth claims in active docs (the full suite is offline and auth-free)');
 }
 
+// --- 5f. Tennis default-market claims -----------------------------------------
+
+const TENNIS_DEFAULT_CONTEXT_RE =
+  /(?:\bTennis\b[^.\n]*(?:default|uses?\s+(?:Moneyline|Total Games|Set Handicap|Game Handicap)|→)|(?:default|league-specific defaults)[^.\n]*\bTennis\b)/i;
+const TENNIS_CANONICAL_MARKETS_RE = /Moneyline\s*\/\s*Total Games\s*\/\s*Set Handicap/i;
+
+let tennisMarketIssues = 0;
+for (const [rel, lines] of activeDocLines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!TENNIS_DEFAULT_CONTEXT_RE.test(line)) continue;
+    const explicitOnly = /Game Handicap.*explicit-only|explicit-only.*Game Handicap/i.test(line);
+    if ((!explicitOnly && /Game Handicap/i.test(line)) || !TENNIS_CANONICAL_MARKETS_RE.test(line)) {
+      fail(
+        `Tennis default-market claim in ${rel}:${i + 1} is not canonical: "${line.trim()}" — expected Moneyline / Total Games / Set Handicap.`
+      );
+      tennisMarketIssues++;
+    }
+  }
+}
+if (tennisMarketIssues === 0) {
+  ok('Tennis default-market claims in active docs match Moneyline / Total Games / Set Handicap');
+}
+
 // ----------------------------------------------------------------------------
 // Summary
 // ----------------------------------------------------------------------------
