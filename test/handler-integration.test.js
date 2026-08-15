@@ -24,8 +24,16 @@ const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
 const { isPlayerSelection } = require('../lib/propprofessor-selection-type');
 const { DEFAULT_HISTORY_MIN_INTERVAL_MS } = require('../lib/propprofessor-screen-history');
+const { clearTierCache, clearScoreTimeline } = require('../lib/propprofessor-risk-score');
 
 function createHandlers(overrides = {}, handlerOptions = {}) {
+  // Reset module-level tier state so tests are order-independent. The score
+  // timeline persists across requests by design (stabilizes tiers within a
+  // session), but a prior describe block (e.g. quick_screen elo overlay)
+  // populates it with the same fixture game keys — hysteresis then downgrades
+  // recommended_bets plays to TIER 3/4 and the tier filter drops everything.
+  clearTierCache();
+  clearScoreTimeline();
   const { client } = createMockClient(overrides);
   const handlers = createMcpHandlers({
     client,

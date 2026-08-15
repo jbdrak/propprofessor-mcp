@@ -521,11 +521,13 @@ describe('quick_screen aggregate odds-history budget', () => {
     // Aggregate mode hydrates the strongest side per shortlisted game and
     // reserves 60% of the process budget for initial ranking.
     const allocation = Math.floor(ODDS_HISTORY_REQUEST_BUDGET * 0.6);
-    assert.equal(getAggregateGameBudget(36), Math.max(1, Math.min(24, Math.floor(allocation / 36))));
-    assert.equal(getAggregateGameBudget(12), Math.max(1, Math.min(24, Math.floor(allocation / 12))));
-    assert.equal(getAggregateGameBudget(4), Math.max(1, Math.min(24, Math.floor(allocation / 4))));
-    assert.equal(getAggregateGameBudget(1), 24); // capped at the per-call max
-    assert.equal(getAggregateGameBudget(0), 24); // degenerate input
+    // PRE_HISTORY_SHORTLIST_MAX_GAMES is 60 (tuned to the real 300-call
+    // budget, not the historical 75). Only the 4-pair case hits the cap.
+    assert.equal(getAggregateGameBudget(36), Math.max(1, Math.min(60, Math.floor(allocation / 36))));
+    assert.equal(getAggregateGameBudget(12), Math.max(1, Math.min(60, Math.floor(allocation / 12))));
+    assert.equal(getAggregateGameBudget(4), Math.max(1, Math.min(60, Math.floor(allocation / 4))));
+    assert.equal(getAggregateGameBudget(1), 60); // capped at the per-call max
+    assert.equal(getAggregateGameBudget(0), 60); // degenerate input
   });
 
   it('mixed quick_screen: empty pairs do not starve MLB/WNBA of the 40-call budget', async () => {

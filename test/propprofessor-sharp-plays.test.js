@@ -275,9 +275,13 @@ describe('sharp play target book helpers', () => {
     );
 
     assert.equal(summary.classificationSummary.totalRowsClassified, 4);
-    assert.equal(summary.classificationSummary.verdictCounts['Pass'], 4);
+    // nba-1 (5 books, NoVigApp, supportive) and mlb-1 (6 books, NoVigApp,
+    // supportive) pass via consensusValidated — no-vig target-book movement
+    // with strong consensus + positive edge is a legitimate Bet candidate.
+    assert.equal(summary.classificationSummary.verdictCounts['Bet candidate'], 2);
+    assert.equal(summary.classificationSummary.verdictCounts['Pass'], 2);
     assert.equal(summary.classificationSummary.passReasonCounts.movement_not_supportive_adverse, 1);
-    assert.equal(summary.classificationSummary.passReasonCounts.movement_source_is_target_book, 2);
+    assert.equal(summary.classificationSummary.passReasonCounts.movement_source_is_target_book, undefined);
     assert.equal(summary.classificationSummary.passReasonCounts.consensus_book_count_below_2, 1);
     assert.ok(summary.topNearMisses.length >= 1);
   });
@@ -682,7 +686,7 @@ describe('prop market classification with marketBookCount and executionQuality',
     assert.equal(classification.support.movementIsSharpSourced, true);
   });
 
-  it('still passes target-book-only movement even with good market and execution', () => {
+  it('passes target-book-only movement with consensus + edge even on props (no-vig book)', () => {
     const row = {
       gameId: 'mlb-prop-2',
       scanLeague: 'MLB',
@@ -708,8 +712,10 @@ describe('prop market classification with marketBookCount and executionQuality',
       minConsensusBookCount: 2
     });
 
-    assert.equal(classification.verdict, 'Pass');
-    assert.ok(classification.passReasons.some((r) => /movement_source_is_target_book/.test(r)));
+    // NoVigApp's own movement IS the sharp signal; strong consensus + edge
+    // makes it a legitimate Bet candidate (consensusValidated path).
+    assert.equal(classification.verdict, 'Bet candidate');
+    assert.ok(!classification.passReasons.some((r) => /movement_source_is_target_book/.test(r)));
   });
 
   it('allows target-book movement when requireIndependentSharpMovement is false', () => {
@@ -975,7 +981,7 @@ describe('end-to-end regression fixtures for verified live cases', () => {
     assert.deepEqual(classification.passReasons, []);
   });
 
-  it('tigers_ml_target_book_only_movement_fixture: still Pass because movement source is target book', () => {
+  it('tigers_ml_target_book_only_movement_fixture: Bet candidate via consensusValidated (no-vig book)', () => {
     const row = {
       gameId: 'mlb-tigers-reg',
       scanLeague: 'MLB',
@@ -1001,8 +1007,11 @@ describe('end-to-end regression fixtures for verified live cases', () => {
       minConsensusBookCount: 2
     });
 
-    assert.equal(classification.verdict, 'Pass');
-    assert.ok(classification.passReasons.some((r) => /movement_source_is_target_book/.test(r)));
+    // NoVigApp is itself the sharp reference: its own supportive movement +
+    // strong consensus + positive edge is a legitimate Bet candidate, even
+    // without confirmation from a different sharp book.
+    assert.equal(classification.verdict, 'Bet candidate');
+    assert.ok(!classification.passReasons.some((r) => /movement_source_is_target_book/.test(r)));
   });
 
   it('tigers_ml_target_book_only_movement_fixture: becomes Bet candidate when requireIndependentSharpMovement is false', () => {

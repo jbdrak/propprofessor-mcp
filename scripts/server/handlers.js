@@ -840,12 +840,14 @@ function createMcpHandlers({
       }
 
       // === Active-pair probe (bounded, no-history) ===
-      // The aggregate odds-history allocation (40 calls) is split across the
+      // The aggregate odds-history allocation (60% of the budget — 180 calls
+      // at the default 300, env PP_ODDS_HISTORY_BUDGET) is split across the
       // pairs that actually have current rows, not the raw league×market
       // fan-out. A broad mixed scan (e.g. every league × every market) can
       // contain 20+ pairs while only a couple of leagues have live slates;
-      // dividing 40 by the TOTAL pair count starves the live pairs down to
-      // ~1 hydrated game each and valid MLB/WNBA candidates disappear.
+      // dividing the allocation by the TOTAL pair count starves the live
+      // pairs down to ~1 hydrated game each and valid MLB/WNBA candidates
+      // disappear.
       // Probe every pair with a current-market-only screen (skipHistory: true
       // → zero odds-history calls, compact → lighter payload and no per-league
       // cache write), then run the hydrated fan-out over the ACTIVE subset
@@ -902,7 +904,8 @@ function createMcpHandlers({
         { concurrency: 8 }
       );
       // Global ACTIVE pair count, passed into every hydrated invocation so
-      // the aggregate budget (40 calls) is divided only across live pairs.
+      // the aggregate odds-history allocation (60% of the budget — 180 calls
+      // at the default 300) is divided only across live pairs.
       const activeAggregatePairCount = Math.max(1, activeLeagueMarketPairs.length);
 
       await mapWithConcurrency(
@@ -923,8 +926,9 @@ function createMcpHandlers({
               cardWindow: 'all', // always scan all — filter below
               debug,
               // Aggregate scan mode: quick_screen fans out one sharp_plays
-              // call per (league, market) pair against a process-wide 75-call
-              // odds-history budget. Pass the ACTIVE pair count (from the
+              // call per (league, market) pair against a process-wide
+              // odds-history budget (default 300 calls per 5 min, env
+              // PP_ODDS_HISTORY_BUDGET). Pass the ACTIVE pair count (from the
               // no-history probe above) so every live pair claims a fair,
               // small pre-history slice instead of the raw fan-out total —
               // on a mixed scan, empty pairs would otherwise starve the live

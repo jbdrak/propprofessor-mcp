@@ -105,4 +105,41 @@ describe('formatScanDiagnostics', () => {
       'should suggest a focused scan'
     );
   });
+
+  it('flags candidates found but downgraded by fresh validation (stale labels)', () => {
+    const lines = formatScanDiagnostics({
+      mixedScan: true,
+      tennisFallbackApplied: false,
+      emptySlate: [],
+      playCount: 0,
+      scanHealth: {
+        truncated: true,
+        incomplete: true,
+        validation: { eligible: 16, selected: 10, completedCount: 10 },
+        preHistoryShortlist: [{ league: 'ufc', market: 'Moneyline', truncated: true }]
+      }
+    });
+    assert.ok(
+      lines.some((l) => /16 BET candidate/.test(l) && /stale scan labels/.test(l)),
+      'should report the eligible candidates that failed fresh validation'
+    );
+    assert.ok(
+      lines.some((l) => /pp rank ufc/.test(l)),
+      'should suggest a focused re-scan'
+    );
+  });
+
+  it('does not flag candidates when plays survived the scan', () => {
+    const lines = formatScanDiagnostics({
+      mixedScan: true,
+      tennisFallbackApplied: false,
+      emptySlate: [],
+      playCount: 3,
+      scanHealth: { validation: { eligible: 16, selected: 10, completedCount: 10 } }
+    });
+    assert.ok(
+      !lines.some((l) => /BET candidate/.test(l)),
+      'no staleness warning when plays are present'
+    );
+  });
 });

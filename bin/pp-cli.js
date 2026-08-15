@@ -854,13 +854,14 @@ async function applyTennisScanFallback({
       const tennisPlaysCount = tennisResult ? (tennisResult.plays || []).length : 0;
       if (tennisPlaysCount === 0) {
         console.error('Tennis: computing CLV from ' + book + ' price history (no sharp book comparison available)');
-        // Size the fallback's history spend to the shared 75-call
-        // odds-history window. Mixed-sport scans already spent most of the
+        // Size the fallback's history spend to the shared odds-history
+        // window (default 300 calls per 5 min, env PP_ODDS_HISTORY_BUDGET).
+        // Mixed-sport scans already spent most of the
         // window on the other leagues — take a conservative slice and
         // reserve headroom. Tennis-only scans may use the larger safe
         // default (the fallback still clamps to the remaining window).
         const tennisFallbackRemaining =
-          typeof client.oddsHistoryBudgetRemaining === 'function' ? Number(client.oddsHistoryBudgetRemaining()) : 75;
+          typeof client.oddsHistoryBudgetRemaining === 'function' ? Number(client.oddsHistoryBudgetRemaining()) : 300;
         const mixedSportScan = leagues.some((leagueName) => !isTennisLeague(leagueName));
         const maxHistorySelections = mixedSportScan
           ? Math.max(2, Math.min(20, tennisFallbackRemaining - 10))
@@ -976,7 +977,8 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
     mixedScan,
     tennisFallbackApplied,
     emptySlate,
-    scanHealth: healthForDiagnostics
+    scanHealth: healthForDiagnostics,
+    playCount: results.reduce((sum, r) => sum + (r.plays || r.candidates || []).length, 0)
   })) {
     console.error(line);
   }
