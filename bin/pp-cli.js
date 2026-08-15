@@ -17,6 +17,7 @@ const { recoverTennisFromScreen } = require(PROJECT + '/lib/tennis-fallback');
 const { loadLedger, saveLedger, addRecord, defaultLedgerPath } = require(PROJECT + '/lib/record-ledger');
 const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/lib/record-candidates');
 const { promoteCards } = require(PROJECT + '/lib/record-card');
+const { enrichScanElo } = require(PROJECT + '/lib/propprofessor-elo-overlay');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
 // ── book alias resolution ──────────────────────────────────────
@@ -448,6 +449,23 @@ function momentumLabel(p) {
   return parts.length ? parts.join(' ') : '';
 }
 
+function eloContextLabel(p) {
+  // Shadow-Elo vs market line for Tennis Moneyline plays. Only rendered when
+  // the elo context is available AND the selection resolved to a side —
+  // otherwise silence (no data is not a signal).
+  const elo = p.elo;
+  if (!elo || elo.available !== true) return '';
+  const eloProb = elo.selectedProbability;
+  const mktProb = elo.marketFairProbability;
+  if (typeof eloProb !== 'number' || typeof mktProb !== 'number') return '';
+  const eloPct = Math.round(eloProb * 100);
+  const mktPct = Math.round(mktProb * 100);
+  const diff = Math.round((eloProb - mktProb) * 100);
+  const sign = diff > 0 ? '+' : '';
+  const color = diff >= 5 ? G : diff <= -5 ? RED : Y;
+  return color + 'elo ' + eloPct + '% vs mkt ' + mktPct + '% · ' + sign + diff + R;
+}
+
 function formatScan(results) {
   if (!results || !results.length) return 'No plays found.';
   let out = '';
@@ -480,6 +498,8 @@ function formatScan(results) {
       const matchup = p.game || p.matchup || '';
       if (matchup || p.startCST || p.startDisplay)
         out += '    ' + matchup + '  ' + (p.startCST || p.startDisplay || '') + '\n';
+      const eloLine = eloContextLabel(p);
+      if (eloLine) out += '    ' + eloLine + '\n';
     }
   }
   out += '\n' + B + total + R + ' plays across ' + results.length + ' markets';
@@ -928,6 +948,17 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
     : Array.isArray(res.watchCandidates)
       ? res.watchCandidates
       : null;
+
+  // Shadow-Elo overlay (Tennis Moneyline only). Pure enrichment — never
+  // touches ranking/movement/verdict. Skip with --no-elo; a missing
+  // snapshot is a silent no-op, never a scan failure.
+  if (!(flags['no-elo'] || flags.noElo)) {
+    try {
+      enrichScanElo(results);
+    } catch {
+      // Enrichment must never break scan output.
+    }
+  }
   const healthIncomplete = Boolean(scanHealth?.incomplete || scanHealth?.validationBudgetExhausted);
   const healthTruncated = Boolean(scanHealth?.truncated);
   if (healthIncomplete || healthTruncated) {

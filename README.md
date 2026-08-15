@@ -151,6 +151,8 @@ Cursor, Cline, or any MCP client. Pass `--mode full` for the full 31-tool surfac
 
 All commands support `-j`/`--json` for piping and `--no-color` for CI/Telegram output.
 
+`pp scan` overlays shadow-Elo context on Tennis Moneyline plays (`elo X% vs mkt Y%` line): green when elo is more confident than the market on the bet side, red when it disagrees by ≥5 points. Pass `--no-elo` to skip the overlay (e.g. offline or snapshot-missing runs).
+
 Example output (scan filtered by supportive movement):
 
 ```
