@@ -158,6 +158,58 @@ describe('computeMovementDisposition', () => {
     );
   });
 
+  it('keeps a stale supportive quote when 5+ books + non-negative CLV corroborate (UFC 330)', () => {
+    // Regression 2026-08-15: OnyxOdds stopped pushing Dern's price for 2.6h
+    // while Kalshi/theScore/Caesars refreshed at 10-11 min. The movement
+    // source book's quote is old, but the market is live and the supportive
+    // read is independently confirmed — must NOT downgrade to insufficient.
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'yellow',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        clvProxyPct: 0.69,
+        consensusBookCount: 17,
+        lastPointAgeMs: 155 * 60 * 1000
+      }),
+      'supportive_bouncy'
+    );
+  });
+
+  it('still downgrades a stale supportive quote when CLV is negative (Broncos shape)', () => {
+    // The original stale-quote bug: market moved adverse while the quote
+    // aged. Negative CLV means the line moved against the play — the escape
+    // must NOT apply.
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'green',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        clvProxyPct: -2.4,
+        consensusBookCount: 12,
+        lastPointAgeMs: 17 * 60 * 1000
+      }),
+      'insufficient'
+    );
+  });
+
+  it('still downgrades a stale supportive quote when consensus is thin (< 5 books)', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'green',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        clvProxyPct: 1.1,
+        consensusBookCount: 3,
+        lastPointAgeMs: 20 * 60 * 1000
+      }),
+      'insufficient'
+    );
+  });
+
   it('returns insufficient when no history available', () => {
     assert.equal(
       computeMovementDisposition({
