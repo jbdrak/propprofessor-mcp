@@ -677,7 +677,11 @@ describe('tennis screen ranking helpers', () => {
     assert.equal(ranked[0].tennisScore, 0);
     assert.equal(ranked[0].scoreBreakdown.sportScore, 0);
     assert.match(ranked[0].rankingReason, /unranked/);
-    assert.equal(ranked[0].warning, 'Insufficient comparison data');
+    // The warning now surfaces the real gate failure reason (score below the
+    // league floor) instead of the blanket 'Insufficient comparison data'
+    // string, which was misleading when comparison data existed but the
+    // score didn't clear the gate (see UFC 330 Makhachev 2026-08-15).
+    assert.match(ranked[0].warning, /below .* gate/);
     assert.equal(ranked[0].isActionable, false);
     assert.equal(ranked[0].consensusBookCount, 0);
   });

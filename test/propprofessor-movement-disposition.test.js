@@ -97,6 +97,67 @@ describe('computeMovementDisposition', () => {
     );
   });
 
+  it('does NOT stamp adverse_full for red grade when movement is supportive (execution-driven red)', () => {
+    // Regression 2026-08-15 UFC 330: Makhachev was graded red because Onyx's
+    // price (-360) was 60c off the best available (-300), so
+    // gradeMovementQuality returned 'red' (bad execution). The disposition
+    // short-circuited on grade==='red' and stamped adverse_full even though
+    // movementLabel/directions were supportive and CLV was positive. A red
+    // grade from execution quality is a playability failure, not a movement
+    // signal — the row must grade on its movement fields instead.
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'red',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        clvProxyPct: 0.27
+      }),
+      'supportive_bouncy'
+    );
+  });
+
+  it('still returns adverse_full for red grade when movement data confirms adverse', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'red',
+        movementLabel: 'adverse',
+        recentSharpMoveDirection: 'adverse',
+        fullWindowSharpMoveDirection: 'adverse'
+      }),
+      'adverse_full'
+    );
+  });
+
+  it('treats red grade + mixed movement as insufficient (execution red, no adverse signal)', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'red',
+        movementLabel: 'mixed',
+        recentSharpMoveDirection: 'mixed',
+        fullWindowSharpMoveDirection: 'mixed',
+        clvProxyPct: 0
+      }),
+      'insufficient'
+    );
+  });
+
+  it('does not resurrect adverse_full for a red-grade supportive row with stale quote', () => {
+    // Stale-quote gate still applies: a supportive disposition on an aged
+    // quote downgrades to insufficient — never adverse_full.
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'red',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        clvProxyPct: 0.27,
+        lastPointAgeMs: 30 * 60 * 1000
+      }),
+      'insufficient'
+    );
+  });
+
   it('returns insufficient when no history available', () => {
     assert.equal(
       computeMovementDisposition({

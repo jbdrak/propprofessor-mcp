@@ -185,6 +185,27 @@ function applyFinalVerdict(target) {
     verdict = 'PASS';
   }
 
+  // Insufficient-movement hard guard (2026-08-15): a row whose disposition
+  // reads 'insufficient' (no direction data below the consensus floor, or a
+  // stale supportive quote) can NEVER be a BET — validation re-derivation
+  // must not resurrect the rank-time BET that the screen grade stamped off a
+  // green backend label. This mirrors the getKaiCall/getConfidenceTier guards
+  // in risk-score.js. Idempotent: only downgrades BET → PASS, never upgrades.
+  //
+  // Key off validatedMovementDisposition ONLY (not the mapped
+  // movementDisposition): mapCandidateRow recomputes the disposition from raw
+  // row fields, and a thin stub/validation-skipped row with no direction
+  // fields would recompute to 'insufficient' and clobber an explicit
+  // supportive_clean — falsely PASSing a legit row. The rank-time
+  // getKaiCall/getConfidenceTier guards already PASS insufficient rows at
+  // scan time, so this guard only needs to stop validation resurrecting one.
+  const validatedDisposition = String(target.validatedMovementDisposition || '')
+    .trim()
+    .toLowerCase();
+  if (verdict === 'BET' && validatedDisposition === 'insufficient') {
+    verdict = 'PASS';
+  }
+
   // Consensus-drift / unverified downgrade: if the re-fetch collapsed the
   // screen's consensus (e.g. 5 books → 1) or couldn't re-find the line at
   // all, the pre-validation BET is no longer trustworthy. This mirrors the
