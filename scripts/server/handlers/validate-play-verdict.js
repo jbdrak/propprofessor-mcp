@@ -67,9 +67,23 @@ function resolveBaseVerdict({
       reasonType = 'gameId_changed';
       reasons.push(`gameId changed (${gameId} → ${matchingRow.gameId}); matched by league/market/selection/date`);
     }
-    if (tier === 'TIER 1') verdict = 'BET';
-    else if (tier === 'TIER 2' || tier === 'TIER 3') verdict = 'CONSIDER';
-    else {
+    // The screen ranker is the authoritative tier→call source. Its kaiCall
+    // already encodes grade+risk semantics (TIER 2 green/yellow plays are
+    // BET-able; TIER 3 is speculative). Validation must NOT silently demote
+    // a screen BET to CONSIDER just because the re-fetch re-derived a lower
+    // confidence tier — that was demoting every TIER 2 BET (5-book consensus,
+    // supportive movement) into a CONSIDER and starving the card. Prefer the
+    // screen's kaiCall; only real drift/adverse movement (checked below and
+    // in applyFinalVerdict) overrides it.
+    if (screenKaiCall === 'BET' || (matchingRow && matchingRow.kaiCall === 'BET')) {
+      verdict = 'BET';
+    } else if (screenKaiCall === 'CONSIDER' || (matchingRow && matchingRow.kaiCall === 'CONSIDER')) {
+      verdict = 'CONSIDER';
+    } else if (tier === 'TIER 1') {
+      verdict = 'BET';
+    } else if (tier === 'TIER 2' || tier === 'TIER 3') {
+      verdict = 'CONSIDER';
+    } else {
       verdict = 'PASS';
       reasons.push('TIER 4 (no signal)');
     }
