@@ -119,13 +119,43 @@ describe('propprofessor sharp history helpers', () => {
     assert.equal(summary.lastPointAgeMs, null);
   });
 
-  it('prefers the named book history over sharp comparison history', () => {
+  it('prefers sharp-book movement over the no-vig named book history', () => {
     const summary = summarizeSharpMovement({
       lineHistory: [
         { book: 'OnyxOdds', odds: 110, time: 1 },
         { book: 'OnyxOdds', odds: 120, time: 2 },
         { book: 'Pinnacle', odds: -108, time: 1 },
         { book: 'Pinnacle', odds: -120, time: 2 }
+      ],
+      preferredBook: 'OnyxOdds',
+      sharpBooks: ['Pinnacle', '4cx'],
+      options: { recentWindowHours: 6 }
+    });
+
+    assert.equal(summary.movementMode, 'comparison_book');
+    assert.equal(summary.movementSourceBook, 'Pinnacle');
+  });
+
+  it('keeps same_book when the named book is itself a sharp book', () => {
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: -108, time: 1 },
+        { book: 'Pinnacle', odds: -120, time: 2 }
+      ],
+      preferredBook: 'Pinnacle',
+      sharpBooks: ['Pinnacle', 'Circa'],
+      options: { recentWindowHours: 6 }
+    });
+
+    assert.equal(summary.movementMode, 'same_book');
+    assert.equal(summary.movementSourceBook, 'Pinnacle');
+  });
+
+  it('falls back to the named book history when no sharp book has history', () => {
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'OnyxOdds', odds: 110, time: 1 },
+        { book: 'OnyxOdds', odds: 120, time: 2 }
       ],
       preferredBook: 'OnyxOdds',
       sharpBooks: ['Pinnacle', '4cx'],

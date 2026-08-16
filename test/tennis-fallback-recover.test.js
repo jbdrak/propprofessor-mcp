@@ -246,8 +246,11 @@ describe('recoverTennisFromScreen — canonical identity', () => {
 });
 
 describe('recoverTennisFromScreen — canonical movement policy', () => {
-  it('uses the named book own history when available, preserving the execution quote', async () => {
+  it('uses sharp-book movement when the no-vig named book history is available, preserving the execution quote', async () => {
     const calls = [];
+    const nowMs = Date.now();
+    const sixHoursAgo = new Date(nowMs - 6 * 60 * 60 * 1000).toISOString();
+    const fiveMinAgo = new Date(nowMs - 5 * 60 * 1000).toISOString();
     const client = {
       queryScreenOdds() {
         return Promise.resolve({
@@ -276,12 +279,12 @@ describe('recoverTennisFromScreen — canonical movement policy', () => {
         calls.push(params);
         return Promise.resolve({
           NoVigApp: [
-            { odds: 100, time: '2026-07-30T12:00:00Z', book: 'NoVigApp' },
-            { odds: 122, time: '2026-07-30T18:00:00Z', book: 'NoVigApp' }
+            { odds: 100, time: sixHoursAgo, book: 'NoVigApp' },
+            { odds: 122, time: fiveMinAgo, book: 'NoVigApp' }
           ],
           Pinnacle: [
-            { odds: 145, time: '2026-07-30T12:00:00Z', book: 'Pinnacle' },
-            { odds: 122, time: '2026-07-30T18:00:00Z', book: 'Pinnacle' }
+            { odds: 145, time: sixHoursAgo, book: 'Pinnacle' },
+            { odds: 122, time: fiveMinAgo, book: 'Pinnacle' }
           ]
         });
       }
@@ -299,13 +302,14 @@ describe('recoverTennisFromScreen — canonical movement policy', () => {
     assert.ok(play);
     assert.equal(play.book, 'NoVigApp');
     assert.equal(play.odds, 122);
-    // Named book has its own 2+ point history, so its own movement wins.
-    assert.equal(play.movementSourceBook, 'NoVigApp');
-    assert.equal(play.movementMode, 'same_book');
-    assert.equal(play.clvProxyPct, -5);
-    // NoVigApp's own trail (100 -> 122) is adverse, so the execution conflict
-    // gate downgrades to CONSIDER even though Pinnacle's trail is supportive.
-    assert.equal(play.verdict, 'CONSIDER');
+    // Sharp-book movement wins: Pinnacle's own 2+ point history is the signal,
+    // not the no-vig named book's flat/adverse line.
+    assert.equal(play.movementSourceBook, 'Pinnacle');
+    assert.equal(play.movementMode, 'comparison_book');
+    assert.equal(play.clvProxyPct, 4.2);
+    // Pinnacle's trail (145 -> 122) is supportive toward Djokovic, so the
+    // play keeps BET despite NoVigApp's own line moving adverse.
+    assert.equal(play.verdict, 'BET');
     assert.equal(calls[0].lookbackHours, 6);
   });
 });

@@ -871,7 +871,10 @@ describe('propprofessor MCP server stdio contract', () => {
       'DraftKings'
     ]);
     assert.equal(result.resultMeta.debugEnabled, true);
-    assert.equal(result.result[0].movementMode, 'same_book');
+    // Movement comes from a real sharp book (Circa) even though the focus
+    // book is NoVigApp — sharp-book movement is the signal, not the no-vig
+    // target's own line.
+    assert.equal(result.result[0].movementMode, 'comparison_book');
     // Audit 2026-06-15: the mock returns history for requested[1] (the first
     // sharp book in the augmented list, Circa for NBA Moneyline). The ranker
     // uses that as the movement source. The real PropProfessor API would
