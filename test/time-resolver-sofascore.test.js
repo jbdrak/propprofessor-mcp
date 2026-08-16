@@ -8,17 +8,25 @@
  * intercepting Module._load (same convention as test/query-propprofessor.test.js)
  * and re-requiring a fresh copy of the resolver per test — fresh module state
  * (caches, one-time diagnostic flag) per test. The child_process stub provides
- * a callback-style execFile (the same shape cp.execFile uses) and https is
+ * a callback-style execFile (the same shape cp.execFile uses) and global fetch is
  * stubbed to throw, so no test can reach tennis.com — this suite never touches
  * the network.
  */
 
-const { describe, it } = require('node:test');
+const { describe, it, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const Module = require('module');
 
 const RESOLVER_PATH = require.resolve('../lib/propprofessor-time-resolver');
+
+// global fetch is resolved at call time (not captured at require time), so the
+// stub must stay installed while resolveMatchTime runs, not just during load.
+const ORIGINAL_FETCH = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = ORIGINAL_FETCH;
+});
 
 const SOFASCORE_FIXTURE = [
   {
@@ -31,14 +39,14 @@ const SOFASCORE_FIXTURE = [
 ];
 
 /**
- * Load a fresh copy of the resolver with stubbed child_process/https.
+ * Load a fresh copy of the resolver with stubbed child_process/global fetch.
  *
  * @param {object} [stubs]
  * @param {Function} [stubs.execFile] - Callback-style (file, args, options, cb)
- * @param {Function} [stubs.httpsGet] - https.get replacement
+ * @param {Function} [stubs.fetch] - globalThis.fetch replacement
  * @returns {object} Fresh resolver module
  */
-function loadResolver({ execFile, httpsGet } = {}) {
+function loadResolver({ execFile, fetch: fetchStub } = {}) {
   const originalLoad = Module._load;
   Module._load = function (request, parent, isMain) {
     if (request === 'child_process') {
@@ -50,17 +58,13 @@ function loadResolver({ execFile, httpsGet } = {}) {
           })
       };
     }
-    if (request === 'https') {
-      return {
-        get:
-          httpsGet ||
-          (() => {
-            throw new Error('no https stub provided');
-          })
-      };
-    }
     return originalLoad.call(this, request, parent, isMain);
   };
+  globalThis.fetch =
+    fetchStub ||
+    (() => {
+      throw new Error('no fetch stub provided');
+    });
   try {
     delete require.cache[RESOLVER_PATH];
     return require(RESOLVER_PATH);
@@ -93,14 +97,14 @@ function diagnosticCount(captured) {
 describe('time-resolver sofascore helper', () => {
   it('resolves a match from async helper output without touching the network', async () => {
     const execCalls = [];
-    let httpsHits = 0;
+    let fetchHits = 0;
     const mod = loadResolver({
       execFile: (file, args, options, callback) => {
         execCalls.push({ file, args });
         callback(null, JSON.stringify(SOFASCORE_FIXTURE), '');
       },
-      httpsGet: () => {
-        httpsHits += 1;
+      fetch: () => {
+        fetchHits += 1;
         throw new Error('network must not be hit');
       }
     });
@@ -112,7 +116,7 @@ describe('time-resolver sofascore helper', () => {
       confidence: 0.85,
       source: 'sofascore'
     });
-    assert.equal(httpsHits, 0, 'tennis.com fallback must not be reached');
+    assert.equal(fetchHits, 0, 'tennis.com fallback must not be reached');
     assert.equal(execCalls.length, 1, 'helper invoked exactly once');
     assert.equal(execCalls[0].file, 'python3');
     assert.ok(
@@ -129,7 +133,7 @@ describe('time-resolver sofascore helper', () => {
         execCalls.push({ file, args });
         callback(null, JSON.stringify(SOFASCORE_FIXTURE), '');
       },
-      httpsGet: () => {
+      fetch: () => {
         throw new Error('network must not be hit');
       }
     });
@@ -154,7 +158,7 @@ describe('time-resolver sofascore helper', () => {
       },
       // Guard: if the fallback chain tries tennis.com, the stub throws so no
       // network can escape this test.
-      httpsGet: () => {
+      fetch: () => {
         throw new Error('network must not be hit');
       }
     });
@@ -186,7 +190,7 @@ describe('time-resolver sofascore helper', () => {
         execCalls.push({ file, args });
         callback(depFailure);
       },
-      httpsGet: () => {
+      fetch: () => {
         throw new Error('network must not be hit');
       }
     });
@@ -218,7 +222,7 @@ describe('time-resolver sofascore helper', () => {
         execCalls.push({ file, args });
         callback(null, '[]', '');
       },
-      httpsGet: () => {
+      fetch: () => {
         throw new Error('network must not be hit');
       }
     });
@@ -235,14 +239,14 @@ describe('time-resolver sofascore helper', () => {
 
   it('falls back safely on malformed helper output (no throw, no network)', async () => {
     const execCalls = [];
-    let httpsHits = 0;
+    let fetchHits = 0;
     const mod = loadResolver({
       execFile: (file, args, options, callback) => {
         execCalls.push({ file, args });
         callback(null, 'not-json{{{', '');
       },
-      httpsGet: () => {
-        httpsHits += 1;
+      fetch: () => {
+        fetchHits += 1;
         throw new Error('network must not be hit');
       }
     });
@@ -251,7 +255,7 @@ describe('time-resolver sofascore helper', () => {
     await mod.resolveMatchTime('Sinner', 'Zverev');
 
     assert.equal(result, null, 'malformed JSON must not throw');
-    assert.equal(httpsHits, 2, 'tennis.com fallback attempted per pair, but network stays stubbed');
+    assert.equal(fetchHits, 2, 'tennis.com fallback attempted per pair, but network stays stubbed');
     assert.equal(execCalls.length, 1, 'malformed output must be short-TTL cached, not respawned');
   });
 
@@ -260,7 +264,7 @@ describe('time-resolver sofascore helper', () => {
     try {
       loadResolver({
         execFile: (file, args, options, callback) => callback(new Error('stub')),
-        httpsGet: () => {
+        fetch: () => {
           throw new Error('stub');
         }
       });

@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { validateArgs, normalizeArgs } = require('../lib/mcp-arg-validator');
-const { buildToolDefinitions } = require('../lib/propprofessor-tool-definitions');
+const { buildToolDefinitions } = require('../lib/tool-definitions/index');
 
 describe('mcp-arg-validator', () => {
   describe('happy paths', () => {

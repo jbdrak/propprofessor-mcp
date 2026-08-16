@@ -7,7 +7,7 @@
  * Usage: node scripts/generate-openapi-spec.js > docs/openapi.json
  */
 
-const { buildToolDefinitions } = require('../lib/propprofessor-tool-definitions');
+const { buildToolDefinitions } = require('../lib/tool-definitions/index');
 
 // Response schemas for each tool — maps tool name to response schema
 const RESPONSE_SCHEMAS = {

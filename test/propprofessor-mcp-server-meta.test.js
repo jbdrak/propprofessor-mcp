@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { createMcpServer } = require('../scripts/propprofessor-mcp-server');
-const { buildToolDefinitions } = require('../lib/propprofessor-tool-definitions');
+const { buildToolDefinitions } = require('../lib/tool-definitions/index');
 
 describe('MCP server — tools/list _meta block', () => {
   it('includes _meta with mode, toolCount, liteToolCount, fullToolCount', async () => {

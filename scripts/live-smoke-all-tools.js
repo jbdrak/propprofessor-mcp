@@ -1,6 +1,6 @@
 'use strict';
 
-const { buildToolDefinitions } = require('../lib/propprofessor-tool-definitions');
+const { buildToolDefinitions } = require('../lib/tool-definitions/index');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 const { createPropProfessorClient } = require('../lib/propprofessor-api');
 

@@ -19,7 +19,7 @@ process.on('uncaughtException', (error) => {
  * for backward compatibility with existing imports.
  */
 
-const { buildToolDefinitions, LITE_MODE_TOOLS, TOOL_CATEGORIES } = require('../lib/propprofessor-tool-definitions');
+const { buildToolDefinitions, LITE_MODE_TOOLS, TOOL_CATEGORIES } = require('../lib/tool-definitions/index');
 const { createMcpHandlers, mapWithConcurrency: mapWithConcurrencyFromHandlers } = require('./server/handlers');
 const {
   categorizeError,
@@ -267,8 +267,7 @@ async function serveStdio(options = {}) {
   // NOTE: startup is intentionally passive. The server makes zero automatic
   // PropProfessor requests at startup — it only talks to the backend in
   // response to explicit tool calls. (The former setImmediate prewarm was
-  // removed; prewarmOddsHistoryCache remains available in
-  // lib/propprofessor-prewarm.js for explicit/manual use.)
+  // removed; manual prewarming is done via explicit scan/rank tool calls.)
 
   process.stdin.on('data', (chunk) => {
     Promise.resolve()

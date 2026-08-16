@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildToolDefinitions } = require('../lib/propprofessor-tool-definitions');
+const { buildToolDefinitions } = require('../lib/tool-definitions/index');
 
 describe('verbosity parameter in tool definitions', () => {
   const tools = buildToolDefinitions();
