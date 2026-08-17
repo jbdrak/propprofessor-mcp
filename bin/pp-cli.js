@@ -19,6 +19,7 @@ const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/li
 const { promoteCards } = require(PROJECT + '/lib/record-card');
 const { enrichScanElo } = require(PROJECT + '/lib/propprofessor-elo-overlay');
 const { enrichScanPolyWallets } = require(PROJECT + '/lib/propprofessor-poly-wallets');
+const { analyzeWalletPlays } = require(PROJECT + '/lib/propprofessor-wallet-plays');
 const { formatScanDiagnostics } = require(PROJECT + '/lib/scan-diagnostics');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
@@ -186,6 +187,7 @@ Commands:
   player     Player context + injury/risk flags
   prices     Compare prices across books
   rank       Ranked plays for a league
+  wallets    Top Polymarket wallets vs a book (bet/pass)
   fantasy    Fantasy optimizer props
   health     Auth + backend health check
   --mcp      Run as MCP stdio server (for Claude Desktop, Cursor, etc.)
@@ -365,6 +367,16 @@ Flags:
   -m, --market <name>       Market filter
   -b, --book <name>         Book (default: NoVigApp)
   -n, --limit <N>           Max results. Default: 20
+  -j, --json                Raw JSON output
+`,
+  wallets: `pp wallets [N] [flags]
+
+Scan top Polymarket wallets (by lifetime P&L) for live positions, cross-check
+each against the execution book, and emit a bet/pass verdict.
+
+Flags:
+  -b, --book <name>         Book to cross-check. Default: NoVigApp
+  -n, --limit <N>           Number of wallets. Default: 20
   -j, --json                Raw JSON output
 `,
   fantasy: `pp fantasy [flags]
@@ -1214,6 +1226,12 @@ async function cmdScan(handlers, positional, flags, client) {
         const results = res.data?.results || res.results || [];
         const wantCount = flags.wallets === true ? undefined : Number(flags.wallets);
         await enrichScanPolyWallets(results, { limit: Number.isFinite(wantCount) && wantCount > 0 ? wantCount : 20 });
+        const health = res.data?.scanHealth || res.scanHealth || null;
+        if (health && (health.truncated || health.incomplete)) {
+          console.error(
+            'note: scan truncated — Polymarket wallet overlay may miss some matchups (run `pp wallets` for the wallet-first view).'
+          );
+        }
       } catch {
         // Enrichment must never break scan output.
       }
@@ -1574,6 +1592,88 @@ async function cmdRank(handlers, positional, flags) {
   }
 }
 
+// ── wallets ──────────────────────────────────────────────────────
+
+async function cmdWallets(handlers, positional, flags) {
+  const limit = parseInt(flags.n || flags.limit || positional[1] || 20);
+  const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
+  const jsonOut = flags.j || flags.json || false;
+
+  console.error('Scanning top Polymarket wallets vs ' + book + '...');
+
+  const rankFn = async (league, market) => {
+    const res = await handlers.screen_ranked({
+      league,
+      market,
+      books: [book],
+      limit: 30,
+      includeAll: true,
+      verbosity: 'full'
+    });
+    return res?.result || res?.data || res?.rows || [];
+  };
+
+  const out = await analyzeWalletPlays({
+    limit: Number.isFinite(limit) && limit > 0 ? limit : 20,
+    book,
+    rankFn
+  });
+
+  if (jsonOut) {
+    console.log(JSON.stringify(out, null, 2));
+    return;
+  }
+
+  if (!Array.isArray(out) || out.length === 0) {
+    console.log('No live Polymarket wallet positions matched the ' + book + ' board.');
+    return;
+  }
+
+  for (const w of out) {
+    const wallet = w.wallet || {};
+    const name = wallet.userName || (wallet.proxyWallet ? wallet.proxyWallet.slice(0, 10) : 'wallet');
+    const pnl = wallet.pnl != null ? '$' + Math.round(wallet.pnl).toLocaleString('en-US') : '?';
+    console.log('\n' + B + name + R + '  (lifetime P&L ' + pnl + ')');
+    for (const s of w.stances || []) {
+      if (!s.matched || !s.row) {
+        console.log(
+          '  ' +
+            (s.selection || s.outcome || '?') +
+            '  ·  $' +
+            (s.dollar || 0).toLocaleString('en-US') +
+            ' whale  ·  no ' +
+            book +
+            ' match  (' +
+            (s.title || '') +
+            ')'
+        );
+        continue;
+      }
+      const row = s.row;
+      const oddsStr = row.odds > 0 ? '+' + row.odds : String(row.odds);
+      const mv = movementColor(row.movementDisposition || '');
+      const clv =
+        row.recentClvPct != null
+          ? (Number(row.recentClvPct) >= 0 ? '+' : '') + Number(row.recentClvPct).toFixed(1) + '%'
+          : '?';
+      const v = s.verdict || {};
+      const vSym =
+        v.verdict === 'BET' ? G + '● BET' + R : v.verdict === 'CONSIDER' ? Y + '◐ CONSIDER' + R : RED + '✕ PASS' + R;
+      console.log('  ' + (row.selection || s.selection) + ' @ ' + oddsStr + '  ' + vSym + '  ' + mv + '  CLV ' + clv);
+      console.log(
+        '    whale $' +
+          (s.dollar || 0).toLocaleString('en-US') +
+          ' on ' +
+          (s.selection || '') +
+          '  ·  ' +
+          (row.game || s.title || '')
+      );
+      const booksLine = row.consensusBookCount ? 'books ' + row.consensusBookCount + '  ·  ' : '';
+      console.log('    ' + booksLine + (v.reason || ''));
+    }
+  }
+}
+
 // ── fantasy ─────────────────────────────────────────────────────
 
 async function cmdFantasy(handlers, positional, flags) {
@@ -1729,6 +1829,9 @@ async function main() {
       break;
     case 'rank':
       await cmdRank(handlers, positional, flags);
+      break;
+    case 'wallets':
+      await cmdWallets(handlers, positional, flags);
       break;
     case 'fantasy':
       await cmdFantasy(handlers, positional, flags);

@@ -47,7 +47,11 @@ describe('classifyPosition', () => {
   });
 
   it('against when the wallet holds the other side', () => {
-    const stance = { title: 'Milwaukee Brewers vs. Los Angeles Dodgers', outcome: 'Los Angeles Dodgers', dollar: 52000 };
+    const stance = {
+      title: 'Milwaukee Brewers vs. Los Angeles Dodgers',
+      outcome: 'Los Angeles Dodgers',
+      dollar: 52000
+    };
     assert.equal(classifyPosition(play, stance), 'against');
   });
 
@@ -103,7 +107,11 @@ describe('classifyPosition — spreads', () => {
 
   it('against when the wallet holds the other spread side of the same matchup', () => {
     const play = { game: 'Whitecaps vs Timbers', selection: 'Portland Timbers +1.5' };
-    const stance = { title: 'Spread: Vancouver Whitecaps FC vs. Portland Timbers (-1.5)', outcome: 'Vancouver Whitecaps FC', dollar: 15000 };
+    const stance = {
+      title: 'Spread: Vancouver Whitecaps FC vs. Portland Timbers (-1.5)',
+      outcome: 'Vancouver Whitecaps FC',
+      dollar: 15000
+    };
     assert.equal(classifyPosition(play, stance), 'against');
   });
 
@@ -121,15 +129,35 @@ describe('matchPlayToWallet', () => {
     {
       wallet: { proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 2500000 },
       stances: [
-        { conditionId: 'c1', title: 'Milwaukee Brewers vs. Los Angeles Dodgers', outcome: 'Milwaukee Brewers', dollar: 118421 },
-        { conditionId: 'c2', title: 'Arizona Diamondbacks vs. Atlanta Braves', outcome: 'Arizona Diamondbacks', dollar: 1362 }
+        {
+          conditionId: 'c1',
+          title: 'Milwaukee Brewers vs. Los Angeles Dodgers',
+          outcome: 'Milwaukee Brewers',
+          dollar: 118421
+        },
+        {
+          conditionId: 'c2',
+          title: 'Arizona Diamondbacks vs. Atlanta Braves',
+          outcome: 'Arizona Diamondbacks',
+          dollar: 1362
+        }
       ]
     },
     {
       wallet: { proxyWallet: '0xbbb', userName: 'WhaleB', pnl: -5000 },
       stances: [
-        { conditionId: 'c3', title: 'Milwaukee Brewers vs. Los Angeles Dodgers', outcome: 'Los Angeles Dodgers', dollar: 52000 },
-        { conditionId: 'c3', title: 'Milwaukee Brewers vs. Los Angeles Dodgers', outcome: 'Los Angeles Dodgers', dollar: 900 }
+        {
+          conditionId: 'c3',
+          title: 'Milwaukee Brewers vs. Los Angeles Dodgers',
+          outcome: 'Los Angeles Dodgers',
+          dollar: 52000
+        },
+        {
+          conditionId: 'c3',
+          title: 'Milwaukee Brewers vs. Los Angeles Dodgers',
+          outcome: 'Los Angeles Dodgers',
+          dollar: 900
+        }
       ]
     }
   ];
@@ -178,15 +206,26 @@ describe('matchPlayToWallet', () => {
 describe('enrichScanPolyWallets', () => {
   it('attaches polyWallet and never throws on enricher errors', async () => {
     const results = [
-      { league: 'mlb', market: 'Moneyline', plays: [{ game: 'Yankees vs Red Sox', selection: 'Yankees', market: 'Moneyline' }] }
+      {
+        league: 'mlb',
+        market: 'Moneyline',
+        plays: [{ game: 'Yankees vs Red Sox', selection: 'Yankees', market: 'Moneyline' }]
+      }
     ];
     const out = await enrichScanPolyWallets(results, {
       limit: 2,
-      leaderboardCache: { at: Date.now(), value: [
-        { proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 1000 }
-      ] },
+      leaderboardCache: { at: Date.now(), value: [{ proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 1000 }] },
       fetchImpl: async (_url) => {
-        const body = JSON.stringify([{ type: 'TRADE', side: 'BUY', conditionId: 'c1', title: 'Yankees vs Red Sox', outcome: 'Yankees', usdcSize: 5000 }]);
+        const body = JSON.stringify([
+          {
+            type: 'TRADE',
+            side: 'BUY',
+            conditionId: 'c1',
+            title: 'Yankees vs Red Sox',
+            outcome: 'Yankees',
+            usdcSize: 5000
+          }
+        ]);
         return { ok: true, status: 200, json: async () => JSON.parse(body) };
       }
     });
@@ -196,16 +235,18 @@ describe('enrichScanPolyWallets', () => {
 
   it('never clobbers an existing polyWallet', async () => {
     const results = [
-      { league: 'mlb', market: 'Moneyline', plays: [{ game: 'A vs B', selection: 'A', polyWallet: { preexisting: true } }] }
+      {
+        league: 'mlb',
+        market: 'Moneyline',
+        plays: [{ game: 'A vs B', selection: 'A', polyWallet: { preexisting: true } }]
+      }
     ];
     const out = await enrichScanPolyWallets(results, { limit: 1 });
     assert.equal(out[0].plays[0].polyWallet.preexisting, true);
   });
 
   it('passes through untouched when the leaderboard fetch fails', async () => {
-    const results = [
-      { league: 'mlb', market: 'Moneyline', plays: [{ game: 'A vs B', selection: 'A' }] }
-    ];
+    const results = [{ league: 'mlb', market: 'Moneyline', plays: [{ game: 'A vs B', selection: 'A' }] }];
     const out = await enrichScanPolyWallets(results, {
       limit: 1,
       fetchImpl: async () => ({ ok: false, status: 500 })
@@ -214,16 +255,18 @@ describe('enrichScanPolyWallets', () => {
   });
 
   it('leaves plays untouched when activity yields no usable stances', async () => {
-    const results = [
-      { league: 'mlb', market: 'Moneyline', plays: [{ game: 'A vs B', selection: 'A' }] }
-    ];
+    const results = [{ league: 'mlb', market: 'Moneyline', plays: [{ game: 'A vs B', selection: 'A' }] }];
     const out = await enrichScanPolyWallets(results, {
       limit: 1,
       leaderboardCache: { at: 0, value: [{ proxyWallet: '0xaaa', userName: 'W', pnl: 1 }] },
       fetchImpl: async () => {
         // garbage trade rows -> fetchWalletStances filters them out -> no
         // stances -> nothing attached, scan not broken
-        return { ok: true, status: 200, json: async () => [{ type: 'TRADE', side: null, conditionId: null, outcome: null, title: null, usdcSize: 10 }] };
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [{ type: 'TRADE', side: null, conditionId: null, outcome: null, title: null, usdcSize: 10 }]
+        };
       }
     });
     assert.equal(out[0].plays[0].polyWallet, undefined);
@@ -237,10 +280,14 @@ describe('fetch layer with injected fetch', () => {
     const calls = [];
     const fetchImpl = async (url) => {
       calls.push(url);
-      return { ok: true, status: 200, json: async () => [
-        { proxyWallet: '0x1', userName: 'A', pnl: 100 },
-        { proxyWallet: '0x2', userName: 'B', pnl: 50 }
-      ] };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [
+          { proxyWallet: '0x1', userName: 'A', pnl: 100 },
+          { proxyWallet: '0x2', userName: 'B', pnl: 50 }
+        ]
+      };
     };
     const cache = { at: 0, value: null };
     const lb1 = await fetchLeaderboard(2, { fetchImpl, leaderboardCache: cache });
@@ -256,10 +303,38 @@ describe('fetch layer with injected fetch', () => {
       ok: true,
       status: 200,
       json: async () => [
-        { type: 'TRADE', side: 'BUY', conditionId: 'c1', title: 'Brewers vs Dodgers', outcome: 'Milwaukee Brewers', usdcSize: 50000 },
-        { type: 'TRADE', side: 'BUY', conditionId: 'c1', title: 'Brewers vs Dodgers', outcome: 'Milwaukee Brewers', usdcSize: 30000 },
-        { type: 'TRADE', side: 'SELL', conditionId: 'c1', title: 'Brewers vs Dodgers', outcome: 'Milwaukee Brewers', usdcSize: 10000 },
-        { type: 'TRADE', side: 'BUY', conditionId: 'c2', title: 'Yankees vs Red Sox', outcome: 'Yankees', usdcSize: 50 },
+        {
+          type: 'TRADE',
+          side: 'BUY',
+          conditionId: 'c1',
+          title: 'Brewers vs Dodgers',
+          outcome: 'Milwaukee Brewers',
+          usdcSize: 50000
+        },
+        {
+          type: 'TRADE',
+          side: 'BUY',
+          conditionId: 'c1',
+          title: 'Brewers vs Dodgers',
+          outcome: 'Milwaukee Brewers',
+          usdcSize: 30000
+        },
+        {
+          type: 'TRADE',
+          side: 'SELL',
+          conditionId: 'c1',
+          title: 'Brewers vs Dodgers',
+          outcome: 'Milwaukee Brewers',
+          usdcSize: 10000
+        },
+        {
+          type: 'TRADE',
+          side: 'BUY',
+          conditionId: 'c2',
+          title: 'Yankees vs Red Sox',
+          outcome: 'Yankees',
+          usdcSize: 50
+        },
         { type: 'TRADE', side: 'BUY', conditionId: 'c3', title: 'A vs B', outcome: 'A', usdcSize: 2000 },
         { type: 'REDEEM', conditionId: 'c3', outcome: 'A' }
       ]
@@ -276,8 +351,26 @@ describe('fetch layer with injected fetch', () => {
       ok: true,
       status: 200,
       json: async () => [
-        { type: 'TRADE', side: 'BUY', conditionId: 'c1', title: 'Brewers vs Dodgers', outcome: 'Milwaukee Brewers', usdcSize: 50000, eventSlug: 'mlb-mil-lad-2026-08-17', timestamp: 100 },
-        { type: 'TRADE', side: 'BUY', conditionId: 'c1', title: 'Brewers vs Dodgers', outcome: 'Milwaukee Brewers', usdcSize: 25000, slug: 'mlb-mil-lad-2026-08-18', timestamp: 200 }
+        {
+          type: 'TRADE',
+          side: 'BUY',
+          conditionId: 'c1',
+          title: 'Brewers vs Dodgers',
+          outcome: 'Milwaukee Brewers',
+          usdcSize: 50000,
+          eventSlug: 'mlb-mil-lad-2026-08-17',
+          timestamp: 100
+        },
+        {
+          type: 'TRADE',
+          side: 'BUY',
+          conditionId: 'c1',
+          title: 'Brewers vs Dodgers',
+          outcome: 'Milwaukee Brewers',
+          usdcSize: 25000,
+          slug: 'mlb-mil-lad-2026-08-18',
+          timestamp: 200
+        }
       ]
     });
     const stances = await fetchWalletStances('0xaddr', { fetchImpl });
@@ -290,7 +383,15 @@ describe('fetch layer with injected fetch', () => {
       ok: true,
       status: 200,
       json: async () => [
-        { type: 'TRADE', side: 'BUY', conditionId: 'c2', title: 'Yankees vs Red Sox', outcome: 'Yankees', usdcSize: 5000, slug: 'mlb-nyy-bos-2026-08-17' }
+        {
+          type: 'TRADE',
+          side: 'BUY',
+          conditionId: 'c2',
+          title: 'Yankees vs Red Sox',
+          outcome: 'Yankees',
+          usdcSize: 5000,
+          slug: 'mlb-nyy-bos-2026-08-17'
+        }
       ]
     });
     const stances = await fetchWalletStances('0xaddr', { fetchImpl });

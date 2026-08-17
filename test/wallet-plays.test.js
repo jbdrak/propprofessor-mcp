@@ -117,7 +117,11 @@ describe('leagueMarketName', () => {
 
 describe('resolveStance', () => {
   it('resolves a moneyline stance to its outcome', () => {
-    const r = resolveStance({ title: 'Miami Heat vs. Boston Celtics', outcome: 'Miami Heat', eventSlug: 'nba-mia-bos-2026-08-17' });
+    const r = resolveStance({
+      title: 'Miami Heat vs. Boston Celtics',
+      outcome: 'Miami Heat',
+      eventSlug: 'nba-mia-bos-2026-08-17'
+    });
     assert.deepEqual(r, { league: 'NBA', marketKind: 'moneyline', selection: 'Miami Heat', line: null });
   });
 
@@ -137,7 +141,11 @@ describe('resolveStance', () => {
   });
 
   it('resolves a spread stance with handicap line from parentheses', () => {
-    const r = resolveStance({ title: 'Brewers vs. Dodgers (-1.5)', outcome: 'Brewers', eventSlug: 'mlb-mil-lad-2026-08-17' });
+    const r = resolveStance({
+      title: 'Brewers vs. Dodgers (-1.5)',
+      outcome: 'Brewers',
+      eventSlug: 'mlb-mil-lad-2026-08-17'
+    });
     assert.deepEqual(r, { league: 'MLB', marketKind: 'spread', selection: 'Brewers', line: -1.5 });
     const plus = resolveStance({ title: 'Team A vs. Team B (+2)', outcome: 'Team A', eventSlug: 'soccer-eng-2026' });
     assert.equal(plus.line, 2);
@@ -201,10 +209,10 @@ describe('verdictForRow', () => {
       verdictForRow({ movementDisposition: 'supportive_clean', confidenceTier: 'TIER 1', recentClvPct: -2 }),
       { verdict: 'CONSIDER', reason: 'supportive but CLV below 0%' }
     );
-    assert.deepEqual(
-      verdictForRow({ movementDisposition: 'supportive_clean', confidenceTier: 'TIER 1' }),
-      { verdict: 'CONSIDER', reason: 'supportive but CLV below 0%' }
-    );
+    assert.deepEqual(verdictForRow({ movementDisposition: 'supportive_clean', confidenceTier: 'TIER 1' }), {
+      verdict: 'CONSIDER',
+      reason: 'supportive but CLV below 0%'
+    });
   });
 
   it('PASSes any other movement disposition', () => {
@@ -229,7 +237,11 @@ const mlbTotalRow = {
 
 describe('matchStanceToRow', () => {
   it('matches a moneyline stance by exact selection within the right market', () => {
-    const stance = { title: 'Miami Heat vs. Boston Celtics', outcome: 'Miami Heat', eventSlug: 'nba-mia-bos-2026-08-17' };
+    const stance = {
+      title: 'Miami Heat vs. Boston Celtics',
+      outcome: 'Miami Heat',
+      eventSlug: 'nba-mia-bos-2026-08-17'
+    };
     const rows = [
       { market: 'Point Spread', game: 'Miami Heat vs Boston Celtics', selection: 'Miami Heat -2.5' },
       { market: 'Moneyline', game: 'Miami Heat vs Boston Celtics', selection: 'Miami Heat' }
@@ -241,9 +253,19 @@ describe('matchStanceToRow', () => {
   });
 
   it('falls back to game containment plus an exact side field', () => {
-    const stance = { title: 'New York Yankees vs. Boston Red Sox', outcome: 'New York Yankees', eventSlug: 'mlb-nyy-bos-2026-08-17' };
+    const stance = {
+      title: 'New York Yankees vs. Boston Red Sox',
+      outcome: 'New York Yankees',
+      eventSlug: 'mlb-nyy-bos-2026-08-17'
+    };
     const rows = [
-      { market: 'Moneyline', game: 'Boston Red Sox at New York Yankees', selection: 'Yankees', homeTeam: 'New York Yankees', awayTeam: 'Boston Red Sox' }
+      {
+        market: 'Moneyline',
+        game: 'Boston Red Sox at New York Yankees',
+        selection: 'Yankees',
+        homeTeam: 'New York Yankees',
+        awayTeam: 'Boston Red Sox'
+      }
     ];
     const result = matchStanceToRow(stance, rows);
     assert.equal(result.matched, true);
@@ -251,12 +273,18 @@ describe('matchStanceToRow', () => {
   });
 
   it('does not match when the team appears in the game but no side field matches', () => {
-    const stance = { title: 'New York Yankees vs. Boston Red Sox', outcome: 'New York Yankees', eventSlug: 'mlb-nyy-bos-2026-08-17' };
+    const stance = {
+      title: 'New York Yankees vs. Boston Red Sox',
+      outcome: 'New York Yankees',
+      eventSlug: 'mlb-nyy-bos-2026-08-17'
+    };
     const rows = [{ market: 'Moneyline', game: 'New York Yankees vs Boston Red Sox', selection: 'Yankees' }];
     assert.equal(matchStanceToRow(stance, rows).matched, false);
     // selection absent from the game entirely
     assert.equal(
-      matchStanceToRow({ title: 'Dodgers vs. Giants', outcome: 'Dodgers', eventSlug: 'mlb-lad-sf-2026' }, [{ market: 'Moneyline', game: 'Brewers vs Cubs', selection: 'Brewers' }]).matched,
+      matchStanceToRow({ title: 'Dodgers vs. Giants', outcome: 'Dodgers', eventSlug: 'mlb-lad-sf-2026' }, [
+        { market: 'Moneyline', game: 'Brewers vs Cubs', selection: 'Brewers' }
+      ]).matched,
       false
     );
   });
@@ -275,16 +303,25 @@ describe('matchStanceToRow', () => {
 
   it('matches a spread stance via the handicap market name', () => {
     const stance = { title: 'Brewers vs. Dodgers (-1.5)', outcome: 'Brewers', eventSlug: 'mlb-mil-lad-2026-08-17' };
-    const rows = [{ market: 'Run Line', game: 'Brewers vs Dodgers', selection: 'Brewers', homeTeam: 'Milwaukee Brewers' }];
+    const rows = [
+      { market: 'Run Line', game: 'Brewers vs Dodgers', selection: 'Brewers', homeTeam: 'Milwaukee Brewers' }
+    ];
     const result = matchStanceToRow(stance, rows);
     assert.equal(result.matched, true);
     assert.equal(result.marketName, 'Run Line');
   });
 
   it('returns unmatched for unresolvable stances or empty rows', () => {
-    assert.deepEqual(matchStanceToRow({ title: 'Will X win?', outcome: 'Yes', eventSlug: 'mlb-a-b-2026' }, [mlbTotalRow]), { matched: false });
+    assert.deepEqual(
+      matchStanceToRow({ title: 'Will X win?', outcome: 'Yes', eventSlug: 'mlb-a-b-2026' }, [mlbTotalRow]),
+      { matched: false }
+    );
     assert.deepEqual(matchStanceToRow(STANCE(), []), { matched: false });
-    assert.deepEqual(matchStanceToRow(STANCE(), [{ market: 'Total Runs', selection: 'Over 8.5' }]).matched, false, 'no game reference on the row -> cannot confirm matchup');
+    assert.deepEqual(
+      matchStanceToRow(STANCE(), [{ market: 'Total Runs', selection: 'Over 8.5' }]).matched,
+      false,
+      'no game reference on the row -> cannot confirm matchup'
+    );
   });
 });
 
@@ -304,14 +341,28 @@ describe('analyzeWalletPlays', () => {
         stances: [
           STANCE({ conditionId: 'c1' }),
           STANCE({ conditionId: 'c2' }),
-          { conditionId: 'c3', title: 'Miami Heat vs. Boston Celtics', outcome: 'Miami Heat', dollar: 3000, eventSlug: 'nba-mia-bos-2026-08-17' },
+          {
+            conditionId: 'c3',
+            title: 'Miami Heat vs. Boston Celtics',
+            outcome: 'Miami Heat',
+            dollar: 3000,
+            eventSlug: 'nba-mia-bos-2026-08-17'
+          },
           // unresolvable (no eventSlug) -> skipped, never in output
           { conditionId: 'c4', title: 'Miami Marlins vs. Philadelphia Phillies O/U 8.5', outcome: 'Over', dollar: 2000 }
         ]
       },
       {
         wallet: { proxyWallet: '0xbbb', userName: 'WhaleB', pnl: -5000 },
-        stances: [{ conditionId: 'c5', title: 'St. Louis Cardinals vs. Chicago Cubs O/U 8.5', outcome: 'Over', dollar: 900, eventSlug: 'mlb-stl-chc-2026' }]
+        stances: [
+          {
+            conditionId: 'c5',
+            title: 'St. Louis Cardinals vs. Chicago Cubs O/U 8.5',
+            outcome: 'Over',
+            dollar: 900,
+            eventSlug: 'mlb-stl-chc-2026'
+          }
+        ]
       }
     ];
     try {
@@ -322,13 +373,26 @@ describe('analyzeWalletPlays', () => {
           return [mlbTotalRow];
         }
         if (league === 'NBA' && marketName === 'Moneyline') {
-          return [{ market: 'Moneyline', game: 'Miami Heat vs Boston Celtics', selection: 'Miami Heat', movementDisposition: 'supportive_bouncy', confidenceTier: 'TIER 2', recentClvPct: 0.5 }];
+          return [
+            {
+              market: 'Moneyline',
+              game: 'Miami Heat vs Boston Celtics',
+              selection: 'Miami Heat',
+              movementDisposition: 'supportive_bouncy',
+              confidenceTier: 'TIER 2',
+              recentClvPct: 0.5
+            }
+          ];
         }
         return [];
       };
       const out = await analyzeWalletPlays({ limit: 10, rankFn });
 
-      assert.equal(rankCalls.length, 2, 'one rank call per distinct (league, market): MLB|Total Runs cached across both stances');
+      assert.equal(
+        rankCalls.length,
+        2,
+        'one rank call per distinct (league, market): MLB|Total Runs cached across both stances'
+      );
       assert.ok(rankCalls.includes('MLB|Total Runs'));
       assert.ok(rankCalls.includes('NBA|Moneyline'));
 
@@ -367,7 +431,11 @@ describe('analyzeWalletPlays', () => {
       { wallet: { proxyWallet: '0xaaa', userName: 'A', pnl: 1 }, stances: [STANCE()] }
     ];
     try {
-      const out = await analyzeWalletPlays({ rankFn: async () => { throw new Error('rank down'); } });
+      const out = await analyzeWalletPlays({
+        rankFn: async () => {
+          throw new Error('rank down');
+        }
+      });
       assert.deepEqual(out, []);
       const out2 = await analyzeWalletPlays({ rankFn: async () => 'not-an-array' });
       assert.deepEqual(out2, []);
@@ -404,7 +472,16 @@ describe('analyzeWalletPlays', () => {
       return {
         ok: true,
         status: 200,
-        json: async () => [{ type: 'TRADE', side: 'BUY', conditionId: 'c1', title: 'Miami Marlins vs. Philadelphia Phillies O/U 8.5', outcome: 'Over', usdcSize: 5000 }]
+        json: async () => [
+          {
+            type: 'TRADE',
+            side: 'BUY',
+            conditionId: 'c1',
+            title: 'Miami Marlins vs. Philadelphia Phillies O/U 8.5',
+            outcome: 'Over',
+            usdcSize: 5000
+          }
+        ]
       };
     };
     const out = await analyzeWalletPlays({ limit: 5, rankFn: async () => [mlbTotalRow], fetchImpl });
