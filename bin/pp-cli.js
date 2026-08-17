@@ -18,6 +18,7 @@ const { loadLedger, saveLedger, addRecord, defaultLedgerPath } = require(PROJECT
 const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/lib/record-candidates');
 const { promoteCards } = require(PROJECT + '/lib/record-card');
 const { enrichScanElo } = require(PROJECT + '/lib/propprofessor-elo-overlay');
+const { enrichScanPolyWallets } = require(PROJECT + '/lib/propprofessor-poly-wallets');
 const { formatScanDiagnostics } = require(PROJECT + '/lib/scan-diagnostics');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
@@ -212,6 +213,8 @@ Flags:
   --no-tennis-fallback       Disable fallback recovery when tennis scan returns 0 plays
   --record-scan              Record scan + normalized candidates to the tracker ledger (PP_RECORD_LEDGER, default ~/.propprofessor/tracker/ledger.json)
   --props                   Include player prop markets (Player Points, etc.) in the scan
+  --wallets [N]             Overlay top Polymarket wallets' live positions on plays (default off; N = number of wallets, default 20)
+  --no-wallets              Explicitly disable the wallet overlay (only meaningful with --wallets)
 
 Examples:
   pp scan tennis wnba
@@ -467,6 +470,26 @@ function eloContextLabel(p) {
   return color + 'elo ' + eloPct + '% vs mkt ' + mktPct + '% · ' + sign + diff + R;
 }
 
+function walletLine(p) {
+  // Polymarket smart-wallet overlay for plays that resolve to a side. Only
+  // rendered when a live net stance was found (aligned or against) — no
+  // data is not a signal, same as elo. Plain-text, iMessage-safe.
+  const w = p.polyWallet;
+  if (!w || w.available !== true) return '';
+  const parts = [];
+  const sideLine = (label, side) => {
+    if (!side || side.walletCount === 0) return null;
+    const doll = '$' + side.totalDollars.toLocaleString('en-US');
+    return label + ' ' + side.walletCount + ' wallet' + (side.walletCount === 1 ? '' : 's') + ', ' + doll;
+  };
+  const aligned = sideLine('✅', w.aligned);
+  const against = sideLine('⚠️', w.against);
+  if (aligned) parts.push(aligned);
+  if (against) parts.push(against);
+  if (!parts.length) return '';
+  return '    ' + parts.join(' · ') + '\n';
+}
+
 function formatScan(results) {
   if (!results || !results.length) return 'No plays found.';
   let out = '';
@@ -501,6 +524,8 @@ function formatScan(results) {
         out += '    ' + matchup + '  ' + (p.startCST || p.startDisplay || '') + '\n';
       const eloLine = eloContextLabel(p);
       if (eloLine) out += '    ' + eloLine + '\n';
+      const walletLineStr = walletLine(p);
+      if (walletLineStr) out += walletLineStr;
     }
   }
   out += '\n' + B + total + R + ' plays across ' + results.length + ' markets';
@@ -1179,6 +1204,20 @@ async function cmdScan(handlers, positional, flags, client) {
       onlyBets,
       resolvedMovement
     });
+
+    // Polymarket wallet overlay (top traders by P&L). Pure enrichment —
+    // never touches ranking/movement/verdict; a failed fetch degrades to a
+    // silent no-op. OPT-IN via --wallets [N]: it adds live network calls to
+    // Polymarket on every run, so we don't fire them on a plain scan.
+    if ((flags.wallets || flags['wallets']) && !(flags['no-wallets'] || flags.noWallets)) {
+      try {
+        const results = res.data?.results || res.results || [];
+        const wantCount = flags.wallets === true ? undefined : Number(flags.wallets);
+        await enrichScanPolyWallets(results, { limit: Number.isFinite(wantCount) && wantCount > 0 ? wantCount : 20 });
+      } catch {
+        // Enrichment must never break scan output.
+      }
+    }
 
     renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, cardWindow, limit });
   } catch (e) {
