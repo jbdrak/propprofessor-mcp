@@ -398,4 +398,74 @@ describe('fetch layer with injected fetch', () => {
     assert.equal(stances.length, 1);
     assert.equal(stances[0].eventSlug, 'mlb-nyy-bos-2026-08-17');
   });
+
+  it('fetchWalletStances drops stances on settled (closed) markets', async () => {
+    const fetchImpl = async (url) => {
+      // activity feed for one wallet; c1 is live (Yankees), c2 is settled (Astros)
+      if (url.includes('/activity')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [
+            {
+              type: 'TRADE',
+              side: 'BUY',
+              conditionId: 'c1',
+              title: 'Yankees vs Red Sox',
+              outcome: 'Yankees',
+              usdcSize: 50000,
+              eventSlug: 'mlb-nyy-bos-2026-08-17'
+            },
+            {
+              type: 'TRADE',
+              side: 'BUY',
+              conditionId: 'c2',
+              title: 'Mariners vs Astros',
+              outcome: 'Houston Astros',
+              usdcSize: 4700,
+              eventSlug: 'mlb-sea-hou-2026-08-16'
+            }
+          ]
+        };
+      }
+      // CLOB market lookups: c1 open, c2 closed/settled
+      if (url.includes('/markets/c1')) {
+        return { ok: true, status: 200, json: async () => ({ closed: false, active: true }) };
+      }
+      if (url.includes('/markets/c2')) {
+        return { ok: true, status: 200, json: async () => ({ closed: true, active: true }) };
+      }
+      return { ok: true, status: 200, json: async () => null };
+    };
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl });
+    assert.equal(stances.length, 1, 'settled stance dropped, live stance kept');
+    assert.equal(stances[0].conditionId, 'c1');
+    assert.equal(stances[0].outcome, 'Yankees');
+  });
+
+  it('fetchWalletStances treats closed-market lookup failure as live (no false drops)', async () => {
+    const fetchImpl = async (url) => {
+      if (url.includes('/activity')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [
+            {
+              type: 'TRADE',
+              side: 'BUY',
+              conditionId: 'c1',
+              title: 'Yankees vs Red Sox',
+              outcome: 'Yankees',
+              usdcSize: 50000,
+              eventSlug: 'mlb-nyy-bos-2026-08-17'
+            }
+          ]
+        };
+      }
+      // CLOB lookup hard-fails -> stance stays (not dropped)
+      return { ok: false, status: 500 };
+    };
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl });
+    assert.equal(stances.length, 1, 'fetch failure -> treated as live, stance kept');
+  });
 });
