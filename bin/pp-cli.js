@@ -374,6 +374,10 @@ Flags:
 Scan top Polymarket wallets (by lifetime P&L) for live positions, cross-check
 each against the execution book, and emit a bet/pass verdict.
 
+Settled (closed) markets are filtered: a stance on a market whose eventSlug
+date is before today is dropped, so losing positions never show as stale live
+bets.
+
 Flags:
   -b, --book <name>         Book to cross-check. Default: NoVigApp
   -n, --limit <N>           Number of wallets. Default: 20
