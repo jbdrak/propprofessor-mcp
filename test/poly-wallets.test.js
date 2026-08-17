@@ -68,6 +68,52 @@ describe('classifyPosition', () => {
   });
 });
 
+describe('classifyPosition — totals (O/U)', () => {
+  it('aligned when the wallet holds the same total direction', () => {
+    const play = { game: 'Padres vs Mets', selection: 'Under 8.5' };
+    const stance = { title: 'San Diego Padres vs. New York Mets: O/U 8.5', outcome: 'Under', dollar: 20000 };
+    assert.equal(classifyPosition(play, stance), 'aligned');
+  });
+
+  it('against when the wallet holds the opposite total direction', () => {
+    const play = { game: 'Padres vs Mets', selection: 'Over 8.5' };
+    const stance = { title: 'San Diego Padres vs. New York Mets: O/U 8.5', outcome: 'Under', dollar: 20000 };
+    assert.equal(classifyPosition(play, stance), 'against');
+  });
+
+  it('aligned for bare Over/Under selections', () => {
+    const play = { game: 'Padres vs Mets', selection: 'Over' };
+    const stance = { title: 'San Diego Padres vs. New York Mets: O/U 8.5', outcome: 'Over', dollar: 900 };
+    assert.equal(classifyPosition(play, stance), 'aligned');
+  });
+
+  it('null when a total title is matched to a team selection', () => {
+    const play = { game: 'Padres vs Mets', selection: 'San Diego Padres' };
+    const stance = { title: 'San Diego Padres vs. New York Mets: O/U 8.5', outcome: 'Over', dollar: 900 };
+    assert.equal(classifyPosition(play, stance), null);
+  });
+});
+
+describe('classifyPosition — spreads', () => {
+  it('aligned when the wallet holds the same spread side', () => {
+    const play = { game: 'Whitecaps vs Timbers', selection: 'Vancouver Whitecaps FC -1.5' };
+    const stance = { title: 'Spread: Vancouver Whitecaps FC (-1.5)', outcome: 'Vancouver Whitecaps FC', dollar: 15000 };
+    assert.equal(classifyPosition(play, stance), 'aligned');
+  });
+
+  it('against when the wallet holds the other spread side of the same matchup', () => {
+    const play = { game: 'Whitecaps vs Timbers', selection: 'Portland Timbers +1.5' };
+    const stance = { title: 'Spread: Vancouver Whitecaps FC vs. Portland Timbers (-1.5)', outcome: 'Vancouver Whitecaps FC', dollar: 15000 };
+    assert.equal(classifyPosition(play, stance), 'against');
+  });
+
+  it('null when a spread selection cannot be tied to the matchup', () => {
+    const play = { game: 'Whitecaps vs Timbers', selection: '-1.5' };
+    const stance = { title: 'Spread: Vancouver Whitecaps FC (-1.5)', outcome: 'Vancouver Whitecaps FC', dollar: 15000 };
+    assert.equal(classifyPosition(play, stance), null);
+  });
+});
+
 // --- matchPlayToWallet ------------------------------------------------------
 
 describe('matchPlayToWallet', () => {
@@ -223,5 +269,32 @@ describe('fetch layer with injected fetch', () => {
     assert.equal(stances[0].conditionId, 'c1');
     assert.equal(stances[0].dollar, 70000);
     assert.equal(stances[0].outcome, 'Milwaukee Brewers');
+  });
+
+  it('fetchWalletStances preserves eventSlug (latest row wins, slug fallback)', async () => {
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => [
+        { type: 'TRADE', side: 'BUY', conditionId: 'c1', title: 'Brewers vs Dodgers', outcome: 'Milwaukee Brewers', usdcSize: 50000, eventSlug: 'mlb-mil-lad-2026-08-17', timestamp: 100 },
+        { type: 'TRADE', side: 'BUY', conditionId: 'c1', title: 'Brewers vs Dodgers', outcome: 'Milwaukee Brewers', usdcSize: 25000, slug: 'mlb-mil-lad-2026-08-18', timestamp: 200 }
+      ]
+    });
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl });
+    assert.equal(stances.length, 1);
+    assert.equal(stances[0].eventSlug, 'mlb-mil-lad-2026-08-18', 'latest row value wins');
+  });
+
+  it('fetchWalletStances falls back to slug when eventSlug is absent', async () => {
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => [
+        { type: 'TRADE', side: 'BUY', conditionId: 'c2', title: 'Yankees vs Red Sox', outcome: 'Yankees', usdcSize: 5000, slug: 'mlb-nyy-bos-2026-08-17' }
+      ]
+    });
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl });
+    assert.equal(stances.length, 1);
+    assert.equal(stances[0].eventSlug, 'mlb-nyy-bos-2026-08-17');
   });
 });
