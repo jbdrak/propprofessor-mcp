@@ -15,6 +15,19 @@ const {
 
 // --- pure helpers -----------------------------------------------------------
 
+/** Date suffix helper so settled/today/future slug tests never go stale at midnight. */
+function slugDate(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+const YDAY = slugDate(-1);
+const TODAY = slugDate(0);
+const TOMORROW = slugDate(1);
+
 describe('normForMatch', () => {
   it('strips punctuation and normalizes case', () => {
     assert.equal(normForMatch('Milwaukee Brewers vs. Los Angeles Dodgers'), 'MILWAUKEE BREWERS VS LOS ANGELES DODGERS');
@@ -278,12 +291,12 @@ describe('enrichScanPolyWallets', () => {
 
 describe('isSettledBySlug', () => {
   it('true when the slug date is before today', () => {
-    assert.equal(isSettledBySlug('mlb-sea-hou-2026-08-16'), true);
+    assert.equal(isSettledBySlug('mlb-sea-hou-' + YDAY), true);
   });
 
   it('false when the slug date is today or in the future', () => {
-    assert.equal(isSettledBySlug('mlb-mil-lad-2026-08-17'), false);
-    assert.equal(isSettledBySlug('mlb-mil-lad-2026-08-18'), false);
+    assert.equal(isSettledBySlug('mlb-mil-lad-' + TODAY), false);
+    assert.equal(isSettledBySlug('mlb-mil-lad-' + TOMORROW), false);
   });
 
   it('false when the slug has no parseable trailing date', () => {
@@ -383,7 +396,7 @@ describe('fetch layer with injected fetch', () => {
           title: 'Brewers vs Dodgers',
           outcome: 'Milwaukee Brewers',
           usdcSize: 50000,
-          eventSlug: 'mlb-mil-lad-2026-08-17',
+          eventSlug: 'mlb-mil-lad-' + YDAY,
           timestamp: 100
         },
         {
@@ -393,14 +406,14 @@ describe('fetch layer with injected fetch', () => {
           title: 'Brewers vs Dodgers',
           outcome: 'Milwaukee Brewers',
           usdcSize: 25000,
-          slug: 'mlb-mil-lad-2026-08-18',
+          slug: 'mlb-mil-lad-' + TOMORROW,
           timestamp: 200
         }
       ]
     });
     const stances = await fetchWalletStances('0xaddr', { fetchImpl });
     assert.equal(stances.length, 1);
-    assert.equal(stances[0].eventSlug, 'mlb-mil-lad-2026-08-18', 'latest row value wins');
+    assert.equal(stances[0].eventSlug, 'mlb-mil-lad-' + TOMORROW, 'latest row value wins');
   });
 
   it('fetchWalletStances drops stances on settled (yesterday) markets', async () => {
@@ -415,7 +428,7 @@ describe('fetch layer with injected fetch', () => {
           title: 'Seattle Mariners vs. Houston Astros',
           outcome: 'Houston Astros',
           usdcSize: 4779,
-          eventSlug: 'mlb-sea-hou-2026-08-16'
+          eventSlug: 'mlb-sea-hou-' + YDAY
         },
         {
           type: 'TRADE',
@@ -424,12 +437,12 @@ describe('fetch layer with injected fetch', () => {
           title: 'Baltimore Orioles vs Tampa Bay Rays',
           outcome: 'Baltimore Orioles',
           usdcSize: 17000,
-          eventSlug: 'mlb-bal-tbr-2026-08-17'
+          eventSlug: 'mlb-bal-tbr-' + TODAY
         }
       ]
     });
     const stances = await fetchWalletStances('0xaddr', { fetchImpl });
-    // Astros stance (Aug 16, settled) dropped; Orioles stance (today, live) kept.
+    // Astros stance (settled) dropped; Orioles stance (today, live) kept.
     assert.equal(stances.length, 1);
     assert.equal(stances[0].conditionId, 'c-live');
     assert.equal(stances[0].outcome, 'Baltimore Orioles');
@@ -447,12 +460,12 @@ describe('fetch layer with injected fetch', () => {
           title: 'Yankees vs Red Sox',
           outcome: 'Yankees',
           usdcSize: 5000,
-          slug: 'mlb-nyy-bos-2026-08-17'
+          slug: 'mlb-nyy-bos-' + TODAY
         }
       ]
     });
     const stances = await fetchWalletStances('0xaddr', { fetchImpl });
     assert.equal(stances.length, 1);
-    assert.equal(stances[0].eventSlug, 'mlb-nyy-bos-2026-08-17');
+    assert.equal(stances[0].eventSlug, 'mlb-nyy-bos-' + TODAY);
   });
 });
