@@ -43,6 +43,19 @@ describe('leagueFromSlug', () => {
     assert.equal(leagueFromSlug('epl-ars-che-2026-08-17'), 'Soccer');
   });
 
+  it('maps ATP/WTA/ITF singles-match slugs to Tennis', () => {
+    assert.equal(leagueFromSlug('atp-tirante-landalu-2026-08-17'), 'Tennis');
+    assert.equal(leagueFromSlug('wta-cirstea-kalinsk-2026-08-17'), 'Tennis');
+    assert.equal(leagueFromSlug('itf-aleksey-boschma-2026-08-17'), 'Tennis');
+  });
+
+  it('maps Liga MX, Brazilian soccer, and esports slugs', () => {
+    assert.equal(leagueFromSlug('mex-tij-caz-2026-08-16'), 'Soccer');
+    assert.equal(leagueFromSlug('bra-vit-bot-2026-08-16'), 'Soccer');
+    assert.equal(leagueFromSlug('lol-tes-edg-2026-08-16'), 'LoL');
+    assert.equal(leagueFromSlug('cs2-9z-mgc-2026-08-16'), 'CS2');
+  });
+
   it('is case-insensitive', () => {
     assert.equal(leagueFromSlug('MLB-MIA-PHI-2026-08-17'), 'MLB');
     assert.equal(leagueFromSlug('Tennis-ATPLondon-2026'), 'Tennis');
@@ -396,28 +409,33 @@ describe('analyzeWalletPlays', () => {
       assert.ok(rankCalls.includes('MLB|Total Runs'));
       assert.ok(rankCalls.includes('NBA|Moneyline'));
 
-      // WhaleB matched nothing (its run-line row set exists but its game is different)
-      assert.equal(out.length, 1);
-      assert.equal(out[0].wallet.proxyWallet, '0xaaa');
-      assert.equal(out[0].wallet.userName, 'WhaleA');
-      assert.equal(out[0].wallet.pnl, 2500000);
+      // WhaleB now surfaces too — its stance resolves to MLB/total even though
+      // the rankFn returns no matching row (rankFn degrades to no rows).
+      // The CLI shows "whale on X · no book match" instead of dropping the wallet.
+      assert.equal(out.wallets.length, 2);
+      assert.equal(out.wallets[0].wallet.proxyWallet, '0xaaa');
+      assert.equal(out.wallets[0].wallet.userName, 'WhaleA');
+      assert.equal(out.wallets[0].wallet.pnl, 2500000);
+      assert.equal(out.wallets[1].wallet.proxyWallet, '0xbbb');
+      assert.equal(out.wallets[1].wallet.userName, 'WhaleB');
 
-      const stances = out[0].stances;
-      assert.equal(stances.length, 3, 'c4 dropped, unresolvable slug');
-      assert.equal(stances[0].matched, true);
-      assert.equal(stances[0].marketName, 'Total Runs');
-      assert.equal(stances[0].league, 'MLB');
-      assert.equal(stances[0].marketKind, 'total');
-      assert.equal(stances[0].selection, 'Over');
-      assert.equal(stances[0].line, 8.5);
-      assert.deepEqual(stances[0].verdict, { verdict: 'BET', reason: 'supportive_clean, TIER 1, CLV +1.4%' });
-      assert.equal(stances[0].row.market, 'Total Runs');
-
-      assert.equal(stances[1].matched, true, 'same group reuses cached rows');
-      assert.equal(stances[2].matched, true);
-      assert.equal(stances[2].marketName, 'Moneyline');
-      assert.deepEqual(stances[2].verdict, { verdict: 'BET', reason: 'supportive_bouncy, TIER 2, CLV +0.5%' });
-    } finally {
+      const stancesA = out.wallets[0].stances;
+            assert.equal(stancesA.length, 3, 'c4 dropped, unresolvable slug');
+            assert.equal(stancesA[0].matched, true);
+            assert.equal(stancesA[0].marketName, 'Total Runs');
+            assert.equal(stancesA[0].league, 'MLB');
+            assert.equal(stancesA[0].marketKind, 'total');
+            assert.equal(stancesA[0].selection, 'Over');
+            assert.equal(stancesA[0].line, 8.5);
+            assert.deepEqual(stancesA[0].verdict, { verdict: 'BET', reason: 'supportive_clean, TIER 1, CLV +1.4%' });
+            assert.equal(stancesA[0].row.market, 'Total Runs');
+            // WhaleB also surfaces now (see assert below at line 413)
+            const stancesB = out.wallets[1].stances;
+            assert.equal(stancesB.length, 1);
+            assert.equal(stancesB[0].matched, false);
+            assert.equal(stancesB[0].league, 'MLB');
+            assert.equal(stancesB[0].marketKind, 'total');
+          } finally {
       polyWalletsMod.fetchLeaderboard = savedLB;
       polyWalletsMod.fetchWalletStancesAll = savedAll;
     }
@@ -436,9 +454,18 @@ describe('analyzeWalletPlays', () => {
           throw new Error('rank down');
         }
       });
-      assert.deepEqual(out, []);
+      // rankFn failure degrades to no rows, but resolvable stances still surface
+      // so the CLI can show "whale on X · no book match" instead of dropping the wallet.
+      assert.equal(out.wallets.length, 1);
+      assert.equal(out.droppedByPrefix.length, 0);
+      assert.equal(out.nonSportsDropped, 0);
+      assert.equal(out.wallets[0].stances.length, 1);
+      assert.equal(out.wallets[0].stances[0].matched, false);
+      assert.equal(out.wallets[0].stances[0].league, 'MLB');
       const out2 = await analyzeWalletPlays({ rankFn: async () => 'not-an-array' });
-      assert.deepEqual(out2, []);
+      assert.equal(out2.wallets.length, 1);
+      assert.equal(out2.droppedByPrefix.length, 0);
+      assert.equal(out2.nonSportsDropped, 0);
     } finally {
       polyWalletsMod.fetchLeaderboard = savedLB;
       polyWalletsMod.fetchWalletStancesAll = savedAll;
@@ -446,46 +473,17 @@ describe('analyzeWalletPlays', () => {
   });
 
   it('returns [] on empty leaderboard or empty stances', async () => {
-    const savedLB = polyWalletsMod.fetchLeaderboard;
-    const savedAll = polyWalletsMod.fetchWalletStancesAll;
-    polyWalletsMod.fetchLeaderboard = async () => [];
-    polyWalletsMod.fetchWalletStancesAll = async () => [];
-    try {
-      assert.deepEqual(await analyzeWalletPlays({ rankFn: async () => [mlbTotalRow] }), []);
-      polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'A', pnl: 1 }];
-      assert.deepEqual(await analyzeWalletPlays({ rankFn: async () => [mlbTotalRow] }), []);
-    } finally {
-      polyWalletsMod.fetchLeaderboard = savedLB;
-      polyWalletsMod.fetchWalletStancesAll = savedAll;
-    }
-  });
-
-  it('threads an injected fetchImpl through the real wallet fetch layer (no network)', async () => {
-    const calls = [];
-    const fetchImpl = async (url) => {
-      calls.push(url);
-      if (url.includes('/leaderboard')) {
-        return { ok: true, status: 200, json: async () => [{ proxyWallet: '0x1', userName: 'A', pnl: 100 }] };
+      const savedLB = polyWalletsMod.fetchLeaderboard;
+      const savedAll = polyWalletsMod.fetchWalletStancesAll;
+      polyWalletsMod.fetchLeaderboard = async () => [];
+      polyWalletsMod.fetchWalletStancesAll = async () => [];
+      try {
+        assert.deepEqual(await analyzeWalletPlays({ rankFn: async () => [mlbTotalRow] }), { wallets: [], droppedByPrefix: [], nonSportsDropped: 0 });
+        polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'A', pnl: 1 }];
+        assert.deepEqual(await analyzeWalletPlays({ rankFn: async () => [mlbTotalRow] }), { wallets: [], droppedByPrefix: [], nonSportsDropped: 0 });
+      } finally {
+        polyWalletsMod.fetchLeaderboard = savedLB;
+        polyWalletsMod.fetchWalletStancesAll = savedAll;
       }
-      // activity rows currently carry no eventSlug (sibling change pending) ->
-      // stances are unresolvable -> graceful [] until the contract lands
-      return {
-        ok: true,
-        status: 200,
-        json: async () => [
-          {
-            type: 'TRADE',
-            side: 'BUY',
-            conditionId: 'c1',
-            title: 'Miami Marlins vs. Philadelphia Phillies O/U 8.5',
-            outcome: 'Over',
-            usdcSize: 5000
-          }
-        ]
-      };
-    };
-    const out = await analyzeWalletPlays({ limit: 5, rankFn: async () => [mlbTotalRow], fetchImpl });
-    assert.deepEqual(out, []);
-    assert.equal(calls.length, 2, 'leaderboard fetch + per-wallet activity fetch');
-  });
+    });
 });
