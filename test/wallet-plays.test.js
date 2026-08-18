@@ -643,6 +643,73 @@ describe('analyzeWalletPlays', () => {
     }
   });
 
+  it('re-grades matched stances against the exact per-game quote (exactFn)', async () => {
+    const savedLB = polyWalletsMod.fetchLeaderboard;
+    const savedAll = polyWalletsMod.fetchWalletStancesAll;
+    polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 }];
+    polyWalletsMod.fetchWalletStancesAll = async () => [
+      {
+        wallet: { proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 },
+        stances: [
+          {
+            conditionId: 't1',
+            title: 'Cincinnati Open: Brandon Nakashima vs Daniil Medvedev',
+            outcome: 'Brandon Nakashima',
+            dollar: 5000,
+            eventSlug: 'atp-nakashi-medvede-2026-08-18'
+          }
+        ]
+      }
+    ];
+    try {
+      // Broad scan returns a DEGRADED row (TIER 4 adverse) for this match.
+      const rankFn = async () => [
+        {
+          market: 'Moneyline',
+          game: 'Medvedev vs Nakashima',
+          gameId: 'Tennis:PREMATCH:Medvedev:Nakashima:1787054400',
+          selection: 'Nakashima',
+          movementDisposition: 'adverse_full',
+          confidenceTier: 'TIER 4',
+          recentClvPct: -3
+        }
+      ];
+      // Exact lookup returns the AUTHORITATIVE row (supportive_clean T1 +CLV).
+      const exactCalls = [];
+      const exactFn = async (league, market, gameId) => {
+        exactCalls.push(gameId);
+        return [
+          {
+            market: 'Moneyline',
+            game: 'Medvedev vs Nakashima',
+            gameId,
+            selection: 'Nakashima',
+            movementDisposition: 'supportive_clean',
+            confidenceTier: 'TIER 1',
+            recentClvPct: 1.8
+          }
+        ];
+      };
+      const out = await analyzeWalletPlays({ rankFn, exactFn });
+      assert.equal(exactCalls.length, 1, 'exact recheck fired for the matched game');
+      const s = out.wallets[0].stances[0];
+      assert.equal(s.matched, true);
+      assert.equal(s.exact, true, 'flagged as exact-rechecked');
+      // Verdict now uses the EXACT row's clean supportive movement, not the scan's T4.
+      assert.deepEqual(s.verdict, { verdict: 'BET', reason: 'supportive_clean, TIER 1, CLV +1.8%' });
+      assert.equal(s.row.confidenceTier, 'TIER 1');
+
+      // Without exactFn, the degraded scan row drives the verdict (backward compat).
+      const bare = await analyzeWalletPlays({ rankFn });
+      const sb = bare.wallets[0].stances[0];
+      assert.equal(sb.exact, false);
+      assert.deepEqual(sb.verdict, { verdict: 'PASS', reason: 'adverse movement (adverse_full)' });
+    } finally {
+      polyWalletsMod.fetchLeaderboard = savedLB;
+      polyWalletsMod.fetchWalletStancesAll = savedAll;
+    }
+  });
+
   it('returns [] on empty leaderboard or empty stances', async () => {
     const savedLB = polyWalletsMod.fetchLeaderboard;
     const savedAll = polyWalletsMod.fetchWalletStancesAll;

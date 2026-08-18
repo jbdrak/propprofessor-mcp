@@ -1602,6 +1602,76 @@ async function cmdRank(handlers, positional, flags) {
 
 // ── wallets ──────────────────────────────────────────────────────
 
+/** Render one wallet's stance block for the wallets overlap output. */
+function printWalletOverlaps(w, book, overlapOnly) {
+  const wallet = w.wallet || {};
+  const name = wallet.userName || (wallet.proxyWallet ? wallet.proxyWallet.slice(0, 10) : 'wallet');
+  const pnl = wallet.pnl != null ? '$' + Math.round(wallet.pnl).toLocaleString('en-US') : '?';
+  console.log('\\n' + B + name + R + '  (lifetime P&L ' + pnl + ')');
+  const stances = (w.stances || []).filter((s) => (overlapOnly ? s.matched : true));
+  for (const s of stances) {
+    if (!s.matched || !s.row) {
+      console.log(
+        '  ' +
+          (s.selection || s.outcome || '?') +
+          '  ·  $' +
+          (s.dollar || 0).toLocaleString('en-US') +
+          ' whale  ·  no ' +
+          book +
+          ' match  (' +
+          (s.title || '') +
+          ')'
+      );
+      continue;
+    }
+    const row = s.row;
+    const oddsStr = row.odds > 0 ? '+' + row.odds : String(row.odds);
+    const mv = movementColor(row.movementDisposition || '');
+    const clv =
+      row.recentClvPct != null
+        ? (Number(row.recentClvPct) >= 0 ? '+' : '') + Number(row.recentClvPct).toFixed(1) + '%'
+        : '?';
+    const v = s.verdict || {};
+    const vSym =
+      v.verdict === 'BET' ? G + '● BET' + R : v.verdict === 'CONSIDER' ? Y + '◐ CONSIDER' + R : RED + '✕ PASS' + R;
+    const tierStr = row.confidenceTier ? Y + row.confidenceTier + R : '';
+    const edgeStr =
+      row.consensusEdge != null
+        ? (Number(row.consensusEdge) >= 0 ? G + '+' : RED) + (Number(row.consensusEdge) * 100).toFixed(1) + '%' + R
+        : '';
+    const tierEdge = tierStr || edgeStr ? '  ' + tierStr + (tierStr && edgeStr ? '  ' : '') + edgeStr : '';
+    const exactMark = s.exact ? '  ' + CYAN + '(exact)' + R : '';
+    console.log(
+      '  ' +
+        (row.selection || s.selection) +
+        ' @ ' +
+        oddsStr +
+        '  ' +
+        vSym +
+        '  ' +
+        mv +
+        '  CLV ' +
+        clv +
+        tierEdge +
+        exactMark
+    );
+    console.log(
+      '    whale $' +
+        (s.dollar || 0).toLocaleString('en-US') +
+        ' on ' +
+        (s.selection || '') +
+        '  ·  ' +
+        (row.game || s.title || '')
+    );
+    const booksLine = row.consensusBookCount ? 'books ' + row.consensusBookCount + '  ·  ' : '';
+    const liq =
+      Number.isFinite(Number(row.liquidityUsd)) && Number(row.liquidityUsd) > 0
+        ? 'liq $' + Math.round(Number(row.liquidityUsd)).toLocaleString('en-US') + '  ·  '
+        : '';
+    console.log('    ' + booksLine + liq + (v.reason || ''));
+  }
+}
+
 async function cmdWallets(handlers, positional, flags) {
   const limit = parseInt(flags.n || flags.limit || positional[1] || 20);
   const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
@@ -1640,12 +1710,26 @@ async function cmdWallets(handlers, positional, flags) {
     return res?.result || res?.data || res?.rows || [];
   };
 
+  const exactFn = async (league, market, gameId, b) => {
+    // Same authoritative path as `pp game`: exact per-game quote with current
+    // tier/movement/CLV. Used to re-grade matched wallet stances so degraded
+    // broad-scan labels never dictate a verdict.
+    const res = await handlers.get_play_details({
+      league,
+      market,
+      gameIds: [gameId],
+      books: [b || book]
+    });
+    return res?.result || res?.data || [];
+  };
+
   const out = await analyzeWalletPlays({
     limit: Number.isFinite(limit) && limit > 0 ? limit : 20,
     book,
     league,
     date,
-    rankFn
+    rankFn,
+    exactFn
   });
 
   const walletList = Array.isArray(out) ? out : out && Array.isArray(out.wallets) ? out.wallets : [];
@@ -1711,60 +1795,7 @@ async function cmdWallets(handlers, positional, flags) {
   }
 
   for (const w of overlapWallets) {
-    const wallet = w.wallet || {};
-    const name = wallet.userName || (wallet.proxyWallet ? wallet.proxyWallet.slice(0, 10) : 'wallet');
-    const pnl = wallet.pnl != null ? '$' + Math.round(wallet.pnl).toLocaleString('en-US') : '?';
-    console.log('\\n' + B + name + R + '  (lifetime P&L ' + pnl + ')');
-    const stances = (w.stances || []).filter((s) => (overlapOnly ? s.matched : true));
-    for (const s of stances) {
-      if (!s.matched || !s.row) {
-        console.log(
-          '  ' +
-            (s.selection || s.outcome || '?') +
-            '  ·  $' +
-            (s.dollar || 0).toLocaleString('en-US') +
-            ' whale  ·  no ' +
-            book +
-            ' match  (' +
-            (s.title || '') +
-            ')'
-        );
-        continue;
-      }
-      const row = s.row;
-      const oddsStr = row.odds > 0 ? '+' + row.odds : String(row.odds);
-      const mv = movementColor(row.movementDisposition || '');
-      const clv =
-        row.recentClvPct != null
-          ? (Number(row.recentClvPct) >= 0 ? '+' : '') + Number(row.recentClvPct).toFixed(1) + '%'
-          : '?';
-      const v = s.verdict || {};
-      const vSym =
-        v.verdict === 'BET' ? G + '● BET' + R : v.verdict === 'CONSIDER' ? Y + '◐ CONSIDER' + R : RED + '✕ PASS' + R;
-      const tierStr = row.confidenceTier ? Y + row.confidenceTier + R : '';
-      const edgeStr =
-        row.consensusEdge != null
-          ? (Number(row.consensusEdge) >= 0 ? G + '+' : RED) + (Number(row.consensusEdge) * 100).toFixed(1) + '%' + R
-          : '';
-      const tierEdge = tierStr || edgeStr ? '  ' + tierStr + (tierStr && edgeStr ? '  ' : '') + edgeStr : '';
-      console.log(
-        '  ' + (row.selection || s.selection) + ' @ ' + oddsStr + '  ' + vSym + '  ' + mv + '  CLV ' + clv + tierEdge
-      );
-      console.log(
-        '    whale $' +
-          (s.dollar || 0).toLocaleString('en-US') +
-          ' on ' +
-          (s.selection || '') +
-          '  ·  ' +
-          (row.game || s.title || '')
-      );
-      const booksLine = row.consensusBookCount ? 'books ' + row.consensusBookCount + '  ·  ' : '';
-      const liq =
-        Number.isFinite(Number(row.liquidityUsd)) && Number(row.liquidityUsd) > 0
-          ? 'liq $' + Math.round(Number(row.liquidityUsd)).toLocaleString('en-US') + '  ·  '
-          : '';
-      console.log('    ' + booksLine + liq + (v.reason || ''));
-    }
+    printWalletOverlaps(w, book, overlapOnly);
   }
 
   // Per-game whale tally (matched stances only, across all wallets): shows
