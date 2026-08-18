@@ -8,6 +8,7 @@ const {
   leagueMarketName,
   resolveStance,
   verdictForRow,
+  surnameCandidates,
   matchStanceToRow,
   analyzeWalletPlays
 } = require('../lib/propprofessor-wallet-plays');
@@ -285,14 +286,17 @@ describe('matchStanceToRow', () => {
     assert.equal(result.marketName, 'Moneyline');
   });
 
-  it('does not match when the team appears in the game but no side field matches', () => {
+  it('resolves a nickname selection by surname when the game confirms the matchup', () => {
+    // 'Yankees' is the surname of 'New York Yankees' — surname matching
+    // intentionally resolves nickname-vs-full-name rows (this is what makes
+    // 'Brandon Nakashima' vs row 'Nakashima' work in tennis).
     const stance = {
       title: 'New York Yankees vs. Boston Red Sox',
       outcome: 'New York Yankees',
       eventSlug: 'mlb-nyy-bos-2026-08-17'
     };
     const rows = [{ market: 'Moneyline', game: 'New York Yankees vs Boston Red Sox', selection: 'Yankees' }];
-    assert.equal(matchStanceToRow(stance, rows).matched, false);
+    assert.equal(matchStanceToRow(stance, rows).matched, true);
     // selection absent from the game entirely
     assert.equal(
       matchStanceToRow({ title: 'Dodgers vs. Giants', outcome: 'Dodgers', eventSlug: 'mlb-lad-sf-2026' }, [
@@ -300,6 +304,97 @@ describe('matchStanceToRow', () => {
       ]).matched,
       false
     );
+  });
+
+  it('matches a tennis full-name stance to a last-name-only row (Nakashima)', () => {
+    const stance = {
+      title: 'Cincinnati Open: Brandon Nakashima vs Daniil Medvedev',
+      outcome: 'Brandon Nakashima',
+      dollar: 6467,
+      eventSlug: 'atp-nakashi-medvede-2026-08-18'
+    };
+    const rows = [
+      {
+        market: 'Moneyline',
+        game: 'Medvedev vs Nakashima',
+        selection: 'Nakashima',
+        homeTeam: 'Medvedev',
+        awayTeam: 'Nakashima'
+      }
+    ];
+    const result = matchStanceToRow(stance, rows);
+    assert.equal(result.matched, true);
+    assert.equal(result.marketName, 'Moneyline');
+    assert.equal(result.row.selection, 'Nakashima');
+  });
+
+  it('does NOT match a tennis stance to the WRONG SIDE of the matchup', () => {
+    // Game string contains both surnames; the row's selection is Nakashima, so a
+    // Medvedev stance must fail even though 'MEDVEDEV' appears in the game.
+    const stance = {
+      title: 'Cincinnati Open: Brandon Nakashima vs Daniil Medvedev',
+      outcome: 'Daniil Medvedev',
+      dollar: 5000,
+      eventSlug: 'atp-nakashi-medvede-2026-08-18'
+    };
+    const rows = [
+      {
+        market: 'Moneyline',
+        game: 'Medvedev vs Nakashima',
+        selection: 'Nakashima',
+        homeTeam: 'Medvedev',
+        awayTeam: 'Nakashima'
+      }
+    ];
+    assert.equal(matchStanceToRow(stance, rows).matched, false);
+    // And the reverse: a Nakashima stance must not match a Medvedev row.
+    const reverse = {
+      title: 'Cincinnati Open: Brandon Nakashima vs Daniil Medvedev',
+      outcome: 'Brandon Nakashima',
+      dollar: 5000,
+      eventSlug: 'atp-nakashi-medvede-2026-08-18'
+    };
+    assert.equal(
+      matchStanceToRow(reverse, [
+        {
+          market: 'Moneyline',
+          game: 'Medvedev vs Nakashima',
+          selection: 'Medvedev',
+          homeTeam: 'Medvedev',
+          awayTeam: 'Nakashima'
+        }
+      ]).matched,
+      false
+    );
+  });
+
+  it('matches a tennis total stance with a tournament prefix in the title', () => {
+    const stance = {
+      title: 'Cincinnati Open: Jiri Lehecka vs Arthur Fils: Match O/U 22.5',
+      outcome: 'Under',
+      dollar: 1000,
+      eventSlug: 'atp-lehecka-fils-2026-08-18'
+    };
+    const rows = [{ market: 'Total Games', game: 'Lehecka vs Fils', selection: 'Under 22.5' }];
+    const result = matchStanceToRow(stance, rows);
+    assert.equal(result.matched, true);
+    assert.equal(result.marketName, 'Total Games');
+    assert.equal(result.row.selection, 'Under 22.5');
+  });
+
+  it("matches apostrophe surnames via joined single-letter prefix (O'Connell -> OCONNELL)", () => {
+    assert.deepEqual(surnameCandidates("Christopher O'Connell"), ['OCONNELL', 'CONNELL']);
+    assert.deepEqual(surnameCandidates('Brandon Nakashima'), ['NAKASHIMA']);
+    const stance = {
+      title: "Cincinnati Open: Joao Fonseca vs Christopher O'Connell",
+      outcome: "Christopher O'Connell",
+      dollar: 9176,
+      eventSlug: 'atp-fonseca-oconnel-2026-08-18'
+    };
+    const rows = [{ market: 'Moneyline', game: 'Fonseca vs Oconnell', selection: 'Oconnell' }];
+    const result = matchStanceToRow(stance, rows);
+    assert.equal(result.matched, true);
+    assert.equal(result.row.selection, 'Oconnell');
   });
 
   it('matches a total stance on direction, team context, and best-effort line', () => {
@@ -420,22 +515,22 @@ describe('analyzeWalletPlays', () => {
       assert.equal(out.wallets[1].wallet.userName, 'WhaleB');
 
       const stancesA = out.wallets[0].stances;
-            assert.equal(stancesA.length, 3, 'c4 dropped, unresolvable slug');
-            assert.equal(stancesA[0].matched, true);
-            assert.equal(stancesA[0].marketName, 'Total Runs');
-            assert.equal(stancesA[0].league, 'MLB');
-            assert.equal(stancesA[0].marketKind, 'total');
-            assert.equal(stancesA[0].selection, 'Over');
-            assert.equal(stancesA[0].line, 8.5);
-            assert.deepEqual(stancesA[0].verdict, { verdict: 'BET', reason: 'supportive_clean, TIER 1, CLV +1.4%' });
-            assert.equal(stancesA[0].row.market, 'Total Runs');
-            // WhaleB also surfaces now (see assert below at line 413)
-            const stancesB = out.wallets[1].stances;
-            assert.equal(stancesB.length, 1);
-            assert.equal(stancesB[0].matched, false);
-            assert.equal(stancesB[0].league, 'MLB');
-            assert.equal(stancesB[0].marketKind, 'total');
-          } finally {
+      assert.equal(stancesA.length, 3, 'c4 dropped, unresolvable slug');
+      assert.equal(stancesA[0].matched, true);
+      assert.equal(stancesA[0].marketName, 'Total Runs');
+      assert.equal(stancesA[0].league, 'MLB');
+      assert.equal(stancesA[0].marketKind, 'total');
+      assert.equal(stancesA[0].selection, 'Over');
+      assert.equal(stancesA[0].line, 8.5);
+      assert.deepEqual(stancesA[0].verdict, { verdict: 'BET', reason: 'supportive_clean, TIER 1, CLV +1.4%' });
+      assert.equal(stancesA[0].row.market, 'Total Runs');
+      // WhaleB also surfaces now (see assert below at line 413)
+      const stancesB = out.wallets[1].stances;
+      assert.equal(stancesB.length, 1);
+      assert.equal(stancesB[0].matched, false);
+      assert.equal(stancesB[0].league, 'MLB');
+      assert.equal(stancesB[0].marketKind, 'total');
+    } finally {
       polyWalletsMod.fetchLeaderboard = savedLB;
       polyWalletsMod.fetchWalletStancesAll = savedAll;
     }
@@ -472,18 +567,163 @@ describe('analyzeWalletPlays', () => {
     }
   });
 
-  it('returns [] on empty leaderboard or empty stances', async () => {
-      const savedLB = polyWalletsMod.fetchLeaderboard;
-      const savedAll = polyWalletsMod.fetchWalletStancesAll;
-      polyWalletsMod.fetchLeaderboard = async () => [];
-      polyWalletsMod.fetchWalletStancesAll = async () => [];
-      try {
-        assert.deepEqual(await analyzeWalletPlays({ rankFn: async () => [mlbTotalRow] }), { wallets: [], droppedByPrefix: [], nonSportsDropped: 0 });
-        polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'A', pnl: 1 }];
-        assert.deepEqual(await analyzeWalletPlays({ rankFn: async () => [mlbTotalRow] }), { wallets: [], droppedByPrefix: [], nonSportsDropped: 0 });
-      } finally {
-        polyWalletsMod.fetchLeaderboard = savedLB;
-        polyWalletsMod.fetchWalletStancesAll = savedAll;
+  it('filters stances by league (opts.league)', async () => {
+    const savedLB = polyWalletsMod.fetchLeaderboard;
+    const savedAll = polyWalletsMod.fetchWalletStancesAll;
+    polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'A', pnl: 1 }];
+    polyWalletsMod.fetchWalletStancesAll = async () => [
+      {
+        wallet: { proxyWallet: '0xaaa', userName: 'A', pnl: 1 },
+        stances: [
+          // tennis stance (would resolve to Tennis)
+          {
+            conditionId: 't1',
+            title: 'Cincinnati Open: Brandon Nakashima vs Daniil Medvedev',
+            outcome: 'Brandon Nakashima',
+            dollar: 5000,
+            eventSlug: 'atp-nakashi-medvede-2026-08-18'
+          },
+          // MLB total stance
+          STANCE({ conditionId: 'm1' })
+        ]
       }
+    ];
+    try {
+      const out = await analyzeWalletPlays({ rankFn: async () => [] });
+      assert.equal(out.wallets.length, 1);
+      assert.equal(out.wallets[0].stances.length, 2, 'both leagues present without filter');
+      const tennisOnly = await analyzeWalletPlays({ rankFn: async () => [], league: 'Tennis' });
+      assert.equal(tennisOnly.wallets[0].stances.length, 1);
+      assert.equal(tennisOnly.wallets[0].stances[0].league, 'Tennis');
+      assert.equal(tennisOnly.wallets[0].stances[0].selection, 'Brandon Nakashima');
+      // league filter is case-insensitive
+      const lower = await analyzeWalletPlays({ rankFn: async () => [], league: 'tennis' });
+      assert.equal(lower.wallets[0].stances.length, 1);
+      // a league with no stances -> wallet surfaces empty? No: filtered out.
+      const none = await analyzeWalletPlays({ rankFn: async () => [], league: 'UFC' });
+      assert.equal(none.wallets.length, 0);
+    } finally {
+      polyWalletsMod.fetchLeaderboard = savedLB;
+      polyWalletsMod.fetchWalletStancesAll = savedAll;
+    }
+  });
+
+  it('filters stances by eventSlug date (opts.date)', async () => {
+    const savedLB = polyWalletsMod.fetchLeaderboard;
+    const savedAll = polyWalletsMod.fetchWalletStancesAll;
+    polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'A', pnl: 1 }];
+    polyWalletsMod.fetchWalletStancesAll = async () => [
+      {
+        wallet: { proxyWallet: '0xaaa', userName: 'A', pnl: 1 },
+        stances: [
+          {
+            conditionId: 't1',
+            title: 'Cincinnati Open: Brandon Nakashima vs Daniil Medvedev',
+            outcome: 'Brandon Nakashima',
+            dollar: 5000,
+            eventSlug: 'atp-nakashi-medvede-2026-08-18'
+          },
+          STANCE({ conditionId: 'm1' }) // mlb-mia-phi-2026-08-17
+        ]
+      }
+    ];
+    try {
+      const out = await analyzeWalletPlays({ rankFn: async () => [], date: '2026-08-18' });
+      assert.equal(out.wallets[0].stances.length, 1);
+      assert.equal(out.wallets[0].stances[0].selection, 'Brandon Nakashima');
+      const prior = await analyzeWalletPlays({ rankFn: async () => [], date: '2026-08-17' });
+      assert.equal(prior.wallets[0].stances.length, 1);
+      assert.equal(prior.wallets[0].stances[0].marketKind, 'total');
+      // slug with no trailing date -> dropped when a date filter is active
+      const noDate = await analyzeWalletPlays({ rankFn: async () => [], date: '2026-08-18' });
+      assert.equal(noDate.wallets[0].stances.length, 1);
+    } finally {
+      polyWalletsMod.fetchLeaderboard = savedLB;
+      polyWalletsMod.fetchWalletStancesAll = savedAll;
+    }
+  });
+
+  it('returns [] on empty leaderboard or empty stances', async () => {
+    const savedLB = polyWalletsMod.fetchLeaderboard;
+    const savedAll = polyWalletsMod.fetchWalletStancesAll;
+    polyWalletsMod.fetchLeaderboard = async () => [];
+    polyWalletsMod.fetchWalletStancesAll = async () => [];
+    try {
+      assert.deepEqual(await analyzeWalletPlays({ rankFn: async () => [mlbTotalRow] }), {
+        wallets: [],
+        gameTallies: [],
+        droppedByPrefix: [],
+        nonSportsDropped: 0
+      });
+      polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'A', pnl: 1 }];
+      assert.deepEqual(await analyzeWalletPlays({ rankFn: async () => [mlbTotalRow] }), {
+        wallets: [],
+        gameTallies: [],
+        droppedByPrefix: [],
+        nonSportsDropped: 0
+      });
+    } finally {
+      polyWalletsMod.fetchLeaderboard = savedLB;
+      polyWalletsMod.fetchWalletStancesAll = savedAll;
+    }
+  });
+
+  it('aggregates matched stance dollars per (game, side) into gameTallies', async () => {
+    const savedLB = polyWalletsMod.fetchLeaderboard;
+    const savedAll = polyWalletsMod.fetchWalletStancesAll;
+    polyWalletsMod.fetchLeaderboard = async () => [
+      { proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 },
+      { proxyWallet: '0xbbb', userName: 'WhaleB', pnl: 100 }
+    ];
+    const stance = (cid, outcome, dollar) => ({
+      conditionId: cid,
+      title: "Fonseca vs. O'Connell",
+      outcome,
+      dollar,
+      eventSlug: 'atp-fonseca-oconnel-2026-08-18'
     });
+    polyWalletsMod.fetchWalletStancesAll = async () => [
+      { wallet: { proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 }, stances: [stance('c1', 'Joao Fonseca', 5400)] },
+      {
+        wallet: { proxyWallet: '0xbbb', userName: 'WhaleB', pnl: 100 },
+        stances: [stance('c2', "Christopher O'Connell", 9176), stance('c3', 'Joao Fonseca', 2986)]
+      }
+    ];
+    try {
+      const rows = [
+        {
+          market: 'Moneyline',
+          game: 'Fonseca vs Oconnell',
+          selection: 'Fonseca',
+          movementDisposition: 'supportive_clean',
+          confidenceTier: 'TIER 1',
+          recentClvPct: 1.0
+        },
+        {
+          market: 'Moneyline',
+          game: 'Fonseca vs Oconnell',
+          selection: 'Oconnell',
+          movementDisposition: 'supportive_clean',
+          confidenceTier: 'TIER 1',
+          recentClvPct: 1.0
+        }
+      ];
+      const out = await analyzeWalletPlays({ rankFn: async () => rows });
+      const bySide = new Map(out.gameTallies.map((t) => [t.side, t]));
+      // Fonseca: 5400 + 2986 = 8386 across two wallets; O'Connell: 9176.
+      assert.equal(out.gameTallies.length, 2);
+      assert.equal(bySide.get('Joao Fonseca').usd, 8386);
+      assert.equal(bySide.get('Joao Fonseca').wallets, 2);
+      assert.equal(bySide.get("Christopher O'Connell").usd, 9176);
+      assert.equal(bySide.get("Christopher O'Connell").wallets, 1);
+      // sorted by usd desc: O'Connell (9176) first
+      assert.equal(out.gameTallies[0].side, "Christopher O'Connell");
+      // rows without a match never enter tallies
+      const noMatch = await analyzeWalletPlays({ rankFn: async () => [] });
+      assert.deepEqual(noMatch.gameTallies, []);
+    } finally {
+      polyWalletsMod.fetchLeaderboard = savedLB;
+      polyWalletsMod.fetchWalletStancesAll = savedAll;
+    }
+  });
 });

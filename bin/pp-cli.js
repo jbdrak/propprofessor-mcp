@@ -380,6 +380,9 @@ bets.
 
 Flags:
   -b, --book <name>         Book to cross-check. Default: NoVigApp
+  -l, --league <name>       Only show stances in this league (e.g. Tennis, MLB)
+  --date <date>             Only show stances for this event date: YYYY-MM-DD
+                            or 'next' (tomorrow, local time)
   -n, --limit <N>           Number of wallets. Default: 20
   --overlap                 Show only wallets with at least one matched play
   -j, --json                Raw JSON output
@@ -1604,15 +1607,33 @@ async function cmdWallets(handlers, positional, flags) {
   const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const jsonOut = flags.j || flags.json || false;
   const overlapOnly = flags.overlap || flags['overlap'] || false;
+  const league = flags.l || flags.league || undefined;
+  // --date accepts either YYYY-MM-DD or 'next' (tomorrow, LOCAL time).
+  let date = flags.date || undefined;
+  if (date === 'next') {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    const y = t.getFullYear();
+    const m = String(t.getMonth() + 1).padStart(2, '0');
+    const d = String(t.getDate()).padStart(2, '0');
+    date = y + '-' + m + '-' + d;
+  }
 
-  console.error('Scanning top Polymarket wallets vs ' + book + (overlapOnly ? ' — overlap only' : '') + '...');
+  const filterNote = [league ? 'league ' + league : null, date ? 'date ' + date : null].filter(Boolean).join(', ');
+  console.error(
+    'Scanning top Polymarket wallets vs ' +
+      book +
+      (overlapOnly ? ' — overlap only' : '') +
+      (filterNote ? ' (' + filterNote + ')' : '') +
+      '...'
+  );
 
   const rankFn = async (league, market) => {
     const res = await handlers.screen_ranked({
       league,
       market,
       books: [book],
-      limit: 30,
+      limit: 100,
       includeAll: true,
       verbosity: 'full'
     });
@@ -1622,15 +1643,15 @@ async function cmdWallets(handlers, positional, flags) {
   const out = await analyzeWalletPlays({
     limit: Number.isFinite(limit) && limit > 0 ? limit : 20,
     book,
+    league,
+    date,
     rankFn
   });
 
-  const walletList = Array.isArray(out) ? out : (out && Array.isArray(out.wallets) ? out.wallets : []);
+  const walletList = Array.isArray(out) ? out : out && Array.isArray(out.wallets) ? out.wallets : [];
 
   // --overlap: filter to wallets with at least one matched stance
-  const overlapWallets = overlapOnly
-    ? walletList.filter((w) => (w.stances || []).some((s) => s.matched))
-    : walletList;
+  const overlapWallets = overlapOnly ? walletList.filter((w) => (w.stances || []).some((s) => s.matched)) : walletList;
 
   if (jsonOut) {
     const result = overlapOnly
@@ -1643,19 +1664,30 @@ async function cmdWallets(handlers, positional, flags) {
   if (!Array.isArray(overlapWallets) || overlapWallets.length === 0) {
     const totalWallets = walletList.length;
     if (overlapOnly && totalWallets > 0) {
-      console.log('No overlap found — ' + totalWallets + ' wallet' + (totalWallets === 1 ? '' : 's') + ' have positions, but none matched a ' + book + ' play.');
+      console.log(
+        'No overlap found — ' +
+          totalWallets +
+          ' wallet' +
+          (totalWallets === 1 ? '' : 's') +
+          ' have positions, but none matched a ' +
+          book +
+          ' play.'
+      );
     } else {
       console.log('No live Polymarket wallet positions matched the ' + book + ' board.');
     }
     // Diagnostic footer: show dropped stances so the "why 0 wallets?" question
     // has an answer instead of a shrug.
-    const dropped = (out && Array.isArray(out.droppedByPrefix)) ? out.droppedByPrefix : [];
-    const nonSports = (out && typeof out.nonSportsDropped === 'number') ? out.nonSportsDropped : 0;
+    const dropped = out && Array.isArray(out.droppedByPrefix) ? out.droppedByPrefix : [];
+    const nonSports = out && typeof out.nonSportsDropped === 'number' ? out.nonSportsDropped : 0;
     if (dropped.length || nonSports) {
       const total = dropped.reduce((s, d) => s + d.count, 0);
       const parts = [];
       if (total) parts.push(total + ' sport position' + (total === 1 ? '' : 's') + ' — slug prefix not mapped');
-      if (nonSports) parts.push(nonSports + ' non-sport position' + (nonSports === 1 ? '' : 's') + ' (crypto/politics/weather — out of scope)');
+      if (nonSports)
+        parts.push(
+          nonSports + ' non-sport position' + (nonSports === 1 ? '' : 's') + ' (crypto/politics/weather — out of scope)'
+        );
       console.error('  (' + parts.join('; ') + '. See `pp wallets --json` for the breakdown.)');
     }
     return;
@@ -1663,77 +1695,132 @@ async function cmdWallets(handlers, positional, flags) {
 
   if (overlapOnly) {
     const matchedCount = overlapWallets.reduce((s, w) => s + (w.stances || []).filter((x) => x.matched).length, 0);
-    console.log(Y + '  ' + matchedCount + ' overlap play' + (matchedCount === 1 ? '' : 's') + ' across ' + overlapWallets.length + ' wallet' + (overlapWallets.length === 1 ? '' : 's') + R);
+    console.log(
+      Y +
+        '  ' +
+        matchedCount +
+        ' overlap play' +
+        (matchedCount === 1 ? '' : 's') +
+        ' across ' +
+        overlapWallets.length +
+        ' wallet' +
+        (overlapWallets.length === 1 ? '' : 's') +
+        R
+    );
     console.log('');
   }
 
   for (const w of overlapWallets) {
-      const wallet = w.wallet || {};
-      const name = wallet.userName || (wallet.proxyWallet ? wallet.proxyWallet.slice(0, 10) : 'wallet');
-      const pnl = wallet.pnl != null ? '$' + Math.round(wallet.pnl).toLocaleString('en-US') : '?';
-      console.log('\\n' + B + name + R + '  (lifetime P&L ' + pnl + ')');
-      const stances = (w.stances || []).filter((s) => overlapOnly ? s.matched : true);
-      for (const s of stances) {
-        if (!s.matched || !s.row) {
-          console.log(
-            '  ' +
-              (s.selection || s.outcome || '?') +
-              '  ·  $' +
-              (s.dollar || 0).toLocaleString('en-US') +
-              ' whale  ·  no ' +
-              book +
-              ' match  (' +
-              (s.title || '') +
-              ')'
-          );
-          continue;
-        }
-        const row = s.row;
-        const oddsStr = row.odds > 0 ? '+' + row.odds : String(row.odds);
-        const mv = movementColor(row.movementDisposition || '');
-        const clv =
-          row.recentClvPct != null
-            ? (Number(row.recentClvPct) >= 0 ? '+' : '') + Number(row.recentClvPct).toFixed(1) + '%'
-            : '?';
-        const v = s.verdict || {};
-        const vSym =
-          v.verdict === 'BET' ? G + '● BET' + R : v.verdict === 'CONSIDER' ? Y + '◐ CONSIDER' + R : RED + '✕ PASS' + R;
-        const tierStr = row.confidenceTier ? Y + row.confidenceTier + R : '';
-        const edgeStr = row.consensusEdge != null
+    const wallet = w.wallet || {};
+    const name = wallet.userName || (wallet.proxyWallet ? wallet.proxyWallet.slice(0, 10) : 'wallet');
+    const pnl = wallet.pnl != null ? '$' + Math.round(wallet.pnl).toLocaleString('en-US') : '?';
+    console.log('\\n' + B + name + R + '  (lifetime P&L ' + pnl + ')');
+    const stances = (w.stances || []).filter((s) => (overlapOnly ? s.matched : true));
+    for (const s of stances) {
+      if (!s.matched || !s.row) {
+        console.log(
+          '  ' +
+            (s.selection || s.outcome || '?') +
+            '  ·  $' +
+            (s.dollar || 0).toLocaleString('en-US') +
+            ' whale  ·  no ' +
+            book +
+            ' match  (' +
+            (s.title || '') +
+            ')'
+        );
+        continue;
+      }
+      const row = s.row;
+      const oddsStr = row.odds > 0 ? '+' + row.odds : String(row.odds);
+      const mv = movementColor(row.movementDisposition || '');
+      const clv =
+        row.recentClvPct != null
+          ? (Number(row.recentClvPct) >= 0 ? '+' : '') + Number(row.recentClvPct).toFixed(1) + '%'
+          : '?';
+      const v = s.verdict || {};
+      const vSym =
+        v.verdict === 'BET' ? G + '● BET' + R : v.verdict === 'CONSIDER' ? Y + '◐ CONSIDER' + R : RED + '✕ PASS' + R;
+      const tierStr = row.confidenceTier ? Y + row.confidenceTier + R : '';
+      const edgeStr =
+        row.consensusEdge != null
           ? (Number(row.consensusEdge) >= 0 ? G + '+' : RED) + (Number(row.consensusEdge) * 100).toFixed(1) + '%' + R
           : '';
-        const tierEdge = tierStr || edgeStr ? '  ' + tierStr + (tierStr && edgeStr ? '  ' : '') + edgeStr : '';
-        console.log('  ' + (row.selection || s.selection) + ' @ ' + oddsStr + '  ' + vSym + '  ' + mv + '  CLV ' + clv + tierEdge);
-        console.log(
-          '    whale $' +
-            (s.dollar || 0).toLocaleString('en-US') +
-            ' on ' +
-            (s.selection || '') +
-            '  ·  ' +
-            (row.game || s.title || '')
-        );
-        const booksLine = row.consensusBookCount ? 'books ' + row.consensusBookCount + '  ·  ' : '';
-        console.log('    ' + booksLine + (v.reason || ''));
-      }
+      const tierEdge = tierStr || edgeStr ? '  ' + tierStr + (tierStr && edgeStr ? '  ' : '') + edgeStr : '';
+      console.log(
+        '  ' + (row.selection || s.selection) + ' @ ' + oddsStr + '  ' + vSym + '  ' + mv + '  CLV ' + clv + tierEdge
+      );
+      console.log(
+        '    whale $' +
+          (s.dollar || 0).toLocaleString('en-US') +
+          ' on ' +
+          (s.selection || '') +
+          '  ·  ' +
+          (row.game || s.title || '')
+      );
+      const booksLine = row.consensusBookCount ? 'books ' + row.consensusBookCount + '  ·  ' : '';
+      const liq =
+        Number.isFinite(Number(row.liquidityUsd)) && Number(row.liquidityUsd) > 0
+          ? 'liq $' + Math.round(Number(row.liquidityUsd)).toLocaleString('en-US') + '  ·  '
+          : '';
+      console.log('    ' + booksLine + liq + (v.reason || ''));
     }
+  }
+
+  // Per-game whale tally (matched stances only, across all wallets): shows
+  // split money in one line ("Fonseca $8.4K for / $9.2K against").
+  const tallies = out && Array.isArray(out.gameTallies) ? out.gameTallies : [];
+  if (tallies.length) {
+    console.log(
+      '\n' + B + 'Per-game whale tally' + R + '  (' + tallies.length + ' side' + (tallies.length === 1 ? '' : 's') + ')'
+    );
+    // Group by game preserving first-seen order (tallies are sorted by usd desc).
+    const byGame = new Map();
+    for (const t of tallies) {
+      const key = t.game;
+      if (!byGame.has(key)) byGame.set(key, []);
+      byGame.get(key).push(t);
+    }
+    for (const [game, sides] of byGame) {
+      const parts = sides.map((t) => {
+        const plural = t.wallets > 1 ? ' (' + t.wallets + ' wallets)' : '';
+        return (t.side || '?') + ' $' + Math.round(t.usd).toLocaleString('en-US') + plural;
+      });
+      console.log('  ' + game + '  →  ' + parts.join('  /  '));
+    }
+  }
 
   // Diagnostic footer: show dropped stances so "why did I only see N wallets?"
   // has an answer instead of a shrug.
-  const dropped = (out && Array.isArray(out.droppedByPrefix)) ? out.droppedByPrefix : [];
-  const nonSports = (out && typeof out.nonSportsDropped === 'number') ? out.nonSportsDropped : 0;
+  const dropped = out && Array.isArray(out.droppedByPrefix) ? out.droppedByPrefix : [];
+  const nonSports = out && typeof out.nonSportsDropped === 'number' ? out.nonSportsDropped : 0;
   if (dropped.length || nonSports) {
     const total = dropped.reduce((s, d) => s + d.count, 0);
     console.error('');
     if (total) {
-      console.error(Y + '  ' + total + ' sport position' + (total === 1 ? '' : 's') + ' dropped — slug prefix not mapped to a league:' + R);
+      console.error(
+        Y +
+          '  ' +
+          total +
+          ' sport position' +
+          (total === 1 ? '' : 's') +
+          ' dropped — slug prefix not mapped to a league:' +
+          R
+      );
       for (const d of dropped.sort((a, b) => b.count - a.count)) {
-        console.error(
-          RED + '    ' + d.prefix + R + '  (' + d.count + 'x)  e.g. "' + d.example + '"'
-        );
+        console.error(RED + '    ' + d.prefix + R + '  (' + d.count + 'x)  e.g. "' + d.example + '"');
       }
     }
     if (nonSports) {
-      console.error(Y + '  ' + nonSports + ' non-sport position' + (nonSports === 1 ? '' : 's') + ' (crypto/politics/weather — out of scope)' + R);
+      console.error(
+        Y +
+          '  ' +
+          nonSports +
+          ' non-sport position' +
+          (nonSports === 1 ? '' : 's') +
+          ' (crypto/politics/weather — out of scope)' +
+          R
+      );
     }
     console.error('  Run `pp wallets --json` for the full breakdown.');
   }
