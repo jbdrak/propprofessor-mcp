@@ -403,6 +403,20 @@ describe('matchStanceToRow', () => {
     assert.equal(result.marketName, 'Total Runs');
   });
 
+  it('rejects a total stance more than a half-line away (line fidelity)', () => {
+    // Whale on Over 8.5 must NOT match an Over 7.5 row (a full step apart) —
+    // that conflates two distinct lines and destroys the whale-overlap read.
+    const wholeStep = matchStanceToRow(STANCE(), [{ ...mlbTotalRow, selection: 'Over 7.5' }]);
+    assert.equal(wholeStep.matched, false, 'full-step line gap should not match');
+    // Half-step (Over 8 / Over 8.5) and exact still match.
+    const exact = matchStanceToRow(STANCE(), [mlbTotalRow]);
+    assert.equal(exact.matched, true);
+    const halfStep = matchStanceToRow(STANCE({ title: 'Miami Marlins vs. Philadelphia Phillies O/U 8' }), [
+      mlbTotalRow
+    ]);
+    assert.equal(halfStep.matched, true, 'half-step line difference should still match');
+  });
+
   it('rejects a total stance on wrong direction or wrong game', () => {
     assert.equal(matchStanceToRow(STANCE({ outcome: 'Under' }), [mlbTotalRow]).matched, false);
     const otherGame = STANCE({ title: 'St. Louis Cardinals vs. Chicago Cubs O/U 8.5', eventSlug: 'mlb-stl-chc-2026' });

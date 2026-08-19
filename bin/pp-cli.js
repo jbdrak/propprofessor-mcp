@@ -1587,17 +1587,46 @@ async function cmdRank(handlers, positional, flags) {
     return;
   }
 
-  console.log(B + league + ' ranked plays' + R + ' (' + rows.length + ')');
+  console.log(B + league + ' ranked plays' + R + ' (' + rows.length + ' rows / ' + uniqueGames(rows) + ' games)');
+  // Group by game so each side's movement sits under its own matchup header.
+  // (pp rank returns one row PER SIDE of each market; a flat list made it easy
+  //  to misattribute a side's movement to the wrong team. Grouped view fixes it.)
+  const order = [];
+  const groups = new Map();
   for (const r of rows) {
-    const mv = movementColor(r.movementDisposition || '');
-    const tier = tierColor(r.confidenceTier || '?');
-    const oddsStr = r.odds > 0 ? '+' + r.odds : String(r.odds);
-    console.log('  ' + (r.selection || r.participant || '?') + ' @ ' + oddsStr + '  ' + tier + '  |  mv ' + mv);
-    if (r.consensusBookCount)
-      console.log(
-        '    books: ' + r.consensusBookCount + '  |  edge: ' + (r.edge || 0).toFixed(1) + '%  |  CLV: ' + (r.clv || '?')
-      );
+    const gid = r.gameId || (r.homeTeam + '|' + r.awayTeam);
+    if (!groups.has(gid)) { groups.set(gid, []); order.push(gid); }
+    groups.get(gid).push(r);
   }
+  for (const gid of order) {
+    const grp = groups.get(gid);
+    const g = grp[0];
+    const mkts = [...new Set(grp.map((r) => r.market || r.playType || '?'))];
+    console.log(
+      '\n' + B + (g.awayTeam || '?') + ' @ ' + (g.homeTeam || '?') + R + '  [' + mkts.join(',') + ']' + (g.isLive ? '  ' + RED + 'LIVE' + R : '')
+    );
+    for (const r of grp) {
+      const mv = movementColor(r.movementDisposition || '');
+      const tier = tierColor(r.confidenceTier || '?');
+      const oddsStr = r.odds > 0 ? '+' + r.odds : String(r.odds);
+      let line = '  ' + (r.selection || r.participant || '?') + ' @ ' + oddsStr + '  ' + tier + '  |  mv ' + mv;
+      const extra = [];
+      if (r.consensusBookCount) extra.push('books ' + r.consensusBookCount);
+      if (Number.isFinite(Number(r.liquidityUsd)) && Number(r.liquidityUsd) > 0)
+        extra.push('liq $' + Math.round(Number(r.liquidityUsd)).toLocaleString('en-US'));
+      if (r.recentClvPct != null)
+        extra.push('CLV ' + (Number(r.recentClvPct) >= 0 ? '+' : '') + Number(r.recentClvPct).toFixed(1) + '%');
+      if (extra.length) line += '   ' + '[' + extra.join(' | ') + ']';
+      if (r.movementSourceBook) line += '  (src ' + r.movementSourceBook + ')';
+      console.log(line);
+    }
+  }
+}
+
+function uniqueGames(rows) {
+  const s = new Set();
+  for (const r of rows) s.add(r.gameId || r.homeTeam + '|' + r.awayTeam);
+  return s.size;
 }
 
 // ── wallets ──────────────────────────────────────────────────────
