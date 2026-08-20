@@ -8,6 +8,17 @@ const path = require('node:path');
 
 const cli = require('../bin/pp-cli');
 
+describe('resolveWalletDate', () => {
+  it('resolves today using the local calendar date', () => {
+    const now = new Date(2026, 7, 20, 8, 46, 0);
+    assert.equal(cli.resolveWalletDate('today', now), '2026-08-20');
+  });
+
+  it('rejects unsupported date values instead of silently filtering everything', () => {
+    assert.throws(() => cli.resolveWalletDate('yesterday'), /YYYY-MM-DD, today, or next/);
+  });
+});
+
 // Task 6 CLI dispatch: `pp record <stats|review|pending> [--date YYYY-MM-DD]
 // [--json]`. The command is a thin, read-only wrapper over
 // scripts/review-record.js — it must preserve the review module's exit codes

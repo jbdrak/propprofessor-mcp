@@ -1701,22 +1701,29 @@ function printWalletOverlaps(w, book, overlapOnly) {
   }
 }
 
+function resolveWalletDate(value, now = new Date()) {
+  if (value == null || value === '') return undefined;
+  const date = String(value).trim().toLowerCase();
+  if (date === 'today' || date === 'next') {
+    const resolved = new Date(now);
+    if (date === 'next') resolved.setDate(resolved.getDate() + 1);
+    const y = resolved.getFullYear();
+    const m = String(resolved.getMonth() + 1).padStart(2, '0');
+    const d = String(resolved.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  throw new Error('Invalid wallet date: expected YYYY-MM-DD, today, or next');
+}
+
 async function cmdWallets(handlers, positional, flags) {
   const limit = parseInt(flags.n || flags.limit || positional[1] || 20);
   const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const jsonOut = flags.j || flags.json || false;
   const overlapOnly = flags.overlap || flags['overlap'] || false;
   const league = flags.l || flags.league || undefined;
-  // --date accepts either YYYY-MM-DD or 'next' (tomorrow, LOCAL time).
-  let date = flags.date || undefined;
-  if (date === 'next') {
-    const t = new Date();
-    t.setDate(t.getDate() + 1);
-    const y = t.getFullYear();
-    const m = String(t.getMonth() + 1).padStart(2, '0');
-    const d = String(t.getDate()).padStart(2, '0');
-    date = y + '-' + m + '-' + d;
-  }
+  // --date accepts YYYY-MM-DD, 'today', or 'next' (LOCAL time).
+  const date = resolveWalletDate(flags.date);
 
   const filterNote = [league ? 'league ' + league : null, date ? 'date ' + date : null].filter(Boolean).join(', ');
   console.error(
@@ -2077,6 +2084,7 @@ module.exports = {
   recordScanResults,
   cmdRecordCard,
   cmdRecord,
+  resolveWalletDate,
   parseCardInput,
   formatScan,
   momentumLabel,
