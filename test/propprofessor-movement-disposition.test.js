@@ -47,7 +47,7 @@ describe('computeMovementDisposition', () => {
     );
   });
 
-  it('keeps adverse on a stale quote (adverse is a pass either way)', () => {
+  it('downgrades stale adverse movement instead of overstating it as adverse_full', () => {
     assert.equal(
       computeMovementDisposition({
         movementGrade: 'red',
@@ -56,7 +56,7 @@ describe('computeMovementDisposition', () => {
         fullWindowSharpMoveDirection: 'adverse',
         lastPointAgeMs: 30 * 60 * 1000
       }),
-      'adverse_full'
+      'insufficient'
     );
   });
 
