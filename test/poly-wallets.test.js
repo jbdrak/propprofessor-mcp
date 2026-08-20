@@ -314,6 +314,36 @@ describe('isSettledBySlug', () => {
 // --- fetch layer (no network: injected fetch) --------------------------------
 
 describe('fetch layer with injected fetch', () => {
+  it('uses the current positions endpoint instead of inferring holdings from recent activity', async () => {
+    const calls = [];
+    const fetchImpl = async (url) => {
+      calls.push(url);
+      if (url.startsWith('https://data-api.polymarket.com/positions')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => [
+            {
+              conditionId: 'c-ryba',
+              title: 'Rybakina vs Swiatek',
+              outcome: 'Elena Rybakina',
+              eventSlug: 'wta-ryba-swiatek-' + TODAY,
+              size: 140,
+              currentValue: 202
+            }
+          ]
+        };
+      }
+      throw new Error('activity should not be used when positions succeeds');
+    };
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl });
+    assert.equal(stances.length, 1);
+    assert.equal(stances[0].conditionId, 'c-ryba');
+    assert.equal(stances[0].dollar, 202);
+    assert.equal(calls.length, 1);
+    assert.match(calls[0], /sizeThreshold=0/);
+  });
+
   it('fetchLeaderboard parses rows and caches', async () => {
     const calls = [];
     const fetchImpl = async (url) => {
