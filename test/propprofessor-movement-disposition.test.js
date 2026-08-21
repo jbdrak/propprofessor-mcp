@@ -17,7 +17,7 @@ describe('computeMovementDisposition', () => {
     );
   });
 
-  it('downgrades a stale supportive quote to insufficient (last point > 10 min old)', () => {
+  it('labels a stale supportive quote as stale (last point > 10 min old)', () => {
     // Regression: 2026-08-14 Broncos ML -178 was quoted supportive_clean from
     // a 17-min-old history point while the live market had moved to -163/-160.
     assert.equal(
@@ -29,7 +29,7 @@ describe('computeMovementDisposition', () => {
         peakAdverseClvPct: 0.5,
         lastPointAgeMs: 17 * 60 * 1000
       }),
-      'insufficient'
+      'stale'
     );
   });
 
@@ -47,7 +47,7 @@ describe('computeMovementDisposition', () => {
     );
   });
 
-  it('downgrades stale adverse movement instead of overstating it as adverse_full', () => {
+  it('labels stale adverse movement as stale instead of overstating it as adverse_full', () => {
     assert.equal(
       computeMovementDisposition({
         movementGrade: 'red',
@@ -56,7 +56,7 @@ describe('computeMovementDisposition', () => {
         fullWindowSharpMoveDirection: 'adverse',
         lastPointAgeMs: 30 * 60 * 1000
       }),
-      'insufficient'
+      'stale'
     );
   });
 
@@ -144,7 +144,7 @@ describe('computeMovementDisposition', () => {
 
   it('does not resurrect adverse_full for a red-grade supportive row with stale quote', () => {
     // Stale-quote gate still applies: a supportive disposition on an aged
-    // quote downgrades to insufficient — never adverse_full.
+    // quote downgrades to stale — never adverse_full.
     assert.equal(
       computeMovementDisposition({
         movementGrade: 'red',
@@ -154,7 +154,7 @@ describe('computeMovementDisposition', () => {
         clvProxyPct: 0.27,
         lastPointAgeMs: 30 * 60 * 1000
       }),
-      'insufficient'
+      'stale'
     );
   });
 
@@ -191,7 +191,7 @@ describe('computeMovementDisposition', () => {
         consensusBookCount: 12,
         lastPointAgeMs: 17 * 60 * 1000
       }),
-      'insufficient'
+      'stale'
     );
   });
 
@@ -206,7 +206,7 @@ describe('computeMovementDisposition', () => {
         consensusBookCount: 3,
         lastPointAgeMs: 20 * 60 * 1000
       }),
-      'insufficient'
+      'stale'
     );
   });
 

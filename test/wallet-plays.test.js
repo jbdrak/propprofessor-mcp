@@ -195,6 +195,13 @@ describe('verdictForRow', () => {
     assert.deepEqual(verdictForRow({}), { verdict: 'PASS', reason: 'insufficient movement data' });
   });
 
+  it('PASSes stale movement with an explicit stale reason', () => {
+    assert.deepEqual(verdictForRow({ movementDisposition: 'stale' }), {
+      verdict: 'PASS',
+      reason: 'stale movement history'
+    });
+  });
+
   it('BETs on supportive movement with TIER 1/2 and non-negative CLV', () => {
     assert.deepEqual(
       verdictForRow({
@@ -718,6 +725,146 @@ describe('analyzeWalletPlays', () => {
       const sb = bare.wallets[0].stances[0];
       assert.equal(sb.exact, false);
       assert.deepEqual(sb.verdict, { verdict: 'PASS', reason: 'adverse movement (adverse_full)' });
+    } finally {
+      polyWalletsMod.fetchLeaderboard = savedLB;
+      polyWalletsMod.fetchWalletStancesAll = savedAll;
+    }
+  });
+
+  it('fails closed when the exact recheck throws instead of using a stale broad row', async () => {
+    const savedLB = polyWalletsMod.fetchLeaderboard;
+    const savedAll = polyWalletsMod.fetchWalletStancesAll;
+    polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 }];
+    polyWalletsMod.fetchWalletStancesAll = async () => [
+      {
+        wallet: { proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 },
+        stances: [
+          {
+            conditionId: 't1',
+            title: 'Cincinnati Open: Brandon Nakashima vs Daniil Medvedev',
+            outcome: 'Brandon Nakashima',
+            dollar: 5000,
+            eventSlug: 'atp-nakashi-medvede-2026-08-18'
+          }
+        ]
+      }
+    ];
+    try {
+      const out = await analyzeWalletPlays({
+        rankFn: async () => [
+          {
+            market: 'Moneyline',
+            game: 'Medvedev vs Nakashima',
+            gameId: 'game-1',
+            selection: 'Nakashima',
+            movementDisposition: 'stale',
+            confidenceTier: 'TIER 4'
+          }
+        ],
+        exactFn: async () => {
+          throw new Error('exact lookup failed');
+        }
+      });
+      const stance = out.wallets[0].stances[0];
+      assert.equal(stance.matched, false);
+      assert.equal(stance.row, undefined);
+      assert.equal(stance.verdict, undefined);
+      assert.deepEqual(out.gameTallies, []);
+    } finally {
+      polyWalletsMod.fetchLeaderboard = savedLB;
+      polyWalletsMod.fetchWalletStancesAll = savedAll;
+    }
+  });
+
+  it('fails closed when the exact recheck is empty instead of using a stale broad row', async () => {
+    const savedLB = polyWalletsMod.fetchLeaderboard;
+    const savedAll = polyWalletsMod.fetchWalletStancesAll;
+    polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 }];
+    polyWalletsMod.fetchWalletStancesAll = async () => [
+      {
+        wallet: { proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 },
+        stances: [
+          {
+            conditionId: 't1',
+            title: 'Cincinnati Open: Brandon Nakashima vs Daniil Medvedev',
+            outcome: 'Brandon Nakashima',
+            dollar: 5000,
+            eventSlug: 'atp-nakashi-medvede-2026-08-18'
+          }
+        ]
+      }
+    ];
+    try {
+      const out = await analyzeWalletPlays({
+        rankFn: async () => [
+          {
+            market: 'Moneyline',
+            game: 'Medvedev vs Nakashima',
+            gameId: 'game-1',
+            selection: 'Nakashima',
+            movementDisposition: 'stale',
+            confidenceTier: 'TIER 4'
+          }
+        ],
+        exactFn: async () => []
+      });
+      const stance = out.wallets[0].stances[0];
+      assert.equal(stance.matched, false);
+      assert.equal(stance.row, undefined);
+      assert.equal(stance.verdict, undefined);
+      assert.deepEqual(out.gameTallies, []);
+    } finally {
+      polyWalletsMod.fetchLeaderboard = savedLB;
+      polyWalletsMod.fetchWalletStancesAll = savedAll;
+    }
+  });
+
+  it('uses a fresh supportive exact row and verdict over a stale broad row', async () => {
+    const savedLB = polyWalletsMod.fetchLeaderboard;
+    const savedAll = polyWalletsMod.fetchWalletStancesAll;
+    polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 }];
+    polyWalletsMod.fetchWalletStancesAll = async () => [
+      {
+        wallet: { proxyWallet: '0xaaa', userName: 'WhaleA', pnl: 100 },
+        stances: [
+          {
+            conditionId: 't1',
+            title: 'Cincinnati Open: Brandon Nakashima vs Daniil Medvedev',
+            outcome: 'Brandon Nakashima',
+            dollar: 5000,
+            eventSlug: 'atp-nakashi-medvede-2026-08-18'
+          }
+        ]
+      }
+    ];
+    try {
+      const exactRow = {
+        market: 'Moneyline',
+        game: 'Medvedev vs Nakashima',
+        gameId: 'game-1',
+        selection: 'Nakashima',
+        movementDisposition: 'supportive_clean',
+        confidenceTier: 'TIER 1',
+        recentClvPct: 1.8
+      };
+      const out = await analyzeWalletPlays({
+        rankFn: async () => [
+          {
+            market: 'Moneyline',
+            game: 'Medvedev vs Nakashima',
+            gameId: 'game-1',
+            selection: 'Nakashima',
+            movementDisposition: 'stale',
+            confidenceTier: 'TIER 4'
+          }
+        ],
+        exactFn: async () => [exactRow]
+      });
+      const stance = out.wallets[0].stances[0];
+      assert.equal(stance.matched, true);
+      assert.equal(stance.exact, true);
+      assert.equal(stance.row, exactRow);
+      assert.deepEqual(stance.verdict, { verdict: 'BET', reason: 'supportive_clean, TIER 1, CLV +1.8%' });
     } finally {
       polyWalletsMod.fetchLeaderboard = savedLB;
       polyWalletsMod.fetchWalletStancesAll = savedAll;
