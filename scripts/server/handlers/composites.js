@@ -88,7 +88,7 @@ async function runSmartBet(ctx, args = {}) {
       book
     });
   } catch (err) {
-    validation = { _error: true, error: err.message };
+    validation = { _error: true, error: err?.message || String(err) };
   }
 
   let bestPrice;
@@ -100,7 +100,7 @@ async function runSmartBet(ctx, args = {}) {
       selection: match.selection
     });
   } catch (err) {
-    bestPrice = { _error: true, error: err.message };
+    bestPrice = { _error: true, error: err?.message || String(err) };
   }
 
   let staking = null;
@@ -116,7 +116,7 @@ async function runSmartBet(ctx, args = {}) {
       staking =
         stakingStakes.find((p) => p.selection && p.selection.toLowerCase().includes(selection.toLowerCase())) || null;
     } catch (err) {
-      staking = { _error: true, error: err.message };
+      staking = { _error: true, error: err?.message || String(err) };
     }
   }
 
@@ -441,16 +441,21 @@ async function runCompositeToday(ctx, args = {}) {
         includeResearch: false,
         lite: true
       })
-      .catch((err) => ({ ok: false, _error: true, error: `quick_screen: ${err.message}`, results: [] })),
+      .catch((err) => ({
+        ok: false,
+        _error: true,
+        error: `quick_screen: ${err?.message || String(err)}`,
+        results: []
+      })),
     ctx.handlers
       .get_pick_history({ status: 'pending', days: 1 })
-      .catch((err) => ({ ok: false, _error: true, error: `history: ${err.message}`, picks: [] })),
+      .catch((err) => ({ ok: false, _error: true, error: `history: ${err?.message || String(err)}`, picks: [] })),
     ctx.handlers
       .get_pick_stats({ days: args.statsDays || 30 })
-      .catch((err) => ({ ok: false, _error: true, error: `stats: ${err.message}`, stats: null })),
+      .catch((err) => ({ ok: false, _error: true, error: `stats: ${err?.message || String(err)}`, stats: null })),
     Promise.resolve()
       .then(() => getBacktestSummary({ days: args.statsDays || 30 }))
-      .catch((err) => ({ ok: false, _error: true, error: `backtest: ${err.message}`, stats: null }))
+      .catch((err) => ({ ok: false, _error: true, error: `backtest: ${err?.message || String(err)}`, stats: null }))
   ]);
 
   const slate = (slateRes.results || []).flatMap((e) =>

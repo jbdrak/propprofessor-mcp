@@ -422,6 +422,40 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.ok(errObj.recovery.includes('PP_LOGIN_HEADLESS'));
   });
 
+  it('keeps a null tool throw inside the structured error envelope', async () => {
+    const server = createMcpServer({
+      handlers: {
+        fail_tool: async () => {
+          throw null;
+        }
+      },
+      toolDefinitions: [
+        {
+          name: 'fail_tool',
+          inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+        }
+      ]
+    });
+
+    await server.handleRequest({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '1.0.0' } }
+    });
+    const response = await server.handleRequest({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'fail_tool', arguments: {} }
+    });
+
+    assert.equal(response.result.isError, true);
+    const errObj = response.result.structuredContent.error;
+    assert.equal(errObj.code, 'INTERNAL_ERROR');
+    assert.equal(errObj.message, 'Unexpected PropProfessor MCP error');
+  });
+
   it('returns backend validation errors when validated candidates cannot validate any rows', async () => {
     const handlers = createMcpHandlers({
       client: {

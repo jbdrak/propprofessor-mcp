@@ -1269,3 +1269,55 @@ describe('totals-conflict resolution (resolveTotalsConflicts)', () => {
     assert.equal(ranked[2].totalsConflictWith, undefined, 'unknown-direction row does not win');
   });
 });
+
+describe('screen-ranker — steam originator provenance end-to-end', () => {
+  // Simulate 3 sharp ORIGINATOR books (Pinnacle/Circa/BookMaker) all moving the
+  // same direction within the steam window. The pipeline must carry
+  // steamOriginatorCount through to the ranked row and surface it in rationale.
+  const now = Date.now();
+  const mk = (book, price) => ({ book, odds: price, time: new Date(now - 60 * 1000).toISOString() });
+  const mk2 = (book, price) => ({ book, odds: price, time: new Date(now - 30 * 1000).toISOString() });
+
+  const row = {
+    book: 'NoVigApp',
+    league: 'NBA',
+    homeTeam: 'Lakers',
+    awayTeam: 'Warriors',
+    participant: 'Lakers',
+    selection: 'Lakers',
+    market: 'Moneyline',
+    selection1: 'Lakers',
+    participant1: 'Lakers',
+    selection1Id: 'Moneyline:Lakers',
+    selection2: 'Warriors',
+    participant2: 'Warriors',
+    selection2Id: 'Moneyline:Warriors',
+    odds: -130,
+    lineHistory: [
+      mk('Pinnacle', -145),
+      mk2('Pinnacle', -130),
+      mk('Circa', -148),
+      mk2('Circa', -131),
+      mk('BookMaker', -150),
+      mk2('BookMaker', -133)
+    ],
+    allBookOdds: {
+      Pinnacle: { book: 'Pinnacle', odds1: -130, odds2: 110 },
+      Circa: { book: 'Circa', odds1: -131, odds2: 111 },
+      BookMaker: { book: 'BookMaker', odds1: -133, odds2: 113 },
+      NoVigApp: { book: 'NoVigApp', odds1: -130, odds2: 110 }
+    }
+  };
+
+  it('threads steamOriginatorCount and originator rationale through rankScreenRows', () => {
+    const [ranked] = rankScreenRows([row], { preferredBook: 'NoVigApp', limit: 10, includeAll: true });
+    assert.ok(ranked, 'row should rank');
+    assert.equal(ranked.steamMove, true, '3 originators moving same direction = steam');
+    assert.equal(ranked.steamBookCount, 3, '3 books moved');
+    assert.equal(ranked.steamOriginatorCount, 3, 'all 3 are originators');
+    assert.ok(
+      String(ranked.rationale || '').includes('steam (3 books, 3 originator)'),
+      `rationale should name originator steam, got: ${ranked.rationale}`
+    );
+  });
+});

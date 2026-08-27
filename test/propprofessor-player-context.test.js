@@ -201,6 +201,21 @@ describe('buildQuery', { concurrency: false }, () => {
   });
 });
 
+describe('searchX', { concurrency: false }, () => {
+  it('returns a clean error when the subprocess throws null', async () => {
+    const savedExecFile = cp.execFile;
+    cp.execFile = () => {
+      throw null;
+    };
+    try {
+      const { searchX } = require('../lib/propprofessor-player-context');
+      assert.deepEqual(await searchX('Frances Tiafoe'), { error: 'null', tweets: [] });
+    } finally {
+      cp.execFile = savedExecFile;
+    }
+  });
+});
+
 describe('getPlayerContext', { concurrency: false }, () => {
   beforeEach(() => {
     // Restore then apply success mock, clear cache so module re-loads with mock

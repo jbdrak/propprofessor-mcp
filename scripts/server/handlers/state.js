@@ -51,7 +51,7 @@ function createStateHandlers(client, _ctx) {
             return { ok: false, error: { code: 'INVALID_PARAMS', message: `Unknown action: ${action}` } };
         }
       } catch (err) {
-        return { ok: false, error: { code: 'BACKEND_ERROR', message: String(err.message || err) } };
+        return { ok: false, error: { code: 'BACKEND_ERROR', message: String(err?.message || err) } };
       }
     }
   };

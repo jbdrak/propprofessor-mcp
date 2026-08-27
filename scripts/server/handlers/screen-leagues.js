@@ -154,11 +154,11 @@ async function runUfcCard(client, ctx, args = {}) {
       }
     };
   } catch (error) {
-    process.stderr.write(`[propprofessor-mcp] ufc_card handler error: ${error.stack || error.message || error}\n`);
+    process.stderr.write(`[propprofessor-mcp] ufc_card handler error: ${error?.stack || error?.message || error}\n`);
     return {
       ok: false,
       league: 'UFC',
-      error: { code: 'UFC_CARD_FAILED', message: error.message || String(error) }
+      error: { code: 'UFC_CARD_FAILED', message: error?.message || String(error) }
     };
   }
 }

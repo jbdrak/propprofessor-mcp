@@ -93,4 +93,51 @@ describe('mapCandidateRow screenUrl', () => {
     assert.ok(out.movementSummary.includes('2.5% edge'), `summary was: ${out.movementSummary}`);
     assert.ok(!out.movementSummary.includes('250.0%'), `summary was: ${out.movementSummary}`);
   });
+
+  it('carries steam provenance (steamMove/steamBookCount/steamOriginatorCount) to the candidate', () => {
+    const out = mapCandidateRow({
+      gameId: 'NBA:PREMATCH:Lakers:Warriors:1783937400',
+      market: 'Moneyline',
+      selection: 'Lakers',
+      movementGrade: 'green',
+      movementLabel: 'supportive',
+      recentSharpMoveDirection: 'supportive',
+      fullWindowSharpMoveDirection: 'supportive',
+      consensusEdge: 1.5,
+      steamMove: true,
+      steamBookCount: 3,
+      steamOriginatorCount: 2
+    });
+    assert.equal(out.steamMove, true);
+    assert.equal(out.steamBookCount, 3);
+    assert.equal(out.steamOriginatorCount, 2);
+  });
+
+  it('defaults steam fields to safe falsy/zero when absent', () => {
+    const out = mapCandidateRow({ selection: 'X', gameId: 'G:1', market: 'Moneyline' });
+    assert.equal(out.steamMove, false);
+    assert.equal(out.steamBookCount, 0);
+    assert.equal(out.steamOriginatorCount, 0);
+  });
+
+  it('surfaces the confirming originator book name in movementSummary (clean path)', () => {
+    const out = mapCandidateRow({
+      gameId: 'NBA:PREMATCH:Lakers:Warriors:1783937400',
+      market: 'Moneyline',
+      selection: 'Lakers',
+      movementGrade: 'green',
+      movementLabel: 'supportive',
+      recentSharpMoveDirection: 'supportive',
+      fullWindowSharpMoveDirection: 'supportive',
+      consensusEdge: 1.5,
+      sharpBookMovementConfirmed: true,
+      sharpBookMovementSource: 'Pinnacle'
+    });
+    assert.equal(out.movementDisposition, 'supportive_clean');
+    assert.ok(
+      out.movementSummary.includes('sharp-originator confirmation (Pinnacle)'),
+      `summary should name originator, got: ${out.movementSummary}`
+    );
+    assert.equal(out.sharpBookMovementOrigin, 'originator');
+  });
 });

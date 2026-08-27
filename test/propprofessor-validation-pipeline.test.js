@@ -254,6 +254,29 @@ describe('runValidationPipeline', () => {
     assert.equal(rows[0].target.validationFailureReason, 'backend exploded');
   });
 
+  it('normalizes a null validator throw without crashing the pipeline', async () => {
+    const rows = [{ target: makeRow(), entry: { league: 'NBA', market: 'Moneyline' } }];
+    await runValidationPipeline({
+      validate: async () => {
+        throw null;
+      },
+      buildArgs: () => ({}),
+      buildCacheKey: () => 'k',
+      rows,
+      isEligible: (t) => Boolean(t.gameId && t.selection && !t.altLineFiltered),
+      isBet: (t) => t.kaiCall === 'BET',
+      selectTargets: selectTopGlobal,
+      onNotSelected: () => assert.fail(),
+      applyValidated: () => assert.fail(),
+      validateAll: true,
+      validateTop: 10,
+      mapWithConcurrency: makeMapWithConcurrency().fn
+    });
+
+    assert.equal(rows[0].target.validationFailed, true);
+    assert.equal(rows[0].target.validationFailureReason, 'null');
+  });
+
   it('degrades on timeout and clears every timer it created', async () => {
     const realSetTimeout = global.setTimeout;
     const realClearTimeout = global.clearTimeout;

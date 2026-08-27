@@ -126,6 +126,34 @@ describe('strict steam rule (5-min window, 3+ sharp books)', () => {
   });
 });
 
+describe('steam originator provenance (research: originators move first)', () => {
+  it('counts originator books separately from followers in a steam move', () => {
+    // Pinnacle + Circa are originators; DraftKings is a follower and should NOT
+    // inflate originatorCount.
+    const row = buildSteamRow({
+      books: ['Pinnacle', 'Circa', 'DraftKings'],
+      recentOffsetsMs: [-4 * 60 * 1000, -2 * 60 * 1000, -30 * 1000],
+      openingOdds: -140,
+      recentOdds: -160
+    });
+    const result = detectSteamMove(row, { steamWindowMs: 5 * 60 * 1000, minBooks: 3, nowMs: row._now });
+    assert.equal(result.isSteam, true, '3 books (2 originators + 1 follower) should be steam at minBooks=3');
+    assert.equal(result.originatorCount, 2, 'only Pinnacle + Circa are originators');
+  });
+
+  it('exposes originatorCount=0 when only followers move (weaker signal)', () => {
+    const row = buildSteamRow({
+      books: ['DraftKings', 'FanDuel', 'BetMGM'],
+      recentOffsetsMs: [-4 * 60 * 1000, -2 * 60 * 1000, -30 * 1000],
+      openingOdds: -140,
+      recentOdds: -160
+    });
+    const result = detectSteamMove(row, { steamWindowMs: 5 * 60 * 1000, minBooks: 3, nowMs: row._now });
+    assert.equal(result.isSteam, true, '3 followers still satisfy the multi-book rule');
+    assert.equal(result.originatorCount, 0, 'no originators moved — followers copying only');
+  });
+});
+
 describe('strict + legacy side-by-side comparison (what the daily report will see)', () => {
   it('shows steamMoveLegacy=true, steamMove=false when only 2 books moved within 1h', () => {
     const row = buildSteamRow({

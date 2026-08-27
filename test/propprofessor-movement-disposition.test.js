@@ -444,4 +444,65 @@ describe('computeMovementSummary', () => {
     });
     assert.ok(summary.includes('(0.0% edge)'), `summary was: ${summary}`);
   });
+
+  it('labels sharp-originator confirmation distinctly from a follower confirmation', () => {
+    const fromOriginator = computeMovementSummary(
+      {
+        ...supportiveRow(1.4),
+        sharpBookMovementConfirmed: true,
+        sharpBookMovementSource: 'Pinnacle'
+      },
+      { movementDisposition: 'supportive_bouncy', selection: 'Under 166.5' }
+    );
+    assert.ok(fromOriginator.includes('sharp-originator confirmation (Pinnacle)'), `summary was: ${fromOriginator}`);
+
+    const fromFollower = computeMovementSummary(
+      {
+        ...supportiveRow(1.4),
+        sharpBookMovementConfirmed: true,
+        sharpBookMovementSource: 'DraftKings'
+      },
+      { movementDisposition: 'supportive_bouncy', selection: 'Under 166.5' }
+    );
+    assert.ok(fromFollower.includes('confirmed by DraftKings'), `summary was: ${fromFollower}`);
+    assert.ok(!fromFollower.includes('sharp-originator'), `summary was: ${fromFollower}`);
+  });
+
+  it('surfaces the confirming book in the clean path, distinguishing originator vs follower', () => {
+    const fromOriginator = computeMovementSummary(
+      {
+        ...supportiveRow(1.4),
+        sharpBookMovementConfirmed: true,
+        sharpBookMovementSource: 'Pinnacle'
+      },
+      { movementDisposition: 'supportive_clean', selection: 'Under 166.5' }
+    );
+    assert.ok(fromOriginator.includes('sharp-originator confirmation (Pinnacle)'), `summary was: ${fromOriginator}`);
+
+    const fromFollower = computeMovementSummary(
+      {
+        ...supportiveRow(1.4),
+        sharpBookMovementConfirmed: true,
+        sharpBookMovementSource: 'DraftKings'
+      },
+      { movementDisposition: 'supportive_clean', selection: 'Under 166.5' }
+    );
+    assert.ok(fromFollower.includes('confirmed by DraftKings'), `summary was: ${fromFollower}`);
+    assert.ok(!fromFollower.includes('sharp-originator'), `summary was: ${fromFollower}`);
+  });
+
+  it('labels an inferred originator move in the insufficient path', () => {
+    const summary = computeMovementSummary(
+      {
+        movementGrade: 'yellow',
+        movementLabel: 'mixed',
+        recentSharpMoveDirection: 'insufficient_history',
+        fullWindowSharpMoveDirection: 'insufficient_history',
+        sharpBookMovementConfirmed: true,
+        sharpBookMovementSource: 'Circa'
+      },
+      { movementDisposition: 'insufficient', selection: 'Under 166.5' }
+    );
+    assert.ok(summary.includes('sharp originator Circa'), `summary was: ${summary}`);
+  });
 });

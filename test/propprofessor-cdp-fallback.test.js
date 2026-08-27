@@ -880,6 +880,13 @@ describe('fetchAccessTokenViaEgo', () => {
     await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: throwingSpawn }), /Failed to spawn ego-browser: boom/);
   });
 
+  it('normalizes a null synchronous spawn failure', async () => {
+    const throwingSpawn = () => {
+      throw null;
+    };
+    await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: throwingSpawn }), /Failed to spawn ego-browser: null/);
+  });
+
   it('times out and kills the child when ego-browser hangs', async () => {
     const { FakeEgoSpawn, calls } = makeFakeEgoSpawn({ hang: true });
     await assert.rejects(fetchAccessTokenViaEgo({ spawnImpl: FakeEgoSpawn, timeoutMs: 100 }), /timed out after 100ms/);

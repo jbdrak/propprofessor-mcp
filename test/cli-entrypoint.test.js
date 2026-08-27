@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const { describe, it } = require('node:test');
-const { renderScanOutput } = require('../bin/pp-cli');
+const { renderScanOutput, formatError } = require('../bin/pp-cli');
 
 const projectRoot = path.join(__dirname, '..');
 const ppPath = path.join(projectRoot, 'bin', 'pp');
@@ -12,6 +12,10 @@ const backtestPath = path.join(projectRoot, 'bin', 'backtest');
 const queryPath = path.join(projectRoot, 'scripts', 'query-propprofessor.js');
 
 describe('pp CLI entrypoint', () => {
+  it('formats a null error without throwing another error', () => {
+    assert.equal(formatError(null, 'pp scan'), 'Error: null');
+  });
+
   it('prints help through the bin/pp wrapper', () => {
     const result = execFileSync(process.execPath, [ppPath, '--help'], {
       cwd: projectRoot,

@@ -7,7 +7,7 @@ process.on('unhandledRejection', (reason) => {
   process.stderr.write(`[propprofessor-mcp] Unhandled Rejection: ${reason?.stack || reason}\n`);
 });
 process.on('uncaughtException', (error) => {
-  process.stderr.write(`[propprofessor-mcp] Uncaught Exception: ${error.stack || error}\n`);
+  process.stderr.write(`[propprofessor-mcp] Uncaught Exception: ${error?.stack || error}\n`);
 });
 
 /**
@@ -162,7 +162,7 @@ function createMcpServer({
         // always-on so operators can see what's failing in their server
         // process. The redactSecrets scrub keeps real tokens/cookies out of
         // log aggregators (journald, Docker, Datadog, etc.).
-        const rawStack = error.stack || error.message || String(error);
+        const rawStack = error?.stack || error?.message || String(error);
         const safeStack = redactSecrets(rawStack);
         const safeMessage = redactSecrets(categorized.message);
         process.stderr.write(
@@ -180,9 +180,9 @@ function createMcpServer({
             recovery: categorized.recovery,
             ...(debugMode
               ? {
-                  stack: error.stack || null,
-                  originalMessage: error.message,
-                  cause: error.cause ? error.cause.message || String(error.cause) : null
+                  stack: error?.stack || null,
+                  originalMessage: error?.message,
+                  cause: error?.cause ? error.cause?.message || String(error.cause) : null
                 }
               : {})
           }
@@ -273,7 +273,7 @@ async function serveStdio(options = {}) {
     Promise.resolve()
       .then(() => reader(chunk))
       .catch((error) => {
-        process.stderr.write((error.stack || error.message || String(error)) + '\n');
+        process.stderr.write((error?.stack || error?.message || String(error)) + '\n');
       });
   });
 

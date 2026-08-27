@@ -613,7 +613,7 @@ function formatValidate(data) {
 }
 
 function formatError(err, context) {
-  const msg = err.message || String(err);
+  const msg = err?.message || String(err);
   if (msg.includes('401') || msg.includes('Unauthorized') || msg.includes('auth') || msg.includes('token')) {
     return 'Auth error: ' + msg + '\nTry "pp health" to check credentials.';
   }

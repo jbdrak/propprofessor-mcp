@@ -10,7 +10,8 @@ const {
   getKaiCall,
   clearTierCache,
   clearScoreTimeline,
-  tierCacheKey
+  tierCacheKey,
+  buildRationale
 } = require('../lib/propprofessor-risk-score');
 
 describe('gradeRiskToTierAndCall — unified lookup', () => {
@@ -209,6 +210,85 @@ describe('multiWindowScore graduated brackets', () => {
     const score = calculateRiskScore(item);
     // red grade + heavy penalties → should cap at 10
     assert.ok(score <= 10, `should not exceed 10, got ${score}`);
+  });
+});
+
+// ─── Steam provenance weighting (research: originators move first) ───────────
+// A steam move confirmed by sharp originators (Pinnacle/Circa/BookMaker/
+// BetOnline) is the strongest signal; a steam of retail followers copying the
+// line afterward is weaker. The risk modifier must reflect that.
+
+function steamItem({ originatorCount }) {
+  // Neutral baseline so the steam provenance modifier is the ONLY differentiator
+  // and scores stay in the mid-range (don't hit the floor=1 clamp).
+  return {
+    movementLabel: 'supportive',
+    movementGrade: 'yellow',
+    movementQuality: 'medium',
+    movementQualityScore: 0.5,
+    executionQuality: 'playable',
+    consensusBookCount: 3,
+    steamMove: true,
+    steamOriginatorCount: originatorCount,
+    clvProxyPct: 0,
+    consensusEdge: 1.0,
+    multiWindowScore: 0.5,
+    multiWindowInsufficientData: false,
+    peakAdverseClvPct: 0
+  };
+}
+
+describe('steam originator weighting', () => {
+  it('originator-confirmed steam scores lower risk than followers-only steam', () => {
+    const withOriginator = calculateRiskScore(steamItem({ originatorCount: 2 }));
+    const followersOnly = calculateRiskScore(steamItem({ originatorCount: 0 }));
+    assert.ok(
+      withOriginator < followersOnly,
+      `originator steam (${withOriginator}) should beat followers-only (${followersOnly})`
+    );
+    assert.strictEqual(withOriginator, followersOnly - 1, 'originator steam should be exactly 1 point stronger');
+  });
+
+  it('followers-only steam still lowers risk vs no steam (mild credit)', () => {
+    const followersOnly = calculateRiskScore(steamItem({ originatorCount: 0 }));
+    const noSteam = calculateRiskScore({ ...steamItem({ originatorCount: 0 }), steamMove: false });
+    assert.ok(followersOnly < noSteam, 'followers-only steam should still reduce risk');
+  });
+});
+
+describe('steam provenance in rationale', () => {
+  it('rationale names originator count when originators drove the steam', () => {
+    const r = buildRationale({
+      selection: 'Yankees',
+      consensusBookCount: 6,
+      consensusEdge: 1.5,
+      movementLabel: 'supportive',
+      movementDisposition: 'supportive_clean',
+      executionQuality: 'best',
+      clvProxyPct: 1,
+      confidenceTierLive: 'TIER 2',
+      steamMove: true,
+      steamBookCount: 4,
+      steamOriginatorCount: 2
+    });
+    assert.ok(r.includes('steam (4 books, 2 originator)'), `expected originator steam text, got: ${r}`);
+  });
+
+  it('rationale labels followers-only steam distinctly', () => {
+    const r = buildRationale({
+      selection: 'Yankees',
+      consensusBookCount: 6,
+      consensusEdge: 1.5,
+      movementLabel: 'supportive',
+      movementDisposition: 'supportive_clean',
+      executionQuality: 'best',
+      clvProxyPct: 1,
+      confidenceTierLive: 'TIER 2',
+      steamMove: true,
+      steamBookCount: 3,
+      steamOriginatorCount: 0
+    });
+    assert.ok(r.includes('steam (3 books, followers-only)'), `expected followers-only steam text, got: ${r}`);
   });
 });
 
