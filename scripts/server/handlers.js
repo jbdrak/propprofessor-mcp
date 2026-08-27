@@ -582,9 +582,11 @@ function createMcpHandlers({
 
       // If gameId is present, use the canonical cache; otherwise proceed without caching
       if (canonicalKey) {
+        // memoize() returns a callable — must INVOKE it to get the response,
+        // not hand the function back to the caller.
         return canonicalScreenCache.memoize(async () => {
-          return await ctx.handlers.runScreenRankedImpl(client, args);
-        }, canonicalKey);
+          return ctx.handlers.runScreenRankedImpl(client, args);
+        }, canonicalKey)();
       }
 
       // Full-league scan - no caching
@@ -783,7 +785,17 @@ function createMcpHandlers({
           books: (targetBooks || []).slice().sort(),
           limit,
           cardWindow: args.cardWindow || 'today',
-          includeProps: args.includeProps === true
+          includeProps: args.includeProps === true,
+          // Request-shaping options MUST be part of the key: a response
+          // produced for one option set must never be served for a different
+          // one. Two calls that differ in any of these must miss the cache.
+          targetTiers: (Array.isArray(args.targetTiers) ? args.targetTiers : []).slice().sort(),
+          kaiCall: (Array.isArray(args.kaiCall) ? args.kaiCall : []).slice().sort(),
+          movement: (Array.isArray(args.movement) ? args.movement : []).slice().sort(),
+          minEV: args.minEV === undefined ? null : Number(args.minEV),
+          verbosity: String(args.verbosity || 'full').toLowerCase(),
+          includeResearch: includeResearch === true,
+          lite: lite === true
         });
         const cached = responseCache.get(aggregateCacheKey);
         if (cached) {

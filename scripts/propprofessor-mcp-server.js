@@ -4,10 +4,12 @@
 const path = require('node:path');
 
 process.on('unhandledRejection', (reason) => {
-  process.stderr.write(`[propprofessor-mcp] Unhandled Rejection: ${reason?.stack || reason}\n`);
+  const raw = reason?.stack || reason;
+  process.stderr.write(`[propprofessor-mcp] Unhandled Rejection: ${redactSecrets(raw)}\n`);
 });
 process.on('uncaughtException', (error) => {
-  process.stderr.write(`[propprofessor-mcp] Uncaught Exception: ${error?.stack || error}\n`);
+  const raw = error?.stack || error;
+  process.stderr.write(`[propprofessor-mcp] Uncaught Exception: ${redactSecrets(raw)}\n`);
 });
 
 /**
@@ -174,15 +176,15 @@ function createMcpServer({
           ok: false,
           error: {
             code: categorized.code,
-            message: categorized.message,
+            message: redactSecrets(categorized.message),
             category: categorized.category,
             status: categorized.status,
             recovery: categorized.recovery,
             ...(debugMode
               ? {
-                  stack: error?.stack || null,
-                  originalMessage: error?.message,
-                  cause: error?.cause ? error.cause?.message || String(error.cause) : null
+                  stack: error?.stack ? redactSecrets(error.stack) : null,
+                  originalMessage: error?.message ? redactSecrets(error.message) : null,
+                  cause: error?.cause ? redactSecrets(error.cause?.message || String(error.cause)) : null
                 }
               : {})
           }

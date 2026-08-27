@@ -1505,6 +1505,78 @@ describe('createPropProfessorClient', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('shares one tRPC circuit breaker across different query inputs and opens it across variants', async () => {
+    const { resetAllBreakers, getAllBreakersInfo } = require('../lib/propprofessor-circuit-breaker');
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    resetAllBreakers();
+    let fetchAttempts = 0;
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt-trpc-breaker', exp: Math.floor(Date.now() / 1000) + 600 }),
+        statusCode: 200
+      }),
+      fetchImpl: async () => {
+        fetchAttempts += 1;
+        return { ok: false, status: 503, text: async () => 'service unavailable' };
+      },
+      retryDelaysMs: []
+    });
+
+    // Distinct inputs whose failures all reach the same shared endpoint breaker.
+    const variantInputs = [
+      { id: 'bet-a', start: new Date('2026-04-21T12:00:00.000Z') },
+      { id: 'bet-b', start: new Date('2026-04-21T13:00:00.000Z') },
+      { id: 'bet-c', start: new Date('2026-04-21T14:00:00.000Z') },
+      { id: 'bet-d', start: new Date('2026-04-21T15:00:00.000Z') },
+      { id: 'bet-e', start: new Date('2026-04-21T16:00:00.000Z') }
+    ];
+
+    try {
+      // Drive three distinct inputs through 503s. None of them alone opens the
+      // default (threshold 5) circuit, so each rejects with the 503 payload.
+      for (let i = 0; i < 3; i += 1) {
+        await assert.rejects(
+          () => client.hideBet(variantInputs[i]),
+          (error) => error?.status === 503
+        );
+      }
+
+      const breakers = getAllBreakersInfo();
+      // Different inputs must share exactly ONE tRPC endpoint breaker.
+      assert.equal(breakers.length, 1, 'distinct inputs must share a single endpoint breaker');
+      assert.equal(
+        breakers[0].name.includes('input='),
+        false,
+        'breaker key must be the endpoint path, not the full URL with serialized input'
+      );
+
+      // Push the shared breaker to its threshold with two more distinct inputs.
+      // The final failure opens the circuit (rejecting with CIRCUIT_BREAKER_OPEN).
+      for (let i = 3; i < 5; i += 1) {
+        await assert.rejects(
+          () => client.hideBet(variantInputs[i]),
+          (error) => error?.status === 503 || error?.code === 'CIRCUIT_BREAKER_OPEN'
+        );
+      }
+
+      // A sixth distinct input variant must fail fast (no extra network) because
+      // the shared breaker is now open from the earlier variant failures.
+      await assert.rejects(
+        () => client.hideBet({ id: 'bet-f', start: new Date('2026-04-21T17:00:00.000Z') }),
+        (error) => error?.code === 'CIRCUIT_BREAKER_OPEN'
+      );
+      assert.equal(fetchAttempts, variantInputs.length, 'open breaker must reject before any network call');
+      assert.equal(getAllBreakersInfo()[0].state, 'open');
+    } finally {
+      resetAllBreakers();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('Retry-After handling', () => {

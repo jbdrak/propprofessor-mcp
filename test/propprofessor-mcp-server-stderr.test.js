@@ -182,3 +182,65 @@ describe('server-side stderr error logging', () => {
     assert.equal(stderr.text(), '', 'validation failures are not thrown, so no stderr');
   });
 });
+
+describe('MCP error response redaction (regression for raw error text leak)', () => {
+  let stderr;
+
+  afterEach(() => {
+    if (stderr) stderr.restore();
+    stderr = null;
+  });
+
+  it('routes the MCP error response message through redactSecrets (debug=false)', async () => {
+    const secret = 'ya29.' + 'A'.repeat(40);
+    const server = createMcpServer({
+      handlers: {
+        quick_screen: async () => {
+          throw new Error(`Upstream call failed: bearer ${secret}`);
+        }
+      }
+    });
+    await send(server, { jsonrpc: '2.0', id: 1, method: 'initialize' });
+
+    const result = await send(server, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'quick_screen', arguments: {} }
+    });
+
+    assert.equal(result.result.isError, true, 'result should be flagged as error');
+    const text = JSON.stringify(result.result);
+    assert.ok(!text.includes(secret), `secret must be scrubbed from MCP response, got: ${text}`);
+    assert.ok(text.includes('[REDACTED]'), 'redaction marker should appear in MCP response');
+    // Codes/categories must survive the scrub.
+    assert.ok(text.includes('code'), 'error code must be preserved in response');
+  });
+
+  it('routes MCP debug diagnostics (stack/originalMessage/cause) through redactSecrets (debug=true)', async () => {
+    const secret = 'ya29.' + 'A'.repeat(40);
+    const server = createMcpServer({
+      handlers: {
+        quick_screen: async () => {
+          const cause = new Error(`inner: bearer ${secret}`);
+          const e = new Error(`Outer failure: bearer ${secret}`);
+          e.cause = cause;
+          throw e;
+        }
+      }
+    });
+    await send(server, { jsonrpc: '2.0', id: 1, method: 'initialize' });
+
+    const result = await send(server, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'quick_screen', arguments: { debug: true } }
+    });
+
+    assert.equal(result.result.isError, true, 'result should be flagged as error');
+    const text = JSON.stringify(result.result);
+    assert.ok(!text.includes(secret), `secret must be scrubbed from debug diagnostics, got: ${text}`);
+    assert.ok(text.includes('[REDACTED]'), 'redaction marker should appear in debug diagnostics');
+  });
+});

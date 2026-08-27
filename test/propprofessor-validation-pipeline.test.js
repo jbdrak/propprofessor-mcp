@@ -427,6 +427,55 @@ describe('runValidationPipeline', () => {
     assert.equal(mapState.concurrency, 3);
   });
 
+  it('bounds in-flight validations to the configured concurrency (thunks, not eagerly-started promises)', async () => {
+    // Regression for the concurrency bug: the pipeline must NOT start every
+    // validation before handing work to mapWithConcurrency, otherwise the
+    // concurrency cap is ignored and all 12 fire at once. We inject a validate
+    // that records in-flight count and yields to the event loop so concurrent
+    // workers actually overlap.
+    const rows = Array.from({ length: 12 }, (_, i) => ({
+      target: makeRow({ gameId: `NBA:g${i}`, screenScore: 80 }),
+      entry: { league: 'NBA', market: 'Moneyline' }
+    }));
+
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const order = [];
+    const concurrency = 3;
+
+    const apply = recordApply();
+    await runValidationPipeline({
+      validate: async () => {
+        inFlight += 1;
+        if (inFlight > maxInFlight) maxInFlight = inFlight;
+        // Let other workers start so overlapping in-flight is observable.
+        await new Promise((r) => setImmediate(r));
+        inFlight -= 1;
+        order.push(1);
+        return validatorResponse();
+      },
+      buildArgs: (t) => ({ gameId: t.gameId }),
+      buildCacheKey: (t) => `${t.gameId}::${t.selection}`,
+      rows,
+      isEligible: (t) => Boolean(t.gameId && t.selection && !t.altLineFiltered),
+      isBet: () => true,
+      selectTargets: selectTopGlobal,
+      onNotSelected: () => assert.fail(),
+      applyValidated: apply.fn,
+      validateAll: true,
+      validateTop: 10,
+      concurrency,
+      mapWithConcurrency: makeMapWithConcurrency().fn
+    });
+
+    assert.equal(order.length, 12, 'all 12 rows must be validated');
+    assert.equal(apply.applied.length, 12);
+    assert.ok(
+      maxInFlight <= concurrency,
+      `max in-flight validations (${maxInFlight}) must not exceed concurrency (${concurrency})`
+    );
+  });
+
   it('supports the recommended_bets adapter shape (per-bucket top N over full buckets)', async () => {
     const nba = { league: 'NBA' };
     const wnba = { league: 'WNBA' };
