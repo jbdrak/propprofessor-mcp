@@ -525,7 +525,8 @@ describe('createPropProfessorClient', () => {
         fetchAttempts += 1;
         return { ok: true, status: 200, json: async () => ({ NoVigApp: [] }) };
       },
-      retryDelaysMs: [0]
+      retryDelaysMs: [0],
+      oddsHistoryMinIntervalMs: 0
     });
 
     try {
@@ -540,10 +541,7 @@ describe('createPropProfessorClient', () => {
         )
       );
       assert.equal(fetchAttempts, ODDS_HISTORY_REQUEST_BUDGET);
-      assert.equal(
-        results.filter((result) => result.status === 'fulfilled').length,
-        ODDS_HISTORY_REQUEST_BUDGET
-      );
+      assert.equal(results.filter((result) => result.status === 'fulfilled').length, ODDS_HISTORY_REQUEST_BUDGET);
       const rejected = results.find((result) => result.status === 'rejected');
       assert.equal(rejected?.reason?.code, 'ODDS_HISTORY_BUDGET_EXHAUSTED');
       const gateState = __getOddsHistoryGateStateForTests(file);
@@ -559,7 +557,11 @@ describe('createPropProfessorClient', () => {
         }),
         (error) => error?.code === 'ODDS_HISTORY_BUDGET_EXHAUSTED'
       );
-      assert.equal(fetchAttempts, ODDS_HISTORY_REQUEST_BUDGET, 'follow-on calls must fail fast without bypassing the real budget window');
+      assert.equal(
+        fetchAttempts,
+        ODDS_HISTORY_REQUEST_BUDGET,
+        'follow-on calls must fail fast without bypassing the real budget window'
+      );
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -1728,8 +1730,6 @@ describe('token refresh mutex', () => {
       const t1 = await client.getAccessToken();
       assert.equal(t1.token, 'token_1');
       assert.equal(fetchCount, 1);
-
-      await new Promise((r) => setTimeout(r, 1500));
 
       const t2 = await client.getAccessToken();
       assert.equal(t2.token, 'token_2');

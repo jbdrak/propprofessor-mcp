@@ -57,7 +57,8 @@ function makeFixture(readme, opts = {}) {
   for (const sub of ['lib', 'docs', 'scripts', '.github']) {
     fs.mkdirSync(path.join(dir, sub), { recursive: true });
   }
-  fs.writeFileSync(path.join(dir, 'lib/propprofessor-tool-definitions.js'), toolDefsStub(toolNames));
+  fs.mkdirSync(path.join(dir, 'lib/tool-definitions'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'lib/tool-definitions/index.js'), toolDefsStub(toolNames));
   fs.writeFileSync(
     path.join(dir, 'docs/openapi.json'),
     JSON.stringify({ paths: Object.fromEntries(toolNames.map((n) => ['/' + n, {}])) })
@@ -283,4 +284,11 @@ test('quick mode still runs the active-doc drift checks', (t) => {
   const combined = result.stdout + result.stderr;
   assert.strictEqual(result.status, 1, `expected exit 1, got ${result.status}\n${combined}`);
   assert.match(combined, /sharp_plays/);
+});
+
+test('claims checker loads the live tool-definition factory', () => {
+  const result = runClaims(repoRoot, ['--quick']);
+  const output = result.stdout + result.stderr;
+  assert.strictEqual(result.status, 0, `expected exit 0, got ${result.status}\n${output}`);
+  assert.match(output, /\d+ tools consistent across tool definitions and OpenAPI spec/);
 });

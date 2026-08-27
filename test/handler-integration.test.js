@@ -29,7 +29,7 @@ const { clearTierCache, clearScoreTimeline } = require('../lib/propprofessor-ris
 function createHandlers(overrides = {}, handlerOptions = {}) {
   // Reset module-level tier state so tests are order-independent. The score
   // timeline persists across requests by design (stabilizes tiers within a
-  // session), but a prior describe block (e.g. quick_screen elo overlay)
+  // session), but a prior describe block can leave state behind.
   // populates it with the same fixture game keys — hysteresis then downgrades
   // recommended_bets plays to TIER 3/4 and the tier filter drops everything.
   clearTierCache();
@@ -663,132 +663,6 @@ describe('handler integration: quick_screen research scoping', () => {
     assert.equal(result.ok, true);
     assert.ok(Array.isArray(result.research), 'research should be an array');
     assert.equal(result.research.length, 0, 'research should be empty when disabled');
-  });
-});
-
-// ─── quick_screen Elo overlay ────────────────────────────────────
-
-describe('handler integration: quick_screen elo overlay', () => {
-  // Shadow Elo payload tagged with the research args so tests can prove
-  // composite (player, game, market) joins — never cross-game/market bleed.
-  const eloFor = (args) => ({
-    available: true,
-    coverage: 'full',
-    selectedProbability: 0.62,
-    market: args.market || null,
-    game: args.game || null,
-    selection: args.selection || null
-  });
-
-  function makeHandlers(gameContextFn) {
-    const handlers = createHandlers({}, { gameContextFn });
-    handlers.player_context = async () => ({ riskFlag: 'clean', tweets: [], news: [] });
-    return handlers;
-  }
-
-  it('carries elo + market on game-context research entries without leaking verdict fields', async () => {
-    const handlers = makeHandlers(async (args) => ({
-      riskFlag: 'clean',
-      riskSummary: 'fixture game context',
-      cached: true,
-      elo: eloFor(args)
-    }));
-    const result = await handlers.quick_screen({
-      leagues: ['NBA'],
-      markets: ['Moneyline'],
-      limit: 5,
-      validate: false,
-      cache: false
-    });
-    const gameEntries = (result.research || []).filter((r) => r.contextType === 'game');
-    assert.ok(gameEntries.length > 0, 'team/line research entries should exist');
-    for (const r of gameEntries) {
-      assert.ok(r.elo, `research entry ${r.player} should carry elo`);
-      assert.equal(r.elo.market, 'Moneyline');
-      assert.ok(r.market, 'research entry should carry market for the composite join');
-      // Invariant: no ranker/verdict fields may leak onto research entries.
-      assert.equal(r.consensusEdge, undefined);
-      assert.equal(r.kaiCall, undefined);
-      assert.equal(r.displayTier, undefined);
-      assert.equal(r.finalVerdict, undefined);
-    }
-  });
-
-  it('overlays elo onto lite-mode candidates via the research seam without changing verdict/tier/edge', async () => {
-    const handlers = makeHandlers(async (args) => ({
-      riskFlag: 'clean',
-      riskSummary: 'fixture game context',
-      cached: true,
-      elo: eloFor(args)
-    }));
-    const baseArgs = { leagues: ['NBA'], markets: ['Moneyline'], limit: 5, validate: false, cache: false };
-    const baseline = await handlers.quick_screen(baseArgs);
-    const lite = await handlers.quick_screen({ ...baseArgs, lite: true });
-
-    const liteCandidates = [];
-    for (const entry of lite.results || []) {
-      for (const c of entry.candidates || []) {
-        if (!isPlayerSelection(String(c.selection || ''))) liteCandidates.push(c);
-      }
-    }
-    assert.ok(liteCandidates.length > 0, 'fixture should include team/line candidates');
-    for (const c of liteCandidates) {
-      assert.ok(c.elo, `lite candidate ${c.selection} should carry elo`);
-      assert.equal(c.elo.market, 'Moneyline');
-      const base = (baseline.results || [])
-        .flatMap((e) => e.candidates || [])
-        .find((b) => b.gameId === c.gameId && b.selection === c.selection);
-      assert.ok(base, `baseline candidate ${c.selection} must exist`);
-      // Invariant: the elo overlay must not change any verdict/tier/edge field.
-      assert.equal(c.kaiCall, base.kaiCall);
-      assert.equal(c.displayTier, base.displayTier);
-      assert.equal(c.finalVerdict, base.finalVerdict);
-      assert.equal(c.confidenceTier, base.confidenceTier);
-      assert.equal(c.edge, base.edge);
-    }
-  });
-
-  it('overlays elo onto bets-mode plays in lite mode (recordable row seam)', async () => {
-    const eloHandlers = makeHandlers(async (args) => ({
-      riskFlag: 'clean',
-      riskSummary: 'fixture game context',
-      cached: true,
-      elo: eloFor(args)
-    }));
-    const plainHandlers = makeHandlers(async () => ({
-      riskFlag: 'clean',
-      riskSummary: 'fixture game context',
-      cached: true
-    }));
-    const baseArgs = {
-      leagues: ['NBA'],
-      markets: ['Moneyline'],
-      limit: 5,
-      validate: false,
-      cache: false,
-      verbosity: 'bets',
-      lite: true
-    };
-    const baseline = await plainHandlers.quick_screen(baseArgs);
-    const withElo = await eloHandlers.quick_screen(baseArgs);
-
-    const baselinePlays = (baseline.results || []).flatMap((e) => e.plays || []);
-    const eloPlays = (withElo.results || []).flatMap((e) => e.plays || []);
-    assert.ok(baselinePlays.length > 0, 'bets mode should return plays');
-    assert.ok(eloPlays.length > 0, 'bets mode should return plays with elo');
-
-    const eloTeamPlays = eloPlays.filter((p) => !isPlayerSelection(String(p.selection || '')));
-    assert.ok(eloTeamPlays.length > 0, 'team plays should carry elo through bets+lite');
-    for (const p of eloTeamPlays) {
-      assert.ok(p.elo, `play ${p.selection} should carry elo`);
-      assert.equal(p.elo.market, 'Moneyline');
-      const base = baselinePlays.find((b) => b.selection === p.selection && b.game === p.game);
-      assert.ok(base, `baseline play ${p.selection} must exist`);
-      // Invariant: verdict/tier/edge unchanged by the elo overlay.
-      assert.equal(p.verdict, base.verdict);
-      assert.equal(p.tier, base.tier);
-      assert.equal(p.edge, base.edge);
-    }
   });
 });
 

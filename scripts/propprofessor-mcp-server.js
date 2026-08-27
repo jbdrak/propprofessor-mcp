@@ -13,7 +13,7 @@ process.on('uncaughtException', (error) => {
 /**
  * PropProfessor MCP server entry point.
  *
- * In v2.0.0, the 23 createMcpHandlers() implementations were extracted to
+ * In v2.0.0, the createMcpHandlers() implementations were extracted to
  * ./server/handlers.js. The JSON-RPC frame (createMcpServer) and the stdio
  * serve loop stay here. createMcpHandlers is re-exported from ./server/handlers
  * for backward compatibility with existing imports.
@@ -40,7 +40,7 @@ const SERVER_NAME = 'propprofessor';
 const SERVER_VERSION = require('../package.json').version;
 const PROTOCOL_VERSION = '2024-11-05';
 
-// Tool surface mode: 'lite' (default, 14 essentials) or 'full' (30 tools).
+// Tool surface mode: 'lite' (default, 15 essentials) or 'full' (31 tools).
 // Lite mode is the recommended default — covers the full workflow without
 // overwhelming the agent's tool catalog. Power users opt into full mode by
 // setting PROPPROFESSOR_MCP_MODE=full.

@@ -112,7 +112,8 @@ describe('quick_screen aggregate odds-history budget', () => {
         strict: false,
         includePasses: true,
         quickScreenAggregate: true,
-        aggregatePairCount: pairCount
+        aggregatePairCount: pairCount,
+        historyMinIntervalMs: 0
       },
       {
         queryLeagueScreen,

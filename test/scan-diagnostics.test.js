@@ -137,9 +137,6 @@ describe('formatScanDiagnostics', () => {
       playCount: 3,
       scanHealth: { validation: { eligible: 16, selected: 10, completedCount: 10 } }
     });
-    assert.ok(
-      !lines.some((l) => /BET candidate/.test(l)),
-      'no staleness warning when plays are present'
-    );
+    assert.ok(!lines.some((l) => /BET candidate/.test(l)), 'no staleness warning when plays are present');
   });
 });

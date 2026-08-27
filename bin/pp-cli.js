@@ -17,7 +17,6 @@ const { recoverTennisFromScreen } = require(PROJECT + '/lib/tennis-fallback');
 const { loadLedger, saveLedger, addRecord, defaultLedgerPath } = require(PROJECT + '/lib/record-ledger');
 const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/lib/record-candidates');
 const { promoteCards } = require(PROJECT + '/lib/record-card');
-const { enrichScanElo } = require(PROJECT + '/lib/propprofessor-elo-overlay');
 const { enrichScanPolyWallets } = require(PROJECT + '/lib/propprofessor-poly-wallets');
 const { analyzeWalletPlays } = require(PROJECT + '/lib/propprofessor-wallet-plays');
 const { formatScanDiagnostics } = require(PROJECT + '/lib/scan-diagnostics');
@@ -473,27 +472,10 @@ function momentumLabel(p) {
   return parts.length ? parts.join(' ') : '';
 }
 
-function eloContextLabel(p) {
-  // Shadow-Elo vs market line for Tennis Moneyline plays. Only rendered when
-  // the elo context is available AND the selection resolved to a side —
-  // otherwise silence (no data is not a signal).
-  const elo = p.elo;
-  if (!elo || elo.available !== true) return '';
-  const eloProb = elo.selectedProbability;
-  const mktProb = elo.marketFairProbability;
-  if (typeof eloProb !== 'number' || typeof mktProb !== 'number') return '';
-  const eloPct = Math.round(eloProb * 100);
-  const mktPct = Math.round(mktProb * 100);
-  const diff = Math.round((eloProb - mktProb) * 100);
-  const sign = diff > 0 ? '+' : '';
-  const color = diff >= 5 ? G : diff <= -5 ? RED : Y;
-  return color + 'elo ' + eloPct + '% vs mkt ' + mktPct + '% · ' + sign + diff + R;
-}
-
 function walletLine(p) {
   // Polymarket smart-wallet overlay for plays that resolve to a side. Only
   // rendered when a live net stance was found (aligned or against) — no
-  // data is not a signal, same as elo. Plain-text, iMessage-safe.
+  // data is not a signal. Plain-text, iMessage-safe.
   const w = p.polyWallet;
   if (!w || w.available !== true) return '';
   const parts = [];
@@ -542,8 +524,6 @@ function formatScan(results) {
       const matchup = p.game || p.matchup || '';
       if (matchup || p.startCST || p.startDisplay)
         out += '    ' + matchup + '  ' + (p.startCST || p.startDisplay || '') + '\n';
-      const eloLine = eloContextLabel(p);
-      if (eloLine) out += '    ' + eloLine + '\n';
       const walletLineStr = walletLine(p);
       if (walletLineStr) out += walletLineStr;
     }
@@ -998,16 +978,6 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
       ? res.watchCandidates
       : null;
 
-  // Shadow-Elo overlay (Tennis Moneyline only). Pure enrichment — never
-  // touches ranking/movement/verdict. Skip with --no-elo; a missing
-  // snapshot is a silent no-op, never a scan failure.
-  if (!(flags['no-elo'] || flags.noElo)) {
-    try {
-      enrichScanElo(results);
-    } catch {
-      // Enrichment must never break scan output.
-    }
-  }
   // Surface existing diagnostics on the human path: truncated rows, empty
   // league×market pairs, and the tennis-fallback-on-mixed-scan caveat. The
   // pure helper keeps the text testable and shared with JSON consumers.
@@ -1594,8 +1564,11 @@ async function cmdRank(handlers, positional, flags) {
   const order = [];
   const groups = new Map();
   for (const r of rows) {
-    const gid = r.gameId || (r.homeTeam + '|' + r.awayTeam);
-    if (!groups.has(gid)) { groups.set(gid, []); order.push(gid); }
+    const gid = r.gameId || r.homeTeam + '|' + r.awayTeam;
+    if (!groups.has(gid)) {
+      groups.set(gid, []);
+      order.push(gid);
+    }
     groups.get(gid).push(r);
   }
   for (const gid of order) {
@@ -1603,7 +1576,16 @@ async function cmdRank(handlers, positional, flags) {
     const g = grp[0];
     const mkts = [...new Set(grp.map((r) => r.market || r.playType || '?'))];
     console.log(
-      '\n' + B + (g.awayTeam || '?') + ' @ ' + (g.homeTeam || '?') + R + '  [' + mkts.join(',') + ']' + (g.isLive ? '  ' + RED + 'LIVE' + R : '')
+      '\n' +
+        B +
+        (g.awayTeam || '?') +
+        ' @ ' +
+        (g.homeTeam || '?') +
+        R +
+        '  [' +
+        mkts.join(',') +
+        ']' +
+        (g.isLive ? '  ' + RED + 'LIVE' + R : '')
     );
     for (const r of grp) {
       const mv = movementColor(r.movementDisposition || '');

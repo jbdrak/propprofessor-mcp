@@ -9,7 +9,7 @@
  * release-format skill warns about.
  *
  * Checks:
- *   1. Tool count consistency: lib/propprofessor-tool-definitions.js vs docs/openapi.json vs README's "N tools" claim
+ *   1. Tool count consistency: lib/tool-definitions/index.js vs docs/openapi.json vs README's "N tools" claim
  *   2. Tool name validation: every tool name in README's "All N tools" section exists in tool definitions
  *   3. Test count: only verified when README carries an exact test-count claim (then it must match npm test
  *      output). Absence of a claim is VALID — the README deliberately uses non-volatile wording
@@ -56,18 +56,18 @@ const { execSync } = require('child_process');
 const repoRoot = process.cwd();
 const readmePath = path.join(repoRoot, 'README.md');
 // Tool definitions are split across lib/tool-definitions/{screen,validation,context,picks,meta}.js
-// and re-exported from lib/propprofessor-tool-definitions.js. Read the actual
+// and re-exported from lib/tool-definitions/index.js. Read the actual
 // tool list via the buildToolDefinitions factory so claims stay in sync with
 // the real source.
-const toolDefsEntry = path.join(repoRoot, 'lib/propprofessor-tool-definitions.js');
+const toolDefsEntry = path.join(repoRoot, 'lib/tool-definitions/index.js');
 const openapiPath = path.join(repoRoot, 'docs/openapi.json');
 const backtestPath = path.join(repoRoot, 'scripts/backtest-synthetic.js');
 
 const readme = fs.readFileSync(readmePath, 'utf8');
 const openapi = JSON.parse(fs.readFileSync(openapiPath, 'utf8'));
 
-// Load the real tool list. The shim at lib/propprofessor-tool-definitions.js
-// re-exports buildToolDefinitions, so we can use it as a single source of truth.
+// Load the real tool list. `lib/tool-definitions/index.js`
+// exports buildToolDefinitions, so we can use it as a single source of truth.
 const { buildToolDefinitions } = require(toolDefsEntry);
 const allToolDefs = buildToolDefinitions();
 const toolDefNames = allToolDefs.map((t) => t.name).sort();
@@ -106,7 +106,7 @@ const readmeToolCount = toolCountClaimMatch ? parseInt(toolCountClaimMatch[1], 1
 
 if (toolDefCount !== openapiCount) {
   fail(
-    `Tool count drift: lib/propprofessor-tool-definitions.js has ${toolDefCount} tools but docs/openapi.json has ${openapiCount} paths. Run \`npm run docs:openapi\` to regenerate.`
+    `Tool count drift: lib/tool-definitions/index.js has ${toolDefCount} tools but docs/openapi.json has ${openapiCount} paths. Run \`npm run docs:openapi\` to regenerate.`
   );
 } else {
   ok(`${toolDefCount} tools consistent across tool definitions and OpenAPI spec`);

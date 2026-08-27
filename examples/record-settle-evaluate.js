@@ -37,14 +37,7 @@ function runExample() {
     movementGrade: 'supportive',
     finalVerdict: 'BET',
     marketFairProbability: 0.52,
-    modelWinProbability: 0.56,
-    elo: {
-      available: true,
-      selectedProbability: 0.54,
-      modelVersion: 'tennis-elo@1.0.0',
-      asOf: '2026-08-14',
-      coverage: 'available'
-    }
+    modelWinProbability: 0.56
   };
 
   const [candidate] = normalizeScanCandidates([{ league: 'Tennis', market: 'Moneyline', plays: [play] }], {
@@ -55,8 +48,6 @@ function runExample() {
   addRecord(ledger, 'candidates', candidate, { now: () => capturedAt });
 
   // Prove the recorded decision snapshot doesn't follow later source mutation.
-  play.elo.selectedProbability = 0.99;
-  assert.equal(candidate.featureSnapshot.tennis.elo.selectedProbability, 0.54);
 
   const promotion = promoteCard(
     ledger,
@@ -108,8 +99,7 @@ function runExample() {
     decisionSnapshot: {
       schemaVersion: officialSnapshot.schemaVersion,
       marketFairProbability: rows[0].marketFairProbability,
-      modelWinProbability: rows[0].modelWinProbability,
-      eloProbability: rows[0].tennisElo.selectedProbability
+      modelWinProbability: rows[0].modelWinProbability
     },
     outcome: rows[0].outcome,
     calibration: bucket,

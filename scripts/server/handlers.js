@@ -2,7 +2,7 @@
 /**
  * MCP tool handlers (extracted from scripts/propprofessor-mcp-server.js in v2.0.0).
  *
- * This file owns the 23 createMcpHandlers() tool implementations. The
+ * This file owns the createMcpHandlers() tool implementations. The
  * createMcpServer() JSON-RPC frame stays in the parent file; this file
  * is a leaf that the parent re-exports for backward compatibility.
  *
@@ -436,7 +436,7 @@ function stripLiteResponse(response) {
   //    and attach it inline, then drop the separate research array.
   //    Composite key is game|player|market so the same selection across
   //    markets (Moneyline vs Total Games) joins to the right research row
-  //    and its Elo shadow context never bleeds across markets.
+  //    and its research context never bleeds across markets.
   const researchByGame = new Map();
   for (const r of response.research || []) {
     if (r.player && r.game) {
@@ -452,9 +452,6 @@ function stripLiteResponse(response) {
       if (research) {
         c.riskFlag = research.riskFlag || c.riskFlag || null;
         c.riskSummary = research.riskSummary || c.riskSummary || null;
-        // Elo is additive game-context context — overlay it verbatim so
-        // record-candidates can read play.elo into featureSnapshot.
-        if (research.elo) c.elo = research.elo;
       }
       // Strip heavy validated bloat — actionableSummary already captures the signal.
       delete c.validatedGameContext;
@@ -1144,9 +1141,7 @@ function createMcpHandlers({
       // Tennis in the requested leagues means the CLI tennis fallback runs
       // AFTER this scan and needs a slice of the same window to hydrate its
       // own candidates — reserve it so the fallback isn't starved to zero.
-      const tennisInScan = (leagues || []).some((leagueName) =>
-        String(leagueName || '').toLowerCase() === 'tennis'
-      );
+      const tennisInScan = (leagues || []).some((leagueName) => String(leagueName || '').toLowerCase() === 'tennis');
       const VALIDATION_RESERVE_CALLS = tennisInScan ? 40 : 20;
       const VALIDATION_ESTIMATED_CALLS = 3;
       const validationBudgetCap = Number.isFinite(remainingBeforeValidation)
@@ -1383,36 +1378,8 @@ function createMcpHandlers({
               riskSummary: r.riskSummary || null,
               contextType: r.contextType || 'player',
               market: r.market || null,
-              // Elo rides on game-context research rows only (additive
-              // context — never verdict/tier/edge fields).
-              ...(r.elo ? { elo: r.elo } : {}),
               ...(r.topTweet ? { topTweet: r.topTweet.slice(0, 120) } : {})
             });
-          }
-        }
-      }
-
-      // === Elo shadow-context overlay (pre-format) ===
-      // Copy elo from research rows onto the candidate objects BEFORE any
-      // verbosity formatting runs. formatQuickScreenBets/formatBetsCompact
-      // whitelist fields and drop the research array, so without this the
-      // bets-mode plays would lose elo. Composite (player, game, market)
-      // matching keeps Moneyline elo off Total Games rows and vice versa.
-      if (researchResults.length) {
-        for (const entry of allCandidates) {
-          for (const c of entry.candidates || []) {
-            if (c.elo) continue;
-            const player = String(c.selection || '').toLowerCase();
-            const game = c.game || '';
-            const market = String(c.market || entry.market || '').toLowerCase();
-            const research = researchResults.find(
-              (r) =>
-                r.elo &&
-                String(r.player || '').toLowerCase() === player &&
-                (r.game || '') === game &&
-                String(r.market || '').toLowerCase() === market
-            );
-            if (research) c.elo = research.elo;
           }
         }
       }
@@ -1730,9 +1697,6 @@ function createMcpHandlers({
                     row.game || (row.awayTeam && row.homeTeam ? `${row.awayTeam} @ ${row.homeTeam}` : '')
                   );
                   const marketName = String(row._market || row.market || row.screenMarket || '').toLowerCase();
-                  // Exact composite (player, game, market) join so a
-                  // Moneyline research row (with Elo) never bleeds onto a
-                  // Total Games play from the same game.
                   const research = researchResults.find(
                     (r) =>
                       String(r.player || '').toLowerCase() === playerName.toLowerCase() &&
@@ -1748,8 +1712,6 @@ function createMcpHandlers({
                     mapped.riskFlag = research.riskFlag;
                     mapped.riskSummary = research.riskSummary;
                     mapped.topTweet = research.topTweet;
-                    // Elo is additive game-context context — carry it verbatim.
-                    if (research.elo) mapped.elo = research.elo;
                   }
                   return mapped;
                 })

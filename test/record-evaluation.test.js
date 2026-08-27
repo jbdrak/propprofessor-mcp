@@ -352,13 +352,7 @@ describe('buildEvaluationRows', () => {
       signalQualityScore: 87,
       marketFairProbability: 0.55,
       modelWinProbability: 0.62,
-      modelMarketEdgePct: 7.2,
-      tennisSurface: null,
-      tennisTour: null,
-      tennisElo: null,
-      tennisCoverage: null,
-      tennisFreshness: null,
-      tennisModelVersion: null
+      modelMarketEdgePct: 7.2
     });
   });
 
@@ -381,49 +375,6 @@ describe('buildEvaluationRows', () => {
     assert.equal(rows[0].modelWinProbability, null);
     assert.equal(rows[0].modelMarketEdgePct, null);
     assert.equal(rows[0].capturedAt, null);
-  });
-
-  it('carries explicit tennis Elo snapshot fields when present and nulls them otherwise', () => {
-    const elo = {
-      overall: 1542,
-      hard: 1560,
-      clay: 1490,
-      grass: 1510,
-      matches: 42,
-      lastMatchDate: '2026-08-01T00:00:00.000Z',
-      asOf: '2026-08-14T00:00:00.000Z',
-      modelVersion: 'elo-v1'
-    };
-    const ledger = makeLedger({
-      bets: [
-        makeBet('b1', {
-          league: 'ATP',
-          featureSnapshot: {
-            schemaVersion: 1,
-            capturedAt: '2026-08-13T18:00:00.000Z',
-            signalTier: 'TIER 1',
-            confidenceTier: 'TIER 1',
-            signalQualityScore: 80,
-            tennis: {
-              surface: 'hard',
-              tour: 'ATP',
-              elo,
-              coverage: 'verified',
-              freshness: 'fresh',
-              modelVersion: 'elo-v1'
-            }
-          }
-        })
-      ],
-      settlements: [makeSettlement('b1', 'win', '2026-08-14T02:00:00.000Z', { league: 'ATP' })]
-    });
-    const rows = evaluation.buildEvaluationRows(ledger);
-    assert.equal(rows[0].tennisSurface, 'hard');
-    assert.equal(rows[0].tennisTour, 'ATP');
-    assert.equal(rows[0].tennisCoverage, 'verified');
-    assert.equal(rows[0].tennisFreshness, 'fresh');
-    assert.equal(rows[0].tennisModelVersion, 'elo-v1');
-    assert.deepEqual(rows[0].tennisElo, elo);
   });
 
   it('does not derive probabilities: explicit-only fields stay null when the snapshot omits them', () => {

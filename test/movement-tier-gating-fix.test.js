@@ -76,7 +76,7 @@ describe('Bug A: buildMovementWindows nowMs anchors to real time', () => {
 describe('Bug C: validated finalVerdict promotes into display fields + tier filter', () => {
   it('displayTier/confidenceTier/kaiCall mirror finalVerdict after validation', async () => {
     const { client } = createMockClient();
-    const handlers = createMcpHandlers({ client });
+    const handlers = createMcpHandlers({ client, historyMinIntervalMs: 0 });
     const res = await handlers.quick_screen({
       books: ['NoVigApp'],
       leagues: ['NBA'],
@@ -102,7 +102,7 @@ describe('Bug C: validated finalVerdict promotes into display fields + tier filt
 
   it('targetTiers filter drops plays validated below the requested tier', async () => {
     const { client } = createMockClient();
-    const handlers = createMcpHandlers({ client });
+    const handlers = createMcpHandlers({ client, historyMinIntervalMs: 0 });
     const res = await handlers.quick_screen({
       books: ['NoVigApp'],
       leagues: ['NBA'],
@@ -125,7 +125,7 @@ describe('Bug C: validated finalVerdict promotes into display fields + tier filt
 
   it('finalVerdict + finalConfidenceTier are always present (standard verbosity)', async () => {
     const { client } = createMockClient();
-    const handlers = createMcpHandlers({ client });
+    const handlers = createMcpHandlers({ client, historyMinIntervalMs: 0 });
     const res = await handlers.quick_screen({
       books: ['NoVigApp'],
       leagues: ['NBA'],

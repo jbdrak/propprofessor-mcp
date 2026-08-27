@@ -99,10 +99,11 @@ describe('marketKindFromTitle', () => {
 // --- leagueMarketName ------------------------------------------------------------
 
 describe('leagueMarketName', () => {
-  it('moneyline is always Moneyline', () => {
+  it('uses the registry market for moneyline-like leagues', () => {
     assert.equal(leagueMarketName('MLB', 'moneyline'), 'Moneyline');
     assert.equal(leagueMarketName('Tennis', 'moneyline'), 'Moneyline');
     assert.equal(leagueMarketName('UFC', 'moneyline'), 'Moneyline');
+    assert.equal(leagueMarketName('Soccer', 'moneyline'), 'Draw No Bet');
   });
 
   it('resolves spread markets per league with fallback', () => {
@@ -147,10 +148,16 @@ describe('resolveStance', () => {
     const under = resolveStance(STANCE({ outcome: 'U', title: 'Miami Marlins vs. Philadelphia Phillies O/U 8.5' }));
     assert.equal(over.selection, 'Over');
     assert.equal(under.selection, 'Under');
+    const plain = resolveStance({
+      title: 'Total Goals Under 2.5',
+      outcome: 'Under',
+      eventSlug: 'soccer-eng-2026-08-17'
+    });
+    assert.deepEqual(plain, { league: 'Soccer', marketKind: 'total', selection: 'Under', line: 2.5 });
   });
 
   it('returns null for a total with no parseable line or bad outcome', () => {
-    assert.equal(resolveStance(STANCE({ title: 'Miami Marlins vs. Philadelphia Phillies Over 8' })), null);
+    assert.equal(resolveStance(STANCE({ title: 'Total Goals Over' })), null);
     assert.equal(resolveStance(STANCE({ outcome: 'Yes' })), null);
   });
 
@@ -164,6 +171,12 @@ describe('resolveStance', () => {
     const plus = resolveStance({ title: 'Team A vs. Team B (+2)', outcome: 'Team A', eventSlug: 'soccer-eng-2026' });
     assert.equal(plus.line, 2);
     assert.equal(plus.league, 'Soccer');
+    const plain = resolveStance({
+      title: 'Spread: Cincinnati +1.5',
+      outcome: 'Cincinnati',
+      eventSlug: 'nba-cin-bos-2026-08-17'
+    });
+    assert.deepEqual(plain, { league: 'NBA', marketKind: 'spread', selection: 'Cincinnati', line: 1.5 });
   });
 
   it('returns null for unknown slug or unresolvable title', () => {
@@ -271,6 +284,19 @@ describe('matchStanceToRow', () => {
     assert.equal(result.matched, true);
     assert.equal(result.marketName, 'Moneyline');
     assert.equal(result.row.selection, 'Miami Heat');
+  });
+
+  it('matches a Soccer moneyline stance to Draw No Bet', () => {
+    const stance = {
+      title: 'Arsenal vs. Chelsea',
+      outcome: 'Arsenal',
+      eventSlug: 'epl-ars-che-2026-08-17'
+    };
+    const result = matchStanceToRow(stance, [
+      { market: 'Draw No Bet', game: 'Arsenal vs Chelsea', selection: 'Arsenal' }
+    ]);
+    assert.equal(result.matched, true);
+    assert.equal(result.marketName, 'Draw No Bet');
   });
 
   it('falls back to game containment plus an exact side field', () => {
@@ -438,6 +464,12 @@ describe('matchStanceToRow', () => {
     const result = matchStanceToRow(stance, rows);
     assert.equal(result.matched, true);
     assert.equal(result.marketName, 'Run Line');
+  });
+
+  it('does not match a spread row on a different handicap line', () => {
+    const stance = { title: 'Brewers vs. Dodgers (-1.5)', outcome: 'Brewers', eventSlug: 'mlb-mil-lad-2026-08-17' };
+    const row = { market: 'Run Line', game: 'Brewers vs Dodgers', selection: 'Brewers', line: 1.5 };
+    assert.equal(matchStanceToRow(stance, [row]).matched, false);
   });
 
   it('returns unmatched for unresolvable stances or empty rows', () => {
@@ -865,6 +897,26 @@ describe('analyzeWalletPlays', () => {
       assert.equal(stance.exact, true);
       assert.equal(stance.row, exactRow);
       assert.deepEqual(stance.verdict, { verdict: 'BET', reason: 'supportive_clean, TIER 1, CLV +1.8%' });
+    } finally {
+      polyWalletsMod.fetchLeaderboard = savedLB;
+      polyWalletsMod.fetchWalletStancesAll = savedAll;
+    }
+  });
+
+  it('keeps supported Brazilian soccer drops in sport diagnostics', async () => {
+    const savedLB = polyWalletsMod.fetchLeaderboard;
+    const savedAll = polyWalletsMod.fetchWalletStancesAll;
+    polyWalletsMod.fetchLeaderboard = async () => [{ proxyWallet: '0xbra', userName: 'Brazil', pnl: 1 }];
+    polyWalletsMod.fetchWalletStancesAll = async () => [
+      {
+        wallet: { proxyWallet: '0xbra', userName: 'Brazil', pnl: 1 },
+        stances: [{ title: 'Will Brazil win?', outcome: 'Yes', eventSlug: 'bra-vit-bot-2026-08-17' }]
+      }
+    ];
+    try {
+      const out = await analyzeWalletPlays({ rankFn: async () => [] });
+      assert.equal(out.nonSportsDropped, 0);
+      assert.deepEqual(out.droppedByPrefix, [{ prefix: 'bra', count: 1, example: 'Will Brazil win?' }]);
     } finally {
       polyWalletsMod.fetchLeaderboard = savedLB;
       polyWalletsMod.fetchWalletStancesAll = savedAll;

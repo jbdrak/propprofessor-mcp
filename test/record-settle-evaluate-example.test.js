@@ -20,8 +20,7 @@ describe('record-settle-evaluate offline example', () => {
     assert.deepEqual(report.decisionSnapshot, {
       schemaVersion: 1,
       marketFairProbability: 0.52,
-      modelWinProbability: 0.56,
-      eloProbability: 0.54
+      modelWinProbability: 0.56
     });
     assert.equal(report.outcome, 'win');
     assert.equal(report.calibration.totalDecided, 1);

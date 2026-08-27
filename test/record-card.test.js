@@ -60,8 +60,7 @@ function makeLedger() {
       bestAvailableOdds: -112,
       marketFairProbability: 0.52,
       modelWinProbability: null,
-      modelMarketEdgePct: null,
-      tennis: { surface: null, tour: null, elo: null, coverage: null, freshness: null, modelVersion: null }
+      modelMarketEdgePct: null
     },
     status: 'unreviewed',
     reviewNote: null
@@ -169,14 +168,10 @@ describe('record-card: BET promotion', () => {
     const bet = current.bets[0];
     // Mutating the bet snapshot must not alter the stored candidate snapshot.
     bet.featureSnapshot.signalTier = 'MUTATED';
-    bet.featureSnapshot.tennis.surface = 'clay';
     assert.equal(current.candidates[0].featureSnapshot.signalTier, 'TIER 2');
-    assert.equal(current.candidates[0].featureSnapshot.tennis.surface, null);
     // Mutating the candidate after promotion must not alter the stored bet snapshot.
     current.candidates[0].featureSnapshot.signalQualityScore = 1;
-    current.candidates[0].featureSnapshot.tennis.tour = 'WTA';
     assert.equal(bet.featureSnapshot.signalQualityScore, 7.5);
-    assert.equal(bet.featureSnapshot.tennis.tour, null);
     // Mutating the returned bet object must not alter the stored bet record either.
     result.bet.featureSnapshot.executionQuality = 'MUTATED';
     assert.equal(bet.featureSnapshot.executionQuality, 'best');

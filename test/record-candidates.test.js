@@ -414,50 +414,6 @@ describe('featureSnapshot', () => {
     assert.equal(withZero.modelMarketEdgePct, 0);
   });
 
-  it('builds a tennis context subobject from explicit values only', () => {
-    const withTennis = normalizeScanCandidates(
-      [
-        {
-          league: 'Tennis',
-          market: 'Moneyline',
-          plays: [
-            {
-              selection: 'Djokovic N',
-              surface: 'clay',
-              tour: 'ATP',
-              elo: { selected: { rating: 1820 }, opponent: { rating: 1790 } },
-              coverage: 'verified',
-              freshness: '2026-08-14T10:00:00.000Z',
-              modelVersion: 'elo-v3'
-            }
-          ]
-        }
-      ],
-      { scanId: 's' }
-    )[0].featureSnapshot;
-    assert.deepEqual(withTennis.tennis, {
-      surface: 'clay',
-      tour: 'ATP',
-      elo: { selected: { rating: 1820 }, opponent: { rating: 1790 } },
-      coverage: 'verified',
-      freshness: '2026-08-14T10:00:00.000Z',
-      modelVersion: 'elo-v3'
-    });
-
-    const sparse = normalizeScanCandidates(
-      [{ league: 'Tennis', market: 'All Markets', plays: [{ selection: 'Nakashima' }] }],
-      { scanId: 's' }
-    )[0].featureSnapshot;
-    assert.deepEqual(sparse.tennis, {
-      surface: null,
-      tour: null,
-      elo: null,
-      coverage: null,
-      freshness: null,
-      modelVersion: null
-    });
-  });
-
   it('deep-clones the snapshot: mutating the source row after normalize must not alter it', () => {
     const source = {
       gameId: 'g1',
@@ -466,9 +422,6 @@ describe('featureSnapshot', () => {
       signalTier: 'TIER 1',
       consensusEdge: 3.4,
       movementDisposition: 'supportive_clean',
-      surface: 'clay',
-      tour: 'ATP',
-      elo: { selected: { rating: 1820 }, opponent: { rating: 1790 } },
       books: ['Pinnacle', 'DraftKings']
     };
     const candidate = normalizeScanCandidates([{ league: 'Tennis', market: 'Moneyline', plays: [source] }], {
@@ -478,19 +431,13 @@ describe('featureSnapshot', () => {
     const snapshot = candidate.featureSnapshot;
     assert.equal(snapshot.signalTier, 'TIER 1');
     assert.equal(snapshot.consensusEdgePct, 3.4);
-    assert.deepEqual(snapshot.tennis.elo, { selected: { rating: 1820 }, opponent: { rating: 1790 } });
-
     // Mutate the source row after normalization.
-    source.elo.selected.rating = 1;
     source.books.push('MutatedBook');
     source.signalTier = 'MUTATED';
-    assert.equal(snapshot.tennis.elo.selected.rating, 1820);
     assert.equal(snapshot.signalTier, 'TIER 1');
 
     // Mutating the snapshot must not leak back into the source row.
-    snapshot.tennis.elo.opponent.rating = 2;
     snapshot.consensusEdgePct = 99;
-    assert.equal(source.elo.opponent.rating, 1790);
   });
 
   it('keeps sparse inputs fully null rather than fabricated', () => {

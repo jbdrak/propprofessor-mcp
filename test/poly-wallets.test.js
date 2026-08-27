@@ -93,6 +93,18 @@ describe('classifyPosition — totals (O/U)', () => {
     assert.equal(classifyPosition(play, stance), 'aligned');
   });
 
+  it('does not align a different total line on the same game', () => {
+    const play = { game: 'Padres vs Mets', selection: 'Over 9.5' };
+    const stance = { title: 'San Diego Padres vs. New York Mets: O/U 8.5', outcome: 'Over', dollar: 20000 };
+    assert.equal(classifyPosition(play, stance), null);
+  });
+
+  it('aligns worded total titles and rejects a different line', () => {
+    const stance = { title: 'Total Goals Under 2.5', outcome: 'Under', dollar: 20000 };
+    assert.equal(classifyPosition({ game: 'Team A vs Team B', selection: 'Under 2.5' }, stance), 'aligned');
+    assert.equal(classifyPosition({ game: 'Team A vs Team B', selection: 'Under 3.5' }, stance), null);
+  });
+
   it('against when the wallet holds the opposite total direction', () => {
     const play = { game: 'Padres vs Mets', selection: 'Over 8.5' };
     const stance = { title: 'San Diego Padres vs. New York Mets: O/U 8.5', outcome: 'Under', dollar: 20000 };
@@ -255,7 +267,13 @@ describe('enrichScanPolyWallets', () => {
         plays: [{ game: 'A vs B', selection: 'A', polyWallet: { preexisting: true } }]
       }
     ];
-    const out = await enrichScanPolyWallets(results, { limit: 1 });
+    const out = await enrichScanPolyWallets(results, {
+      limit: 1,
+      leaderboardCache: { at: Date.now(), value: [] },
+      fetchImpl: async () => {
+        throw new Error('fetch should not run when the leaderboard cache is empty');
+      }
+    });
     assert.equal(out[0].plays[0].polyWallet.preexisting, true);
   });
 
@@ -342,6 +360,53 @@ describe('fetch layer with injected fetch', () => {
     assert.equal(stances[0].dollar, 202);
     assert.equal(calls.length, 1);
     assert.match(calls[0], /sizeThreshold=0/);
+  });
+
+  it('converts shares to dollars when currentValue is missing', async () => {
+    const fetchImpl = async (url) => {
+      assert.match(url, /\/positions/);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            conditionId: 'c-value-fallback',
+            title: 'A vs B',
+            outcome: 'A',
+            eventSlug: 'mlb-a-b-' + TODAY,
+            size: 1000,
+            avgPrice: 0.25
+          }
+        ]
+      };
+    };
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl });
+    assert.equal(stances.length, 1);
+    assert.equal(stances[0].dollar, 250);
+  });
+
+  it('drops positions with an explicit zero currentValue instead of using cost basis', async () => {
+    const fetchImpl = async (url) => {
+      assert.match(url, /\/positions/);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            conditionId: 'c-zero-value',
+            title: 'Yankees vs Red Sox',
+            outcome: 'Yankees',
+            eventSlug: 'mlb-nyy-bos-' + TODAY,
+            size: 1000,
+            avgPrice: 3,
+            initialValue: 3000,
+            currentValue: 0
+          }
+        ]
+      };
+    };
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl });
+    assert.deepEqual(stances, []);
   });
 
   it('fetchLeaderboard parses rows and caches', async () => {
