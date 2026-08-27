@@ -566,6 +566,33 @@ describe('query-propprofessor CLI command execution', () => {
     assert.equal(typeof report.nextStep, 'string');
   });
 
+  it('doctor reports the package Node 20 minimum (matches engines.node >=20.0.0)', () => {
+    const report = buildDoctorReport({ ok: true, endpoints: { screen: 'ok' } });
+    const node = report.checks.node;
+    assert.equal(node.required, '20+');
+    assert.equal(node.ok, true);
+    assert.equal(report.summary.node, 'ok');
+  });
+
+  it('doctor fails the node check on a stale Node 18 floor', () => {
+    // Simulate a Node 18 runtime: process.versions.node is read at call time,
+    // so verify the threshold math directly via the exported helper behavior.
+    const { getNodeVersionStatus } = require('../scripts/query-propprofessor');
+    // Force a Node 18 major through a patched view of process.versions.
+    const realVersions = process.versions;
+    try {
+      Object.defineProperty(process, 'versions', {
+        configurable: true,
+        value: { ...realVersions, node: '18.20.4' }
+      });
+      const status = getNodeVersionStatus();
+      assert.equal(status.ok, false);
+      assert.equal(status.required, '20+');
+    } finally {
+      Object.defineProperty(process, 'versions', { configurable: true, value: realVersions });
+    }
+  });
+
   it('builds an install-auth report with a follow-up step', () => {
     const report = buildInstallAuthReport({
       sourceFile: '/tmp/source.json',

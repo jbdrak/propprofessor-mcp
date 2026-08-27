@@ -153,3 +153,36 @@ describe('rankTennisScreenRows — dedup (2026-06-17)', () => {
     assert.equal(ranked.length, 3, 'dedup=false should preserve every book on the focus book');
   });
 });
+
+// ── Phase 1 Task 2: screen-tennis routes single-book CLV through the canonical
+// computeMovementDisposition producer (no competing inline threshold rule). ──
+describe('tennisMovementDisposition routes through canonical computeMovementDisposition', () => {
+  const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
+  const { tennisMovementDisposition } = require('../lib/screen-tennis');
+
+  it('positive clv => supportive_bouncy (matches canonical translation)', () => {
+    const fromHelper = tennisMovementDisposition(1.2);
+    const fromCanonical = computeMovementDisposition({
+      movementGrade: 'yellow',
+      movementLabel: 'supportive',
+      recentSharpMoveDirection: 'supportive',
+      fullWindowSharpMoveDirection: 'supportive',
+      clvProxyPct: 1.2
+    });
+    assert.equal(fromHelper, fromCanonical);
+    assert.equal(fromHelper, 'supportive_bouncy');
+  });
+
+  it('negative clv => adverse_full (matches canonical translation)', () => {
+    assert.equal(tennisMovementDisposition(-1.2), 'adverse_full');
+  });
+
+  it('flat clv => insufficient', () => {
+    assert.equal(tennisMovementDisposition(0.2), 'insufficient');
+  });
+
+  it('non-finite clv => insufficient', () => {
+    assert.equal(tennisMovementDisposition(null), 'insufficient');
+    assert.equal(tennisMovementDisposition(undefined), 'insufficient');
+  });
+});

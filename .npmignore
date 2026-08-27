@@ -26,7 +26,13 @@ scripts/check-*
 docs/plans/
 docs/cron-prompts/
 docs/openapi.json
-docs/STATUS.md
+# NOTE: docs/STATUS.md is intentionally SHIPPED (curated content, linked from README).
+# The docs/ subtree is governed by docs/.npmignore; a docs/STATUS.md rule here would
+# be shadowed and silently ignored, so it is intentionally omitted.
+
+# manual-only live diagnostic (scripts/live-smoke-all-tools.js) is excluded from the
+# published package via a "!" negation in package.json's "files" array, because the
+# "scripts/" allowlist entry supersedes .npmignore exact-path rules for tracked files.
 
 # repo tooling & meta
 hermes/

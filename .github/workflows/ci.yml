@@ -50,6 +50,14 @@ jobs:
       - name: Check JSDoc types
         run: npm run check:types
 
+      - name: Check strict types on critical runtime modules
+        # A narrow strict config (tsconfig.strict-critical.json) gates the
+        # critical runtime config module. Full strict mode is a broad unsafe
+        # migration (2000+ errors across the codebase); this keeps a REAL
+        # strict check green on the highest-leverage module without pretending
+        # the non-strict baseline is strict.
+        run: npx tsc -p tsconfig.strict-critical.json
+
       - name: Check for circular dependencies
         # Substitutes for the blocked `eslint-plugin-import/no-cycle` rule
         # (waiting on upstream support for ESLint 10). madge runs as a
@@ -68,10 +76,17 @@ jobs:
         # `npm audit` surfaces known CVEs in the dependency tree. We use the
         # `audit-level=moderate` threshold so we don't fail on dev-time
         # advisories, but do catch anything that would actually ship to users.
-        # Production deps (got-scraping, superjson, playwright) are the
+        # Production deps (got-scraping, playwright) are the
         # primary concern; dev deps (eslint, prettier, c8) rarely need
         # security gating.
         run: npm audit --audit-level=moderate --omit=dev
+
+      - name: Check publish tree
+        # Runs on the clean CI checkout (a fresh clone) to catch any
+        # package/runtime content that would dirty the npm tarball. This is
+        # the same guard the release publish job runs; surfacing it on every
+        # PR catches publish-tree regressions early, before a release.
+        run: npm run check:publish-tree
 
   test:
     runs-on: ubuntu-latest
@@ -100,6 +115,27 @@ jobs:
         # comfortably inside the job timeout. fail-fast: false on the matrix
         # means one flaky shard won't cancel the others.
         run: node --test --test-concurrency=1 --test-shard=${{ matrix.shard }}/3 test/*.test.js
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Run tests with coverage
+        # Canonical coverage command (c8 over the full node --test suite).
+        # Coverage thresholds are enforced by c8's config in package.json.
+        run: npm run test:coverage
 
   python-checks:
     runs-on: ubuntu-latest

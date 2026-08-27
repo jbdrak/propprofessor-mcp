@@ -2,3 +2,4 @@
 plans/
 cron-prompts/
 openapi.json
+# docs/STATUS.md is intentionally SHIPPED (curated content, linked from README).

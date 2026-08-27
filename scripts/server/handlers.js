@@ -24,6 +24,10 @@ const { createPlayDetailsHandlers } = require('./handlers/play-details');
 const { createValidatePlayHandlers } = require('./handlers/validate-play');
 const { createScreenLeaguesHandlers } = require('./handlers/screen-leagues');
 const { createTennisScreenHandler } = require('./handlers/tennis-screen');
+// Phase 3 Task 6: aggregate screen request-planning + aggregate response-cache
+// staging extracted to a dependency-injected seam so tests can pin the cache-key
+// shape and hit/miss contract without the network path. Behavior unchanged.
+const { planAggregateScreen } = require('./handlers/aggregate-screen');
 const { resolveMarkets, stripVerdictFields } = require('./handlers/handler-utils');
 const { ok } = require('../../lib/response-envelope');
 const { createPropProfessorClient } = require('../../lib/propprofessor-api');
@@ -55,7 +59,16 @@ function getDefaultMarketsForLeague(league, _targetBooks) {
 const { mapCandidateRow } = require('../../lib/propprofessor-mcp-candidate-mapper');
 const { getLimit, getLeagueRankingPreset } = require('../../lib/propprofessor-mcp-ranked-screen');
 const { categorizeError } = require('../../lib/propprofessor-mcp-stdio');
-const { reconcileValidateOverride } = require('../../lib/validate-reconcile');
+// Verdict + tier reconciliation logic extracted to lib/bet-verdict.js (Phase 1
+// Task 1). Re-exported below for backward compatibility with existing importers
+// (tests, server bootstrap) that required these from handlers.js.
+const {
+  TIER_RANK,
+  applyValidatedFields,
+  applyFinalVerdict,
+  flagContradictoryPlays,
+  promoteFinalVerdictToDisplay
+} = require('../../lib/bet-verdict');
 const { runSharpPlays } = require('../../lib/propprofessor-sharp-plays-service');
 const { getConfidenceTierStable, clearTierCache } = require('../../lib/propprofessor-risk-score');
 const { getGameContext } = require('../../lib/propprofessor-game-context');
@@ -73,353 +86,10 @@ const { filterRowsByKaiCall, filterRowsByMinEV, filterRowsByMovement } = require
 const { sortRows } = require('../../lib/propprofessor-sort-utils');
 const { getPickStats, getBacktestSummary } = require('../../lib/propprofessor-picks');
 
-// Confidence tier rank used by applyFinalVerdict to clamp conflict-downgraded
-// rows out of visually-TIER-1 territory during final verdict reconciliation.
-const TIER_RANK = { 'TIER 1': 1, 'TIER 2': 2, 'TIER 3': 3, 'TIER 4': 4 };
-
-/**
- * Merge validate_play verdict data into a candidate/play object.
- * Used by both quick_screen and recommended_bets validateTop loops.
- * Sets validatedTier, validatedConsensusBookCount, validatedMovementDisposition,
- * validatedActionableSummary, validatedEdge, validatedClv, validatedGameContext, etc.
- */
-function applyValidatedFields(target, validationResult) {
-  const verdict = validationResult.verdictSummary;
-  // play is null on lookup_failed (line gone / no longer priced). The `|| {}`
-  // fallback below would make `!play` evaluate against an object (always
-  // truthy), which is why unverified must key off the ORIGINAL null, not the
-  // fallback object.
-  const playPresent = Boolean(validationResult.play);
-  const play = validationResult.play || {};
-  const gameCtx = validationResult.gameContext || null;
-
-  target.validatedTier = verdict.displayTier || target.displayTier;
-  target.validatedVerdict = validationResult.verdict || null;
-  // Real confidence tier (TIER 1/2/3/4) from the validate impl. The verdict's
-  // displayTier is BET/CONSIDER/PASS (a different vocabulary) — do NOT confuse
-  // it with a confidence tier. finalConfidenceTier must hold a TIER string.
-  target.validatedConfidenceTier = validationResult.tier || verdict.displayTier || target.confidenceTier;
-  // Lookup_failed (play===null) means the screen row could not be rehydrated
-  // from the current feed — the requested line is gone or no longer priced.
-  // Do NOT fall back to the screen's (now-stale) consensusBookCount, or agents
-  // see a phantom "5 books" on a play that doesn't exist anymore. Mark it
-  // 0 + unverified so the drift is visible instead of buried.
-  target.validatedConsensusBookCount =
-    playPresent && Number.isFinite(Number(play.consensusBookCount)) ? Number(play.consensusBookCount) : 0;
-  target.validatedUnverified = !playPresent;
-  // Thread consensus drift so applyFinalVerdict can downgrade a BET that
-  // was built on a consensus that evaporated between screen and validate.
-  target.validatedConsensusDrift = Boolean(validationResult.consensusDrift);
-  target.validatedDriftReason = validationResult.driftReason || null;
-  // Reconcile the validate re-derivation against the screen snapshot. The
-  // validate path re-fetches and re-derives executionQuality + movementDisposition
-  // a few seconds later; it must NOT silently override a clean screen signal
-  // unless consensus actually drifted (a real, explainable change). See
-  // lib/validate-reconcile.js.
-  const reconcile = reconcileValidateOverride({
-    screenExec: target.executionQuality,
-    screenDisposition: target.movementDisposition,
-    validateExec: play.executionQuality || target.executionQuality,
-    validateDisposition: verdict.movementDisposition || target.movementDisposition,
-    consensusDrift: Boolean(validationResult.consensusDrift),
-    driftReason: validationResult.driftReason || ''
-  });
-  target.validatedMovementDisposition = reconcile.movementDisposition;
-  target.validatedExecQuality = reconcile.executionQuality;
-  target.validatedReconcileOverridden = reconcile.overridden;
-  target.validatedReconcileReason = reconcile.reason;
-  target.validatedRiskFlags = verdict.riskFlags || [];
-  target.validatedActionableSummary = verdict.actionableSummary || null;
-  target.validatedConsensusSupport = verdict.consensusSupport || null;
-  target.rationale = verdict.rationale || null;
-
-  if (gameCtx) {
-    target.validatedGameContext = gameCtx;
-  }
-  if (play) {
-    target.validatedEdge = play.consensusEdge ?? target.edge;
-    target.validatedClv = play.clvProxyPct ?? target.clv;
-    target.validatedOdds = play.odds ?? target.odds;
-  }
-}
-
-/**
- * Merge the raw screen tier and the validation verdict into ONE authoritative
- * bet/no-bet call (`finalVerdict`) so agents read a single field instead of
- * reconciling a screen BET against a validation PASS by hand.
- *
- * Resolution rule:
- *  - Prefer `validatedVerdict` (it reflects re-fetched consensus + movement).
- *  - Fall back to displayTier / kaiCall when validation didn't run.
- *  - Hard safety override: a validation hard-fail (movement adverse flag or
- *    bad execution quality) can NEVER be a BET — forced to PASS.
- * Also sets `finalConfidenceTier`, `priceDrift`, and `finalWarnings`.
- */
-function applyFinalVerdict(target) {
-  if (target.validationSkipped === true) {
-    delete target.validationFailed;
-    delete target.validationFailureReason;
-    if (Array.isArray(target.finalWarnings)) {
-      target.finalWarnings = target.finalWarnings.filter((warning) => warning !== 'validation-failed');
-    }
-  }
-  const validatedVerdict = target.validatedVerdict || null;
-  // validatedTier / displayTier are BET/CONSIDER/PASS verdicts. The real
-  // confidence tier (TIER 1/2/3/4) lives in validatedConfidenceTier.
-  let validatedTier = target.validatedConfidenceTier || target.confidenceTier || 'TIER 4';
-  let verdict = validatedVerdict || target.displayTier || target.kaiCall || 'PASS';
-
-  // Alternate-line guard: these were downgraded by resolveAlternateLines
-  // in the screen ranker. The validateTop re-grade can overwrite the tier,
-  // but alternate lines must never surface as picks — one line per side.
-  if (target.altLineFiltered) {
-    verdict = 'PASS';
-    validatedTier = 'TIER 4';
-  }
-
-  const riskFlags = target.validatedRiskFlags || [];
-  // A 'bad' that was reconciled back to the screen signal (overridden, no
-  // drift) is NOT a real execution failure — do not hard-PASS on it.
-  const execBad = target.validatedExecQuality === 'bad' && target.validatedReconcileOverridden !== true;
-  if ((riskFlags.includes('movement adverse') || execBad) && verdict === 'BET') {
-    verdict = 'PASS';
-  }
-
-  // Insufficient-movement hard guard (2026-08-15): a row whose disposition
-  // reads 'insufficient' (no direction data below the consensus floor, or a
-  // stale supportive quote) can NEVER be a BET — validation re-derivation
-  // must not resurrect the rank-time BET that the screen grade stamped off a
-  // green backend label. This mirrors the getKaiCall/getConfidenceTier guards
-  // in risk-score.js. Idempotent: only downgrades BET → PASS, never upgrades.
-  //
-  // Key off validatedMovementDisposition ONLY (not the mapped
-  // movementDisposition): mapCandidateRow recomputes the disposition from raw
-  // row fields, and a thin stub/validation-skipped row with no direction
-  // fields would recompute to 'insufficient' and clobber an explicit
-  // supportive_clean — falsely PASSing a legit row. The rank-time
-  // getKaiCall/getConfidenceTier guards already PASS insufficient rows at
-  // scan time, so this guard only needs to stop validation resurrecting one.
-  const validatedDisposition = String(target.validatedMovementDisposition || '')
-    .trim()
-    .toLowerCase();
-  if (verdict === 'BET' && validatedDisposition === 'insufficient') {
-    verdict = 'PASS';
-  }
-
-  // Consensus-drift / unverified downgrade: if the re-fetch collapsed the
-  // screen's consensus (e.g. 5 books → 1) or couldn't re-find the line at
-  // all, the pre-validation BET is no longer trustworthy. This mirrors the
-  // guard inside runValidatePlayImpl (which already downgrades to CONSIDER
-  // there) — applied again here so finalVerdict + the promoted display tier
-  // can never ship a stale BET. Idempotent: CONSIDER/PASS are left alone.
-  const validationFailed =
-    target.validationFailed === true ||
-    (!target._validated && !validatedVerdict && target.validationSkipped !== true) ||
-    (Array.isArray(target.finalWarnings) && target.finalWarnings.includes('validation-failed'));
-  if ((target.validatedConsensusDrift || target.validatedUnverified || validationFailed) && verdict === 'BET') {
-    verdict = 'CONSIDER';
-  }
-
-  // Conflict resurrection guard: a row already demoted by side-conflict
-  // resolution (conflictFlag) or totals-conflict resolution (totalsConflictWith)
-  // cannot resurrect to BET via validatedVerdict. The screen ranker already
-  // decided these are mutually-exclusive losers. Preserve the deeper demotion:
-  // a row downgraded to PASS stays PASS; one at CONSIDER stays at CONSIDER.
-  if (target.conflictFlag || target.totalsConflictWith) {
-    const conflictLoserVerdict = target.kaiCall === 'PASS' || target.displayTier === 'PASS' ? 'PASS' : 'CONSIDER';
-    if (verdict === 'BET' || verdict === 'CONSIDER') {
-      verdict = conflictLoserVerdict;
-    }
-    // Tier clamp: the screen ranker already demoted the loser's tier by one
-    // (e.g. TIER 1 → TIER 2). A validated TIER 1 re-grade must not smuggle the
-    // loser back to the top of the board — clamp the final tier to at least the
-    // screen's demoted tier so a conflict loser can never ship as visually TIER 1.
-    if (verdict !== 'BET') {
-      const screenTierRank = TIER_RANK[String(target.confidenceTier || '').trim()] || 0;
-      const validatedTierRank = TIER_RANK[String(validatedTier || '').trim()] || 4;
-      if (screenTierRank > 0 && validatedTierRank < screenTierRank) {
-        validatedTier = target.confidenceTier;
-      }
-    }
-  }
-
-  // PASS verdicts always force TIER 4 — a play can't be 'high confidence
-  // PASS' in PropProfessor's model. This must happen here (not only in
-  // promoteFinalVerdictToDisplay) so that finalConfidenceTier is set
-  // consistently with finalVerdict from the start.
-  if (verdict === 'PASS') {
-    validatedTier = 'TIER 4';
-  }
-
-  target.finalVerdict = verdict;
-  target.finalConfidenceTier = validatedTier;
-
-  const screenOdds = Number(target.odds);
-  const valOdds = Number(target.validatedOdds);
-  if (Number.isFinite(screenOdds) && Number.isFinite(valOdds)) {
-    const drift = Math.abs(valOdds - screenOdds);
-    target.priceDrift = drift;
-    if (drift > 30) {
-      target.finalWarnings = [...(target.finalWarnings || []), 'price-drift'];
-    }
-  } else {
-    target.priceDrift = null;
-  }
-
-  if (target.validatedGameContext && target.validatedGameContext.riskFlag === 'unknown') {
-    target.finalWarnings = [...(target.finalWarnings || []), 'unknown-game-context'];
-  }
-  if (!target._validated && target.validationSkipped !== true) {
-    target.finalWarnings = [...(target.finalWarnings || []), 'validation-failed'];
-  }
-  if (target.validatedConsensusDrift) {
-    target.finalWarnings = [...(target.finalWarnings || []), 'consensus-drift'];
-  }
-  if (target.validatedUnverified) {
-    target.finalWarnings = [...(target.finalWarnings || []), 'unverified-line'];
-  }
-}
-
-/**
- * Post-validation check: flag plays on the same game+market that contradict
- * each other (e.g. Over 173.5 BET alongside Under 179.5 BET for the same game). The system
- * evaluates each line independently, so a match with split market signals
- * can ship TIER 1 plays in opposite directions — which is noise, not
- * signal. This function picks the stronger side per game+market and
- * downgrades the weaker side to CONSIDER.
- *
- * Unlike the old implementation which only caught exact same-line
- * opposites (Over 179.5 vs Under 179.5), this version detects ANY
- * Over-vs-Under conflict regardless of line number.
- */
-function flagContradictoryPlays(plays) {
-  if (!Array.isArray(plays) || plays.length < 2) return;
-
-  // Group by gameId+market
-  const groups = {};
-  for (const p of plays) {
-    const key = `${p.gameId}||${p.market}`;
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(p);
-  }
-
-  for (const key of Object.keys(groups)) {
-    const group = groups[key];
-    if (group.length < 2) continue;
-
-    // Split into over and under buckets
-    const overPlays = [];
-    const underPlays = [];
-    for (const p of group) {
-      const sel = String(p.selection || '').toLowerCase();
-      if (sel.startsWith('over')) overPlays.push(p);
-      else if (sel.startsWith('under')) underPlays.push(p);
-      // Non-total plays (ML/spread) don't have over/under, skip them
-    }
-
-    if (overPlays.length === 0 || underPlays.length === 0) continue;
-    // Both sides are present — need to pick one
-
-    // Score each side by movement quality
-    function movementScore(play) {
-      const m = String(play.movementDisposition || '');
-      if (m === 'supportive_clean') return 3;
-      if (m === 'supportive_bouncy') return 2;
-      if (m === 'insufficient') return 1;
-      return -1; // adverse_full or unknown
-    }
-
-    const overMovScore = overPlays.reduce((s, p) => s + movementScore(p), 0);
-    const underMovScore = underPlays.reduce((s, p) => s + movementScore(p), 0);
-    const overBestEdge = Math.max(...overPlays.map((p) => Number(p.edge || 0)));
-    const underBestEdge = Math.max(...underPlays.map((p) => Number(p.edge || 0)));
-
-    // Primary: side with more total movement score wins.
-    // Tie-breaker: best edge.
-    let weakerPlays, strongerPlays, detail;
-    if (overMovScore > underMovScore) {
-      weakerPlays = underPlays;
-      strongerPlays = overPlays;
-      detail = 'under-side';
-    } else if (underMovScore > overMovScore) {
-      weakerPlays = overPlays;
-      strongerPlays = underPlays;
-      detail = 'over-side';
-    } else if (overBestEdge > underBestEdge) {
-      weakerPlays = underPlays;
-      strongerPlays = overPlays;
-      detail = 'under-side (tie-broken by edge)';
-    } else {
-      weakerPlays = overPlays;
-      strongerPlays = underPlays;
-      detail = 'over-side (tie-broken by edge)';
-    }
-
-    // Downgrade all plays on the weaker side
-    for (const w of weakerPlays) {
-      w.finalWarnings = [...(w.finalWarnings || []), `contradictory-signal:${detail}`];
-      if (w.finalVerdict === 'BET' || w.kaiCall === 'BET') {
-        w.finalVerdict = 'CONSIDER';
-        w.finalConfidenceTier = 'TIER 2';
-        w.displayTier = 'CONSIDER';
-        w.kaiCall = 'CONSIDER';
-      }
-    }
-
-    // Contradictory Over/Under = market hasn't settled. Downgrade the stronger
-    // side ONLY if the weaker side also shows supportive movement. If the weaker
-    // side is adverse, the market IS picking a direction — let the stronger side
-    // keep its tier. Both supportive = noise. One supportive + one adverse = signal.
-    const weakerAllSupportive = weakerPlays.every((p) => {
-      const m = String(p.movementDisposition || p.movement || '').toLowerCase();
-      return m.includes('supportive');
-    });
-
-    for (const s of strongerPlays) {
-      s.finalWarnings = [...(s.finalWarnings || []), `contradictory-signal:opposing:${detail}`];
-      if (weakerAllSupportive && (s.finalVerdict === 'BET' || s.kaiCall === 'BET')) {
-        s.finalVerdict = 'CONSIDER';
-        s.finalConfidenceTier = 'TIER 2';
-        s.displayTier = 'CONSIDER';
-        s.kaiCall = 'CONSIDER';
-      }
-    }
-  }
-}
-
-/**
- * Promote the authoritative merged verdict (finalVerdict / finalConfidenceTier)
- * into the agent-facing display fields (displayTier, confidenceTier, kaiCall)
- * so consumers that read the PRIMARY fields — not the buried finalVerdict —
- * see the validated call. Without this, an adverse-movement play ships as
- * displayTier BET because the screen's snapshot always won, and the tier
- * filters (targetTiers) keyed off confidenceTier, so PASS-level validated
- * plays leaked through as TIER 1 BETs.
- *
- * Only promotes when validation actually ran (_validated) and produced a
- * finalVerdict. If validation didn't run, the screen snapshot stands.
- */
-function promoteFinalVerdictToDisplay(target) {
-  if (!target._validated) return;
-  if (!target.finalVerdict) return;
-  // finalVerdict is the single authoritative bet/no-bet call.
-  target.displayTier = target.finalVerdict;
-  target.kaiCall = target.finalVerdict;
-  if (target.finalConfidenceTier) {
-    target.confidenceTier = target.finalConfidenceTier;
-  }
-  // GUARD: a PASS verdict always forces TIER 4 regardless of any
-  // stale TIER 1/2/3 that may have leaked from the screen snapshot.
-  // Without this, promoteFinalVerdictToDisplay would ship TIER 1 + PASS
-  // (structurally impossible per gradeRiskToTierAndCall's contract).
-  if (target.finalVerdict === 'PASS') {
-    target.confidenceTier = 'TIER 4';
-  }
-  // Add quick summary for agent decision-making
-  const odds = target.odds ? ` at ${target.odds}` : '';
-  const selection = target.selection || target.participant || target.pick || '';
-  target.summary = `${target.finalVerdict} ${selection}${odds}`.trim();
-}
+// NOTE: applyValidatedFields / applyFinalVerdict / flagContradictoryPlays /
+// promoteFinalVerdictToDisplay (and TIER_RANK) were extracted to
+// lib/bet-verdict.js on 2026-08-27. They are imported at the top of this file
+// and re-exported at the bottom for backward compatibility.
 
 /**
  * Strip heavy post-validation fields from the quick_screen response when
@@ -707,104 +377,37 @@ function createMcpHandlers({
       // (prevents cross-call tier drift from stale cache state).
       clearTierCache();
 
-      // === mode presets (folded-in retired tools) ===
-      // quick_screen always screens through handlers.sharp_plays internally,
-      // so 'sharp' is the same as the default broad scan — the mode flag
-      // exists for agent ergonomics / backward-compat routing. The other two
-      // presets mirror the retired recommended_bets and tonight_bets tools.
-      // Explicit args always win over these preset defaults.
-      const mode = args.mode;
-      if (mode === 'recommended') {
-        if (!(Array.isArray(args.leagues) && args.leagues.length) && !args.league) {
-          args.leagues = ['WNBA', 'NBA', 'MLB', 'NFL'];
-        }
-        if (!(Array.isArray(args.targetTiers) && args.targetTiers.length)) {
-          args.targetTiers = ['TIER 1', 'TIER 2'];
-        }
-        if (args.validate === undefined) args.validate = true;
-        if (args.hideVerdict === undefined) args.hideVerdict = true;
-      } else if (mode === 'tonight') {
-        if (!(Array.isArray(args.kaiCall) && args.kaiCall.length)) {
-          args.kaiCall = ['BET', 'CONSIDER'];
-        }
-        if (!args.sortBy) args.sortBy = 'start';
-        if (!args.sortDir) args.sortDir = 'asc';
-        if (args.includeResearch === undefined) args.includeResearch = true;
-        if (!Number.isFinite(Number(args.limit))) args.limit = 5;
-      }
-      // ('sharp' === default sharp_plays-backed scan; no override needed.)
+      // === Aggregate screen planning stage (Phase 3 Task 6) ===
+      // Mode presets, derived request scalars, lite field coercion, and the
+      // aggregate response-cache key/lookup were extracted to
+      // handlers/aggregate-screen.js#planAggregateScreen to create a real
+      // dependency-injected seam (responseCache is injected; tests pin the
+      // cache-key shape and hit/miss contract). Behavior is identical to the
+      // previous inlined block.
+      // NOTE: planAggregateScreen mutates args (mode presets + lite compact/
+      // fields) in place, exactly as the previous inline code did.
+      const plan = planAggregateScreen(args, { responseCache });
+      const {
+        targetBooks,
+        leagues,
+        markets,
+        limit,
+        maxPerMarket,
+        scanLimit,
+        lookbackHours,
+        includeResearch,
+        debug,
+        topPick,
+        lite
+      } = plan;
 
-      const targetBooks =
-        Array.isArray(args.books) && args.books.length ? args.books : args.book ? [args.book] : ['NoVigApp'];
-      const leagues =
-        Array.isArray(args.leagues) && args.leagues.length
-          ? args.leagues
-          : args.league
-            ? [args.league]
-            : Array.from(DEFAULT_LEAGUES);
-      const markets =
-        Array.isArray(args.markets) && args.markets.length ? args.markets : args.market ? [args.market] : null; // null = use per-league defaults below
-      const limit = Number.isFinite(Number(args.limit)) ? Number(args.limit) : 100;
-      const maxPerMarket = Number.isFinite(Number(args.maxPerMarket)) ? Number(args.maxPerMarket) : null;
-      const scanLimit = Number.isFinite(Number(args.scanLimit)) ? Number(args.scanLimit) : 100;
-      const lookbackHours = Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : 6;
-      const includeResearch = args.includeResearch !== undefined ? Boolean(args.includeResearch) : true;
-      const debug = Boolean(args.debug);
-      const topPick = Boolean(args.topPick);
-      // lite: token-light mode. Implies compact + a fixed essential field set.
-      const lite = Boolean(args.lite);
-      if (lite) {
-        args.compact = true;
-        args.fields = [
-          'game',
-          'selection',
-          'odds',
-          'edge',
-          'clv',
-          'confidenceTier',
-          'riskScore',
-          'startCST',
-          'movementDisposition',
-          'riskFlag',
-          'screenScore'
-        ];
+      if (plan.cachedResponse) {
+        return plan.cachedResponse;
       }
-
-      // === response cache (aggregate level) ===
-      // Cache the FULL quick_screen response keyed on the request shape.
-      // Per-league screen_ranked calls are already cached individually, but
-      // the fan-out loop still burns time iterating leagues. This cache
-      // short-circuits the entire call when args haven't changed.
-      // Bypassed when validate:true (must re-fetch for fresh validation).
-      const canCacheAggregate = !args.validate && args.cache !== false;
-      if (canCacheAggregate) {
-        const aggregateCacheKey = JSON.stringify({
-          _qs: 1,
-          leagues: (leagues || []).slice().sort(),
-          markets: (markets || []).slice().sort(),
-          books: (targetBooks || []).slice().sort(),
-          limit,
-          cardWindow: args.cardWindow || 'today',
-          includeProps: args.includeProps === true,
-          // Request-shaping options MUST be part of the key: a response
-          // produced for one option set must never be served for a different
-          // one. Two calls that differ in any of these must miss the cache.
-          targetTiers: (Array.isArray(args.targetTiers) ? args.targetTiers : []).slice().sort(),
-          kaiCall: (Array.isArray(args.kaiCall) ? args.kaiCall : []).slice().sort(),
-          movement: (Array.isArray(args.movement) ? args.movement : []).slice().sort(),
-          minEV: args.minEV === undefined ? null : Number(args.minEV),
-          verbosity: String(args.verbosity || 'full').toLowerCase(),
-          includeResearch: includeResearch === true,
-          lite: lite === true
-        });
-        const cached = responseCache.get(aggregateCacheKey);
-        if (cached) {
-          return { ...cached, resultMeta: { ...cached.resultMeta, cached: true } };
-        }
-        // Store the key on a temp so the return path can cache the response
-        args._aggregateCacheKey = aggregateCacheKey;
+      // Stash the cache key so the return path can cache the assembled response.
+      if (plan.aggregateCacheKey) {
+        args._aggregateCacheKey = plan.aggregateCacheKey;
       }
-      // === end response cache ===
 
       const allAliasesUsed = [];
 
@@ -2105,4 +1708,14 @@ function createMcpHandlers({
   return handlers;
 }
 
-module.exports = { createMcpHandlers, mapWithConcurrency, applyValidatedFields, applyFinalVerdict };
+module.exports = {
+  createMcpHandlers,
+  mapWithConcurrency,
+  // Re-exported from lib/bet-verdict.js (extracted in Phase 1 Task 1) for
+  // backward compatibility with existing importers (tests, server bootstrap).
+  TIER_RANK,
+  applyValidatedFields,
+  applyFinalVerdict,
+  flagContradictoryPlays,
+  promoteFinalVerdictToDisplay
+};

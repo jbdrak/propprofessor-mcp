@@ -10,7 +10,11 @@ const {
   matchPlayToWallet,
   classifyPosition,
   otherSideOfMatchup,
-  normForMatch
+  normForMatch,
+  matchupTeamsEqual,
+  matchupTeamNorms,
+  FETCH_TIMEOUT_MS,
+  FALLBACK_FETCH_TIMEOUT_MS
 } = require('../lib/propprofessor-poly-wallets');
 
 // --- pure helpers -----------------------------------------------------------
@@ -562,5 +566,151 @@ describe('fetch layer with injected fetch', () => {
     const stances = await fetchWalletStances('0xaddr', { fetchImpl });
     assert.equal(stances.length, 1);
     assert.equal(stances[0].eventSlug, 'mlb-nyy-bos-' + TODAY);
+  });
+});
+
+// --- bounded timeout (fail-closed) -------------------------------------------
+
+// A fetch shim that mirrors real `fetch`: it resolves/rejects normally, but if
+// the request is aborted (our timeout signal or a caller signal) it rejects
+// with an AbortError so the caller's catch degrades to its empty value.
+function makeFetch({ mode }) {
+  return (url, init) => {
+    const signal = init && init.signal;
+    if (mode === 'never') {
+      return new Promise((_resolve, reject) => {
+        if (signal) {
+          if (signal.aborted) return reject(abortError());
+          signal.addEventListener('abort', () => reject(abortError()), { once: true });
+        }
+      });
+    }
+    if (mode === 'fast') {
+      if (signal && signal.aborted) return Promise.reject(abortError());
+      return Promise.resolve({ ok: true, status: 200, json: async () => [] });
+    }
+    return Promise.resolve({ ok: false, status: 500, json: async () => [] });
+  };
+}
+function abortError() {
+  return typeof DOMException === 'function'
+    ? new DOMException('The operation was aborted', 'AbortError')
+    : new Error('The operation was aborted');
+}
+
+describe('fetch timeouts (bounded, fail-closed)', () => {
+  it('gives up and returns [] when the leaderboard fetch never resolves', async () => {
+    const fetchImpl = makeFetch({ mode: 'never' });
+    const start = Date.now();
+    const lb = await fetchLeaderboard(5, { fetchImpl, timeoutMs: 150 });
+    const elapsed = Date.now() - start;
+    assert.deepEqual(lb, []);
+    assert.ok(elapsed < 1200, 'must not hang; aborted within ~1s, got ' + elapsed + 'ms');
+    assert.ok(elapsed >= 120, 'should wait at least the timeout window');
+  });
+
+  it('gives up and returns [] when positions + activity both never resolve', async () => {
+    const fetchImpl = makeFetch({ mode: 'never' });
+    const start = Date.now();
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl, timeoutMs: 150, fallbackTimeoutMs: 150 });
+    const elapsed = Date.now() - start;
+    assert.deepEqual(stances, []);
+    assert.ok(elapsed < 1200, 'must not hang; aborted within ~1s, got ' + elapsed + 'ms');
+  });
+
+  it('honors a caller-provided AbortSignal alongside the timeout', async () => {
+    const ac = new AbortController();
+    setTimeout(() => ac.abort(), 100);
+    const fetchImpl = makeFetch({ mode: 'never' });
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl, timeoutMs: 5000, signal: ac.signal });
+    assert.deepEqual(stances, []);
+  });
+
+  it('completes a fast resolve well under the timeout budget', async () => {
+    const fetchImpl = makeFetch({ mode: 'fast' });
+    const start = Date.now();
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl, timeoutMs: 5000 });
+    assert.deepEqual(stances, []);
+    assert.ok(Date.now() - start < 1000, 'fast path is not delayed by the timeout');
+  });
+
+  it('exposes sane default timeout constants', () => {
+    assert.ok(FETCH_TIMEOUT_MS >= 1000 && FETCH_TIMEOUT_MS <= 30000, 'leaderboard/positions timeout');
+    assert.ok(FALLBACK_FETCH_TIMEOUT_MS >= 1000 && FALLBACK_FETCH_TIMEOUT_MS < FETCH_TIMEOUT_MS, 'tighter fallback');
+  });
+});
+
+// --- matchup attribution (cross-game) ----------------------------------------
+
+describe('classifyPosition — cross-game attribution', () => {
+  it('does NOT attribute a Lakers play to a Lakers-vs-Celtics stance', () => {
+    const play = { game: 'Los Angeles Lakers vs Denver Nuggets', selection: 'Los Angeles Lakers' };
+    const stance = { title: 'Los Angeles Lakers vs. Boston Celtics', outcome: 'Los Angeles Lakers', dollar: 9000 };
+    assert.equal(classifyPosition(play, stance), null, 'different opponent -> no claim');
+  });
+
+  it('DOES attribute a Lakers play to a Lakers-vs-Nuggets stance', () => {
+    const play = { game: 'Los Angeles Lakers vs Denver Nuggets', selection: 'Los Angeles Lakers' };
+    const stance = { title: 'Los Angeles Lakers vs. Denver Nuggets', outcome: 'Los Angeles Lakers', dollar: 9000 };
+    assert.equal(classifyPosition(play, stance), 'aligned');
+  });
+
+  it('against on the correct game only (not a different Lakers game)', () => {
+    const play = { game: 'Los Angeles Lakers vs Denver Nuggets', selection: 'Denver Nuggets' };
+    const wrong = { title: 'Los Angeles Lakers vs. Boston Celtics', outcome: 'Los Angeles Lakers', dollar: 9000 };
+    const right = { title: 'Los Angeles Lakers vs. Denver Nuggets', outcome: 'Los Angeles Lakers', dollar: 9000 };
+    assert.equal(classifyPosition(play, wrong), null);
+    assert.equal(classifyPosition(play, right), 'against');
+  });
+
+  it('still falls back to selection-containment when the play has no matchup', () => {
+    // No game context: legacy conservative rule must still attribute on a
+    // shared selection name so single-team / title-only scans keep working.
+    const play = { selection: 'Milwaukee Brewers' };
+    const stance = { title: 'Milwaukee Brewers vs. Los Angeles Dodgers', outcome: 'Milwaukee Brewers', dollar: 5000 };
+    assert.equal(classifyPosition(play, stance), 'aligned');
+  });
+});
+
+describe('matchupTeamsEqual', () => {
+  it('treats a short and a full matchup as the same game', () => {
+    assert.equal(matchupTeamsEqual('Brewers vs Dodgers', 'Milwaukee Brewers vs Los Angeles Dodgers'), true);
+  });
+  it('rejects two different games sharing a team', () => {
+    assert.equal(matchupTeamsEqual('Lakers vs Nuggets', 'Lakers vs Celtics'), false);
+    assert.equal(matchupTeamsEqual('Yankees vs Red Sox', 'Yankees vs Mets'), false);
+  });
+  it('returns false for non-matchup strings', () => {
+    assert.equal(matchupTeamsEqual('Will Sonego win?', 'Sonego vs Tiafoe'), false);
+    assert.equal(matchupTeamsEqual('Over 9.5 Games', 'Lakers vs Nuggets'), false);
+  });
+  it('matchupTeamNorms returns the normalized teams', () => {
+    assert.deepEqual(matchupTeamNorms('Milwaukee Brewers vs Los Angeles Dodgers'), [
+      'MILWAUKEE BREWERS',
+      'LOS ANGELES DODGERS'
+    ]);
+  });
+});
+
+// --- totals: line fidelity preserved -----------------------------------------
+
+describe('classifyPosition — totals line mismatch (regression)', () => {
+  it('null when the total line differs even on the correct game (8.5 vs 9.5)', () => {
+    const play = { game: 'Padres vs Mets', selection: 'Over 9.5' };
+    const stance = { title: 'San Diego Padres vs. New York Mets: O/U 8.5', outcome: 'Over', dollar: 20000 };
+    assert.equal(classifyPosition(play, stance), null);
+  });
+
+  it('aligned when the total line matches on the correct game', () => {
+    const play = { game: 'Padres vs Mets', selection: 'Over 8.5' };
+    const stance = { title: 'San Diego Padres vs. New York Mets: O/U 8.5', outcome: 'Over', dollar: 20000 };
+    assert.equal(classifyPosition(play, stance), 'aligned');
+  });
+
+  it('null when a total stance on the wrong game shares the team', () => {
+    // Padres-vs-Mets stance must not attribute to a Padres-vs-Dodgers play.
+    const play = { game: 'Padres vs Dodgers', selection: 'Over 8.5' };
+    const stance = { title: 'San Diego Padres vs. New York Mets: O/U 8.5', outcome: 'Over', dollar: 20000 };
+    assert.equal(classifyPosition(play, stance), null);
   });
 });

@@ -32,6 +32,7 @@
     "lib/",
     "bin/",
     "scripts/",
+    "!scripts/live-smoke-all-tools.js",
     "examples/",
     "config.default.json",
     "README.md",

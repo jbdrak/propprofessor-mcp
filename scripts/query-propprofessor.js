@@ -133,11 +133,14 @@ function buildInstallAuthReport(result) {
 }
 
 function getNodeVersionStatus() {
+  // Keep this in sync with the "node" engine in package.json (>=20.0.0).
+  // The doctor must report the package's actual minimum, not a stale floor.
+  const MIN_NODE_MAJOR = 20;
   const major = Number(String(process.versions?.node || '').split('.')[0] || 0);
   return {
-    ok: major >= 18,
+    ok: major >= MIN_NODE_MAJOR,
     current: process.versions?.node || 'unknown',
-    required: '18+'
+    required: `${MIN_NODE_MAJOR}+`
   };
 }
 
@@ -149,7 +152,7 @@ function buildDoctorReport(healthResult) {
 
   let nextStep = 'Ready to add this server to your MCP client.';
   if (!node.ok) {
-    nextStep = 'Install Node.js 18 or newer, then rerun `pp-query doctor`.';
+    nextStep = `Install Node.js ${node.required} or newer, then rerun \`pp-query doctor\`.`;
   } else if (!auth.ok) {
     nextStep = `Save your PropProfessor browser session to ${auth.defaultUserAuthFile} or set AUTH_FILE, then rerun \`pp-query doctor\`.`;
   } else if (sessionExpiry && sessionExpiry.status === 'expired') {
@@ -931,6 +934,7 @@ module.exports = {
   buildHelpText,
   buildInstallAuthReport,
   getCommandInventory,
+  getNodeVersionStatus,
   parseArgs,
   resolveScreenCommand,
   resolveSharpPlaysMarkets,

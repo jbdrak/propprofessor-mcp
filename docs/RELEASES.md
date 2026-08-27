@@ -1,5 +1,10 @@
 # Release History
 
+> **HISTORICAL ARCHIVE — do not rely on for current state.**
+> These notes were last curated at v2.2.0 and are retained for provenance only.
+> They are not updated per release and may reference retired tools or superseded behavior.
+> The authoritative, current version-by-version history lives in [CHANGELOG.md](../CHANGELOG.md).
+
 Curated "what's new" highlights for PropProfessor MCP releases. The authoritative version-by-version release history lives in [CHANGELOG.md](../CHANGELOG.md).
 
 ---

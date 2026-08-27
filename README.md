@@ -668,23 +668,23 @@ Release: push a `v*` tag → CI runs lint + tests on Node 20 + 22 → publishes 
 
 ## 📚 Docs Index
 
-| Doc                                                                  | What it covers                                                                  |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [README](README.md)                                                  | Quick start, auth, CLI reference, tool list, tuning, architecture               |
-| [CONFIG.md](CONFIG.md)                                               | Environment variables, book config, token compression                           |
-| [INSTALL.md](INSTALL.md)                                             | Install, first-run setup, MCP client wiring                                     |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                                   | How to add a tool, testing, PRs                                                 |
-| [MAINTAINERS.md](MAINTAINERS.md)                                     | Release process, smoke tests                                                    |
-| [docs/METHODOLOGY.md](docs/METHODOLOGY.md)                           | Full ranking math: movement grade → risk score → tier + hysteresis              |
-| [docs/BACKTESTING.md](docs/BACKTESTING.md)                           | Synthetic & real-outcome backtest methodology                                   |
-| [docs/AGENT_PROMPT.md](docs/AGENT_PROMPT.md)                         | Full system prompt for AI agents using PropProfessor                            |
-| [docs/agent-guide.md](docs/agent-guide.md)                           | 5 patterns every AI agent needs (cheat-sheet)                                   |
-| [docs/RESPONSE_SHAPES.md](docs/RESPONSE_SHAPES.md)                   | JSON response shapes for all tools                                              |
-| [docs/HERMES_SKILL.md](docs/HERMES_SKILL.md)                         | Hermes Agent integration skill                                                  |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                           | Response size, latency benchmarks, token usage                                  |
-| [docs/MARKET-BOOK-AVAILABILITY.md](docs/MARKET-BOOK-AVAILABILITY.md) | Which markets each book supports, per league                                    |
-| [docs/RELEASES.md](docs/RELEASES.md)                                 | Curated "what's new" notes; [CHANGELOG.md](CHANGELOG.md) is the version history |
-| [llms.txt](llms.txt)                                                 | AI agent discovery file (compact overview for LLMs)                             |
+| Doc                                                                  | What it covers                                                                                                        |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [README](README.md)                                                  | Quick start, auth, CLI reference, tool list, tuning, architecture                                                     |
+| [CONFIG.md](CONFIG.md)                                               | Environment variables, book config, token compression                                                                 |
+| [INSTALL.md](INSTALL.md)                                             | Install, first-run setup, MCP client wiring                                                                           |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                   | How to add a tool, testing, PRs                                                                                       |
+| [MAINTAINERS.md](MAINTAINERS.md)                                     | Release process, smoke tests                                                                                          |
+| [docs/METHODOLOGY.md](docs/METHODOLOGY.md)                           | Full ranking math: movement grade → risk score → tier + hysteresis                                                    |
+| [docs/BACKTESTING.md](docs/BACKTESTING.md)                           | Synthetic & real-outcome backtest methodology                                                                         |
+| [docs/AGENT_PROMPT.md](docs/AGENT_PROMPT.md)                         | Full system prompt for AI agents using PropProfessor                                                                  |
+| [docs/agent-guide.md](docs/agent-guide.md)                           | 5 patterns every AI agent needs (cheat-sheet)                                                                         |
+| [docs/RESPONSE_SHAPES.md](docs/RESPONSE_SHAPES.md)                   | JSON response shapes for all tools                                                                                    |
+| [docs/HERMES_SKILL.md](docs/HERMES_SKILL.md)                         | Hermes Agent integration skill                                                                                        |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                           | Response size, latency benchmarks, token usage                                                                        |
+| [docs/MARKET-BOOK-AVAILABILITY.md](docs/MARKET-BOOK-AVAILABILITY.md) | Which markets each book supports, per league                                                                          |
+| [docs/RELEASES.md](docs/RELEASES.md)                                 | Historical "what's new" archive (frozen at v2.2.0); [CHANGELOG.md](CHANGELOG.md) is the authoritative version history |
+| [llms.txt](llms.txt)                                                 | AI agent discovery file (compact overview for LLMs)                                                                   |
 
 ## 📝 License
 

@@ -69,6 +69,45 @@ test('package content verifier rejects tests, auth data, and scratch scripts', (
   assert.ok(failures.some((f) => f.includes('docs/openapi.json')));
 });
 
+test('package content verifier rejects the manual-only live smoke diagnostic', () => {
+  const failures = verify([
+    'package.json',
+    'README.md',
+    'INSTALL.md',
+    'CHANGELOG.md',
+    'LICENSE',
+    'lib/propprofessor-api.js',
+    'bin/pp',
+    'scripts/propprofessor-mcp-server.js',
+    'scripts/fetch-sofascore.py',
+    'docs/agent-guide.md',
+    'scripts/live-smoke-all-tools.js'
+  ]);
+  assert.ok(
+    failures.some((f) => f.includes('scripts/live-smoke-all-tools.js')),
+    'scripts/live-smoke-all-tools.js must never ship (manual-only live diagnostic)'
+  );
+});
+
+test('package content verifier accepts a manifest without the live smoke diagnostic', () => {
+  const failures = verify([
+    'package.json',
+    'README.md',
+    'INSTALL.md',
+    'CHANGELOG.md',
+    'LICENSE',
+    'lib/propprofessor-api.js',
+    'bin/pp',
+    'scripts/propprofessor-mcp-server.js',
+    'scripts/fetch-sofascore.py',
+    'docs/agent-guide.md'
+  ]);
+  assert.ok(
+    !failures.some((f) => f.includes('scripts/live-smoke-all-tools.js')),
+    'absence of scripts/live-smoke-all-tools.js must not be flagged'
+  );
+});
+
 test('publish-tree parser reads porcelain entries', () => {
   const parsed = parse([' M lib/foo.js', '?? lib/record-new.js', 'D  lib/old.js']);
   assert.deepEqual(parsed, [

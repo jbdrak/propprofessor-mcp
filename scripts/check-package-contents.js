@@ -50,6 +50,8 @@ const FORBIDDEN = [
   { type: 'pattern', value: /^scripts\/_scan-/ },
   { type: 'pattern', value: /^scripts\/check-/ },
   { type: 'pattern', value: /^scripts\/novig-scan\.js$/ },
+  // manual-only live diagnostic — requires a logged-in session, must never publish
+  { type: 'exact', value: 'scripts/live-smoke-all-tools.js' },
   // generated/local documentation artifacts
   { type: 'prefix', value: 'docs/plans/' },
   { type: 'prefix', value: 'docs/cron-prompts/' },

@@ -506,3 +506,99 @@ describe('computeMovementSummary', () => {
     assert.ok(summary.includes('sharp originator Circa'), `summary was: ${summary}`);
   });
 });
+
+describe('Phase 1 Task 2 — canonical movement-disposition regression fixtures', () => {
+  it('single-book tennis history (clv > 0.5) => supportive_bouncy', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'yellow',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        clvProxyPct: 1.2
+      }),
+      'supportive_bouncy'
+    );
+  });
+
+  it('single-book tennis history (clv < -0.5) => adverse_full', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'yellow',
+        movementLabel: 'adverse',
+        recentSharpMoveDirection: '',
+        fullWindowSharpMoveDirection: 'adverse',
+        clvProxyPct: -1.2
+      }),
+      'adverse_full'
+    );
+  });
+
+  it('single-book tennis history (flat clv) => insufficient', () => {
+    assert.equal(computeMovementDisposition({}), 'insufficient');
+  });
+
+  it('sharp confirmation upgrades insufficient_history => supportive_bouncy', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'yellow',
+        movementLabel: 'insufficient_history',
+        recentSharpMoveDirection: 'insufficient_history',
+        fullWindowSharpMoveDirection: 'insufficient_history',
+        sharpBookMovementConfirmed: true,
+        sharpBookMovementSource: 'Pinnacle'
+      }),
+      'supportive_bouncy'
+    );
+  });
+
+  it('strong consensus (>=5 books, clv >= 0) upgrades insufficient_history => supportive_bouncy', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'yellow',
+        movementLabel: 'insufficient_history',
+        recentSharpMoveDirection: 'insufficient_history',
+        fullWindowSharpMoveDirection: 'insufficient_history',
+        consensusBookCount: 6,
+        clvProxyPct: 0.4
+      }),
+      'supportive_bouncy'
+    );
+  });
+
+  it('adverse recent direction => adverse_recent', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'yellow',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'adverse',
+        fullWindowSharpMoveDirection: 'supportive'
+      }),
+      'adverse_recent'
+    );
+  });
+
+  it('adverse full-window => adverse_full', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'yellow',
+        movementLabel: 'adverse',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'adverse'
+      }),
+      'adverse_full'
+    );
+  });
+
+  it('insufficient history with no confirmation/consensus => insufficient', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'yellow',
+        movementLabel: 'insufficient_history',
+        recentSharpMoveDirection: 'insufficient_history',
+        fullWindowSharpMoveDirection: 'insufficient_history'
+      }),
+      'insufficient'
+    );
+  });
+});
