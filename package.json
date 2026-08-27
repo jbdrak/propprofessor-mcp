@@ -116,7 +116,8 @@
     "exclude": [
       "test/",
       "node_modules/",
-      "coverage/"
+      "coverage/",
+      "lib/tool-definitions/types.js"
     ],
     "reporter": [
       "text-summary",
