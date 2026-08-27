@@ -98,6 +98,59 @@ describe('analyzePlayerPropBet', () => {
     assert.equal(result.verdict, 'pass');
     assert.equal(result.bestMatch, null);
   });
+
+  it('returns a no verdict when the best match has negative EV', () => {
+    // Query the Under side so the negative-EV row (DraftKings, ev -1.1) wins.
+    const result = analyzePlayerPropBet(
+      {
+        player: 'James Harden',
+        side: 'under',
+        line: 18.5,
+        market: 'Points'
+      },
+      rows
+    );
+
+    assert.equal(result.verdict, 'no');
+    assert.equal(result.bestMatch.book, 'DraftKings');
+    assert.equal(result.bestMatch.ev, -1.1);
+    assert.ok(result.confidence > 0 && result.confidence <= 95, `confidence in range, got ${result.confidence}`);
+  });
+
+  it('returns pass (not yes/no) when the best match EV is exactly zero', () => {
+    const zeroEvRows = [
+      {
+        book: 'FanDuel',
+        participant: 'Luka Doncic',
+        market: 'Player Points',
+        selection: 'Luka Doncic Over 27.5',
+        odds: -110,
+        ev: 0
+      }
+    ];
+    const result = analyzePlayerPropBet(
+      { player: 'Luka Doncic', side: 'over', line: 27.5, market: 'Points' },
+      zeroEvRows
+    );
+    assert.equal(result.verdict, 'pass');
+    assert.equal(result.bestMatch.book, 'FanDuel');
+  });
+
+  it('returns pass with no match when rows is not an array (null/undefined safe)', () => {
+    const fromNull = analyzePlayerPropBet({ player: 'X', side: 'over', line: 1, market: 'Points' }, null);
+    assert.equal(fromNull.verdict, 'pass');
+    assert.equal(fromNull.bestMatch, null);
+    assert.deepEqual(fromNull.alternatives, []);
+    assert.equal(fromNull.rationale[0], 'No matching market found');
+  });
+
+  it('surfaces alternatives (runner-up matches) when present', () => {
+    const result = analyzePlayerPropBet({ player: 'James Harden', side: 'over', line: 18.5, market: 'Points' }, rows);
+    // FanDuel (ev 6.2) is best; DraftKings Under is the only other candidate.
+    assert.ok(Array.isArray(result.alternatives), 'alternatives is an array');
+    assert.equal(result.alternatives.length, 1);
+    assert.equal(result.alternatives[0].book, 'DraftKings');
+  });
 });
 
 describe('extractScreenRows', () => {

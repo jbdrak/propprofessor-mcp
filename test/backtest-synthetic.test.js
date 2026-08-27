@@ -110,4 +110,24 @@ describe('synthetic backtest', () => {
     const { errorCount } = runBacktest({ scenarios: 100 });
     assert.equal(errorCount, 0, 'No errors should occur during backtest');
   });
+
+  it('TIER 1 hit rate stays above coin-flip across multiple seeds (ranking engine differentiates top tier)', () => {
+    // Synthetic validation: the strongest-scenario tier must beat 50% (the
+    // moneyline base rate) consistently. Catches regressions where the ranking
+    // engine stops rewarding supportive movement + deep consensus + CLV.
+    const seeds = [1, 42, 777, 12345, 20260826, 99, 314, 555];
+    let aboveCoinflip = 0;
+    for (const seed of seeds) {
+      setRandomSeed(seed);
+      const { results } = runBacktest({ scenarios: 1500 });
+      const t1 = results['TIER 1'] || { wins: 0, losses: 0 };
+      const total = t1.wins + t1.losses;
+      if (total > 0) {
+        const rate = t1.wins / total;
+        if (rate > 0.5) aboveCoinflip += 1;
+      }
+    }
+    // The engine reliably separates TIER 1 from coin-flip across seeds.
+    assert.ok(aboveCoinflip >= seeds.length - 1, `TIER 1 above 50% in ${aboveCoinflip}/${seeds.length} seeds`);
+  });
 });
