@@ -14,7 +14,8 @@ const {
   matchupTeamsEqual,
   matchupTeamNorms,
   FETCH_TIMEOUT_MS,
-  FALLBACK_FETCH_TIMEOUT_MS
+  FALLBACK_FETCH_TIMEOUT_MS,
+  timeoutSignal
 } = require('../lib/propprofessor-poly-wallets');
 
 // --- pure helpers -----------------------------------------------------------
@@ -637,6 +638,118 @@ describe('fetch timeouts (bounded, fail-closed)', () => {
   it('exposes sane default timeout constants', () => {
     assert.ok(FETCH_TIMEOUT_MS >= 1000 && FETCH_TIMEOUT_MS <= 30000, 'leaderboard/positions timeout');
     assert.ok(FALLBACK_FETCH_TIMEOUT_MS >= 1000 && FALLBACK_FETCH_TIMEOUT_MS < FETCH_TIMEOUT_MS, 'tighter fallback');
+  });
+});
+
+// --- timeout signal adapter (portable, no pending-timer leak) ----------------
+//
+// Regression for the GitHub Node 20/22 CI failure (run 33107261873,
+// cancelledByParent: "Promise resolution is still pending but the event loop
+// has already resolved"). The OLD helper returned AbortSignal.timeout(ms),
+// whose internal timer promise stays pending after the request settles; on
+// Node 20/22 exiting before it fires aborts the process with that error. The
+// portable adapter owns an AbortController + setTimeout and clears the timer
+// eagerly — on abort AND on completion — so no timer/timeout handle is ever
+// left pending. These assertions are deterministic and need no live provider.
+
+describe('timeoutSignal (portable, no pending-timer leak)', () => {
+  // Spy on the global timer pair so we can prove the adapter OWNS its timer and
+  // CLEARS it — the exact property the old AbortSignal.timeout path lacked
+  // (its internal timer promise stayed pending and aborted Node 20/22 on exit).
+  // AbortSignal.timeout/any do NOT go through globalThis.setTimeout, so under
+  // the old code these spies observe nothing and the assertions fail (RED).
+  function withTimerSpy(fn) {
+    const realSetTimeout = globalThis.setTimeout;
+    const realClearTimeout = globalThis.clearTimeout;
+    const handles = [];
+    const cleared = new Set();
+    globalThis.setTimeout = function (cb, ms, ...rest) {
+      const h = realSetTimeout(cb, ms, ...rest);
+      handles.push(h);
+      return h;
+    };
+    globalThis.clearTimeout = function (h) {
+      cleared.add(h);
+      return realClearTimeout(h);
+    };
+    return Promise.resolve()
+      .then(fn)
+      .finally(() => {
+        globalThis.setTimeout = realSetTimeout;
+        globalThis.clearTimeout = realClearTimeout;
+      })
+      .then(() => ({ handles, cleared }));
+  }
+
+  it('returns a non-aborted signal that aborts after the timeout window', async () => {
+    const { signal } = timeoutSignal(120);
+    assert.ok(signal && typeof signal.addEventListener === 'function', 'returns a signal');
+    assert.equal(signal.aborted, false, 'not aborted before the window');
+    await new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+    assert.equal(signal.aborted, true, 'aborts after the window');
+  });
+
+  it('composes a caller AbortSignal with the timeout (either cancels)', async () => {
+    const ac = new AbortController();
+    const { signal } = timeoutSignal(5000, ac.signal);
+    assert.equal(signal.aborted, false);
+    ac.abort();
+    assert.equal(signal.aborted, true, 'caller abort cancels the composed signal');
+  });
+
+  it('a caller abort cancels the request BEFORE the (long) timeout', async () => {
+    const ac = new AbortController();
+    const start = Date.now();
+    setTimeout(() => ac.abort(), 80);
+    const { signal } = timeoutSignal(5000, ac.signal);
+    await new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+    const elapsed = Date.now() - start;
+    assert.ok(elapsed < 1000, 'aborted on caller signal, not the 5s timeout; got ' + elapsed + 'ms');
+  });
+
+  it('owns a timer via setTimeout AND clears it when aborted early', async () => {
+    const { handles, cleared } = await withTimerSpy(async () => {
+      const ac = new AbortController();
+      timeoutSignal(5000, ac.signal);
+      ac.abort();
+      await new Promise((r) => globalThis.setTimeout(r, 0));
+    });
+    assert.ok(handles.length >= 1, 'adapter owns a timer via globalThis.setTimeout (old AbortSignal.timeout does not)');
+    assert.ok(
+      handles.some((h) => cleared.has(h)),
+      'adapter cleared its timer on early abort (no leaked handle)'
+    );
+  });
+
+  it('owns a timer AND clears it once the timeout fires', async () => {
+    const { handles, cleared } = await withTimerSpy(async () => {
+      timeoutSignal(5);
+      await new Promise((r) => globalThis.setTimeout(r, 25));
+    });
+    assert.ok(handles.length >= 1, 'adapter owns a timer via globalThis.setTimeout');
+    assert.ok(
+      handles.some((h) => cleared.has(h)),
+      'adapter cleared its timer after it fired'
+    );
+  });
+
+  it('clears its timer so a hung fetch aborts within the window (production path)', async () => {
+    // The exact shape that failed on Node 20/22: a never-resolving fetch wired
+    // to a short signal must reject and return [] WITHOUT leaving a pending
+    // timer that keeps the process alive. Both endpoints get a 120ms budget.
+    const fetchImpl = makeFetch({ mode: 'never' });
+    const start = Date.now();
+    const stances = await fetchWalletStances('0xaddr', { fetchImpl, timeoutMs: 120, fallbackTimeoutMs: 120 });
+    const elapsed = Date.now() - start;
+    assert.deepEqual(stances, []);
+    assert.ok(elapsed < 1000, 'timeout fired and cleared its timer; got ' + elapsed + 'ms');
+  });
+
+  it('passes through a caller signal when no timeout is requested (parent wins)', async () => {
+    const ac = new AbortController();
+    const { signal } = timeoutSignal(0, ac.signal);
+    ac.abort();
+    assert.equal(signal.aborted, true, 'zero/negative timeout defers to caller signal');
   });
 });
 
