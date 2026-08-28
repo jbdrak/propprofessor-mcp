@@ -353,6 +353,24 @@ describe('propprofessor history matching', () => {
     );
   });
 
+  it('parses numeric-string epoch timestamps without treating them as date strings', () => {
+    const result = normalizeHistoryPayload([
+      { odds: -110, start_ts: '1782551889460' },
+      { odds: -120, start_ts: '1782551782005' }
+    ]);
+
+    assert.deepEqual(result.map((point) => point.time), ['1782551782005', '1782551889460']);
+  });
+
+  it('does not use response_received as a history timestamp', () => {
+    const result = normalizeHistoryPayload([
+      { odds: -110, response_received: '2026-08-28T12:00:00Z' },
+      { odds: -120, response_received: '2026-08-28T12:01:00Z' }
+    ]);
+
+    assert.deepEqual(result.map((point) => point.time), [null, null]);
+  });
+
   it('passes preferred and sharp sportsbooks into odds-history hydration requests', async () => {
     const calls = [];
     const sharpBooks = getSharpBookComparisonSet({ league: 'NBA', market: 'Moneyline' });

@@ -38,7 +38,8 @@ require.cache[GC_PATH] = {
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildMovementWindows } = require('../lib/propprofessor-sharp-history');
+const { buildMovementWindows, summarizeSharpMovement } = require('../lib/propprofessor-sharp-history');
+const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
 
@@ -70,6 +71,85 @@ describe('Bug A: buildMovementWindows nowMs anchors to real time', () => {
     const windows = buildMovementWindows(points, { nowMs, recentWindowHours: 6 });
     assert.ok(windows.recentWindow, 'recent window should exist when nowMs is near the data');
     assert.equal(windows.recentWindow.direction, 'supportive');
+  });
+});
+
+describe('Quote/history freshness fail-closed regressions', () => {
+  it('uses the real numeric-string history timestamp for age', () => {
+    const base = 1782551782005;
+    const result = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: 110, time: String(base) },
+        { book: 'Pinnacle', odds: 100, time: String(base + 2 * 60 * 60 * 1000) }
+      ],
+      preferredBook: 'Pinnacle',
+      sharpBooks: ['Pinnacle'],
+      options: { nowMs: base + 3 * 60 * 60 * 1000 }
+    });
+
+    assert.equal(result.lastPointAgeMs, 60 * 60 * 1000);
+  });
+
+  it('fails closed for timestamp-less, degraded, and line-backfilled history', () => {
+    const history = [
+      { book: 'Pinnacle', odds: 110 },
+      { book: 'Pinnacle', odds: 100 }
+    ];
+    const base = summarizeSharpMovement({
+      lineHistory: history,
+      preferredBook: 'Pinnacle',
+      sharpBooks: ['Pinnacle']
+    });
+    assert.equal(base.lineHistoryUsable, false);
+    assert.equal(base.movementLabel, 'insufficient_history');
+
+    const degraded = summarizeSharpMovement({
+      lineHistory: history,
+      preferredBook: 'Pinnacle',
+      sharpBooks: ['Pinnacle'],
+      options: { historyDegraded: true }
+    });
+    assert.equal(degraded.lineHistoryUsable, false);
+
+    const backfilled = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: 110, time: 1782551782005, line: -1 },
+        { book: 'Pinnacle', odds: 100, time: 1782551889460, line: -1 }
+      ],
+      preferredBook: 'Pinnacle',
+      sharpBooks: ['Pinnacle'],
+      options: { lineFieldMissingCount: 2 }
+    });
+    assert.equal(backfilled.lineHistoryUsable, false);
+    assert.equal(
+      computeMovementDisposition({
+        lineHistoryUsable: false,
+        movementGrade: 'green',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        sharpBookMovementConfirmed: true,
+        consensusBookCount: 10,
+        clvProxyPct: 1
+      }),
+      'insufficient'
+    );
+  });
+
+  it('preserves the requested-book quote and liquidity when history is degraded', () => {
+    const row = {
+      book: 'NoVigApp',
+      pick: 'Lakers',
+      odds: -123,
+      currentOdds: -123,
+      liquidityUsd: 47,
+      lineHistory: [],
+      lineHistoryAvailable: false,
+      historyError: 'timeout'
+    };
+    assert.equal(row.odds, -123);
+    assert.equal(row.currentOdds, -123);
+    assert.equal(row.liquidityUsd, 47);
   });
 });
 
