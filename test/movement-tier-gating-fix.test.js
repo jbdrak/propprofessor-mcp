@@ -90,27 +90,7 @@ describe('Quote/history freshness fail-closed regressions', () => {
     assert.equal(result.lastPointAgeMs, 60 * 60 * 1000);
   });
 
-  it('fails closed for timestamp-less, degraded, and line-backfilled history', () => {
-    const history = [
-      { book: 'Pinnacle', odds: 110 },
-      { book: 'Pinnacle', odds: 100 }
-    ];
-    const base = summarizeSharpMovement({
-      lineHistory: history,
-      preferredBook: 'Pinnacle',
-      sharpBooks: ['Pinnacle']
-    });
-    assert.equal(base.lineHistoryUsable, false);
-    assert.equal(base.movementLabel, 'insufficient_history');
-
-    const degraded = summarizeSharpMovement({
-      lineHistory: history,
-      preferredBook: 'Pinnacle',
-      sharpBooks: ['Pinnacle'],
-      options: { historyDegraded: true }
-    });
-    assert.equal(degraded.lineHistoryUsable, false);
-
+  it('keeps timestamped selection-specific backfilled history usable with degraded provenance', () => {
     const backfilled = summarizeSharpMovement({
       lineHistory: [
         { book: 'Pinnacle', odds: 110, time: 1782551782005, line: -1 },
@@ -118,22 +98,41 @@ describe('Quote/history freshness fail-closed regressions', () => {
       ],
       preferredBook: 'Pinnacle',
       sharpBooks: ['Pinnacle'],
-      options: { lineFieldMissingCount: 2 }
+      options: { lineFieldMissingCount: 2, historyMatchedBy: 'selectionId' }
     });
-    assert.equal(backfilled.lineHistoryUsable, false);
-    assert.equal(
+    assert.equal(backfilled.lineHistoryUsable, true);
+    assert.equal(backfilled.lineHistoryQuality, 'degraded_line_fields');
+    assert.notEqual(
       computeMovementDisposition({
-        lineHistoryUsable: false,
+        ...backfilled,
         movementGrade: 'green',
-        movementLabel: 'supportive',
-        recentSharpMoveDirection: 'supportive',
-        fullWindowSharpMoveDirection: 'supportive',
         sharpBookMovementConfirmed: true,
-        consensusBookCount: 10,
-        clvProxyPct: 1
+        consensusBookCount: 10
       }),
       'insufficient'
     );
+  });
+
+  it('fails closed for response-only and timestamp-less history', () => {
+    for (const lineHistory of [
+      [
+        { book: 'Pinnacle', odds: 110, response_received: '2026-08-28T12:00:00Z' },
+        { book: 'Pinnacle', odds: 100, response_received: '2026-08-28T12:01:00Z' }
+      ],
+      [
+        { book: 'Pinnacle', odds: 110 },
+        { book: 'Pinnacle', odds: 100 }
+      ]
+    ]) {
+      const result = summarizeSharpMovement({
+        lineHistory,
+        preferredBook: 'Pinnacle',
+        sharpBooks: ['Pinnacle']
+      });
+      assert.equal(result.lineHistoryUsable, false);
+      assert.equal(result.movementLabel, 'insufficient_history');
+      assert.equal(computeMovementDisposition(result), 'insufficient');
+    }
   });
 
   it('preserves the requested-book quote and liquidity when history is degraded', () => {
