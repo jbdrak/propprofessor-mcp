@@ -28,7 +28,7 @@ const { createTennisScreenHandler } = require('./handlers/tennis-screen');
 // staging extracted to a dependency-injected seam so tests can pin the cache-key
 // shape and hit/miss contract without the network path. Behavior unchanged.
 const { planAggregateScreen } = require('./handlers/aggregate-screen');
-const { resolveMarkets, stripVerdictFields } = require('./handlers/handler-utils');
+const { resolveMarkets, stripVerdictFields, mergeHandlerModule } = require('./handlers/handler-utils');
 const { ok } = require('../../lib/response-envelope');
 const { createPropProfessorClient } = require('../../lib/propprofessor-api');
 const {
@@ -1662,21 +1662,28 @@ function createMcpHandlers({
     }
   };
 
-  // Extracted module handlers — merge in so they override inline defs
-  Object.assign(handlers, createHealthHandlers(client, ctx));
-  Object.assign(handlers, createMetaHandlers(client, ctx));
-  Object.assign(handlers, createStateHandlers(client, ctx));
-  Object.assign(handlers, createPicksHandlers(client, ctx));
-  Object.assign(handlers, createPricingHandlers(client, ctx));
-  Object.assign(handlers, createContextPluginsHandlers(client, ctx));
-  Object.assign(handlers, createDiscoveryHandlers(client, ctx));
-  Object.assign(handlers, createConsensusHandlers(client, ctx));
-  Object.assign(handlers, createCompositesHandlers(client, ctx));
-  Object.assign(handlers, createScreenHandlers(client, ctx));
-  Object.assign(handlers, createPlayDetailsHandlers(client, ctx));
-  Object.assign(handlers, createValidatePlayHandlers(client, ctx));
-  Object.assign(handlers, createScreenLeaguesHandlers(client, ctx));
-  Object.assign(handlers, createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }));
+  // Extracted module handlers — merge in so they override inline defs.
+  // mergeHandlerModule makes every override explicit and rejects new collisions.
+  const handlerOwners = new Map(Object.keys(handlers).map((key) => [key, 'inline']));
+  mergeHandlerModule(handlers, handlerOwners, 'health', createHealthHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'meta', createMetaHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'state', createStateHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'picks', createPicksHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'pricing', createPricingHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'context-plugins', createContextPluginsHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'discovery', createDiscoveryHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'consensus', createConsensusHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'composites', createCompositesHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'screen', createScreenHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'play-details', createPlayDetailsHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'validate-play', createValidatePlayHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'screen-leagues', createScreenLeaguesHandlers(client, ctx));
+  mergeHandlerModule(
+    handlers,
+    handlerOwners,
+    'tennis-screen',
+    createTennisScreenHandler(client, { responseCache, responseCacheTtlMs })
+  );
 
   // Test seam plumbing: when the factory was given a non-default
   // historyMinIntervalMs, inject it into the args of every screen/validation
