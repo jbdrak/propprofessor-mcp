@@ -119,6 +119,11 @@ describe('formatBetCompact', () => {
     assert.equal(result.market, 'Moneyline');
     assert.equal(result.risk, undefined);
   });
+
+  it('shows NoVig prices as percentages while keeping other books in American odds', () => {
+    assert.equal(formatBetCompact({ selection: 'NoVig Pick', odds: -141, book: 'NoVigApp' }).odds, '58.5%');
+    assert.equal(formatBetCompact({ selection: 'FanDuel Pick', odds: -141, book: 'FanDuel' }).odds, -141);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -255,6 +260,15 @@ describe('buildQuickScreenSummary', () => {
     assert.ok(summary.includes('5 books'));
     assert.ok(summary.includes('7:00 PM'));
     assert.ok(summary.includes('TIER 1'));
+  });
+
+  it('uses response-level NoVig context for displayed prices', () => {
+    const summary = buildQuickScreenSummary(
+      [{ league: 'Tennis', candidates: [{ selection: 'NoVig Pick', odds: -141, confidenceTier: 'TIER 1' }] }],
+      { targetBook: 'NoVigApp' }
+    );
+    assert.ok(summary.includes('NoVig Pick at 58.5%'));
+    assert.ok(!summary.includes('NoVig Pick at -141'));
   });
 
   it('caps at 5 plays per league with +N more note', () => {
@@ -479,6 +493,16 @@ describe('formatQuickScreenBets', () => {
     assert.equal(out.results[0].plays[0].selection, 'Lakers ML');
     assert.equal(out.results[0].plays[0].movementGrade, 'green');
     assert.equal(out.results[0].plays[0].risk, undefined);
+  });
+
+  it('formats the default NoVig target-book response with percentage prices', () => {
+    const out = formatQuickScreenBets({
+      ...sampleResponse,
+      targetBook: 'NoVigApp',
+      targetBooks: ['NoVigApp']
+    });
+    assert.equal(out.results[0].plays[0].odds, '52.4%');
+    assert.ok(out.summary.includes('Lakers ML at 52.4%'));
   });
 
   it('preserves activeSlate, emptySlate, and warnings diagnostics', () => {

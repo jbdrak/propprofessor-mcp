@@ -16,6 +16,7 @@ const {
   riskScoreToLabel,
   actionWord,
   formatOdds,
+  formatOddsForDisplay,
   formatQuickScreenMinimal,
   STANDARD_KEEP_FIELDS,
   STANDARD_STRIP_FIELDS
@@ -87,6 +88,22 @@ describe('formatOdds', () => {
   });
 });
 
+describe('formatOddsForDisplay', () => {
+  it('formats NoVigApp odds as an implied probability percentage', () => {
+    assert.equal(formatOddsForDisplay(-141, { book: 'NoVigApp' }), '58.5%');
+  });
+
+  it('keeps American odds for non-NoVig books', () => {
+    assert.equal(formatOddsForDisplay(-141, { book: 'FanDuel' }), '-141');
+    assert.equal(formatOddsForDisplay(105, { targetBook: 'Pinnacle' }), '+105');
+  });
+
+  it('uses response-level NoVig target-book context', () => {
+    assert.equal(formatOddsForDisplay(-110, {}, { targetBook: 'NoVigApp' }), '52.4%');
+    assert.equal(formatOddsForDisplay(-110, {}, { targetBooks: ['NoVigApp'] }), '52.4%');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // formatBetMinimal
 // ---------------------------------------------------------------------------
@@ -110,6 +127,17 @@ describe('formatBetMinimal', () => {
     assert.ok(result.toLowerCase().includes('high confidence'), 'should include confidence level');
     assert.ok(result.toLowerCase().includes('low risk'), 'should include risk label');
     assert.ok(result.startsWith('Bet '), 'TIER 1 should use "Bet" action word');
+  });
+
+  it('shows NoVig prices as percentages instead of American odds', () => {
+    const result = formatBetMinimal({
+      selection: 'NoVig Pick',
+      odds: -141,
+      book: 'NoVigApp',
+      confidenceTier: 'TIER 1'
+    });
+    assert.ok(result.includes('58.5%'));
+    assert.ok(!result.includes('-141'));
   });
 
   it('includes warning emoji for riskScore >= 7', () => {
