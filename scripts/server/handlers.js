@@ -17,6 +17,7 @@ const { createScanHandlers } = require('./handlers/scan');
 const { runRecommendedMarket } = require('./handlers/recommended-market');
 const { mapRecommendedPlay } = require('./handlers/recommended-play');
 const { stripLiteResponse } = require('./handlers/strip-lite-response');
+const { logLargeQuickScreenResponse } = require('./handlers/log-large-response');
 const { createPicksHandlers } = require('./handlers/picks');
 const { createPricingHandlers } = require('./handlers/pricing');
 const { createContextPluginsHandlers } = require('./handlers/context-plugins');
@@ -1028,15 +1029,7 @@ function createMcpHandlers({
         }
       }
       // Log large responses for monitoring
-      try {
-        const responseSize = JSON.stringify(formattedResponse).length;
-        if (responseSize > 500000) {
-          // 500KB
-          console.warn(`[PropProfessor MCP] Large quick_screen response: ${(responseSize / 1024).toFixed(1)}KB`);
-        }
-      } catch {
-        /* ignore */
-      }
+      logLargeQuickScreenResponse(formattedResponse);
       _maybeGc();
       return ok(formattedResponse);
     },
