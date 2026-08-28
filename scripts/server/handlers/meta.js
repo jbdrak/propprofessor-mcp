@@ -7,7 +7,7 @@
  * getSharpBookContext) that aren't easily extractable.
  */
 
-const { getMarketsForSport, getPropMarketsForSport } = require('../../../lib/propprofessor-market-registry');
+const { getMarketsForSport } = require('../../../lib/propprofessor-market-registry');
 
 /**
  * @param {import('../../../lib/propprofessor-api').PropProfessorClient} _client
@@ -22,13 +22,11 @@ function createMetaHandlers(_client, _ctx) {
         return { ok: false, error: { code: 'MISSING_PARAMS', message: 'sport is required' } };
       }
       const markets = getMarketsForSport(sport, book);
-      const propMarkets = getPropMarketsForSport(sport);
       return {
         ok: true,
         sport,
         book: book || 'default',
         markets,
-        propMarkets,
         note:
           sport.toUpperCase() === 'SOCCER'
             ? 'Soccer uses Draw No Bet (not Moneyline), Match Handicap (not Spread), and Total Goals'
