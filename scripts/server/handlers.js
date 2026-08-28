@@ -19,6 +19,7 @@ const { mapRecommendedPlay } = require('./handlers/recommended-play');
 const { stripLiteResponse } = require('./handlers/strip-lite-response');
 const { logLargeQuickScreenResponse } = require('./handlers/log-large-response');
 const { selectRecommendedRows } = require('./handlers/select-recommended-rows');
+const { computeMarketsBreakdown } = require('./handlers/recommended-bets-breakdown');
 const { createPicksHandlers } = require('./handlers/picks');
 const { createPricingHandlers } = require('./handlers/pricing');
 const { createContextPluginsHandlers } = require('./handlers/context-plugins');
@@ -1302,16 +1303,7 @@ function createMcpHandlers({
           : 'No TIER 1 or TIER 2 plays found across requested leagues',
         tierFilter: targetTiers,
         markets_alias_used: allAliasesUsed,
-        marketsBreakdown: (() => {
-          const breakdown = {};
-          for (const leagueData of allRecommended) {
-            for (const play of leagueData.plays || []) {
-              const m = play.market || 'unknown';
-              breakdown[m] = (breakdown[m] || 0) + 1;
-            }
-          }
-          return breakdown;
-        })(),
+        marketsBreakdown: computeMarketsBreakdown(allRecommended),
         _meta:
           validateAllRB || validateTopRB > 0
             ? {
