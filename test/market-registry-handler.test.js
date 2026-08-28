@@ -1,0 +1,31 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const { createMetaHandlers } = require('../scripts/server/handlers/meta');
+
+// Handler takes (client, ctx) but the meta handler under test ignores both.
+const handlers = createMetaHandlers(null, null);
+
+test('get_market_registry exposes player prop catalogs for MLB', async () => {
+  const res = await handlers.get_market_registry({ sport: 'MLB' });
+
+  assert.equal(res.ok, true);
+  assert.equal(res.sport, 'MLB');
+
+  // Main-line markets must remain unchanged.
+  assert.ok(Array.isArray(res.markets));
+  assert.ok(res.markets.length > 0, 'main markets must be preserved');
+
+  // Player prop catalog must be present and include the synced MLB props.
+  assert.ok(Array.isArray(res.propMarkets), 'response must include a propMarkets array');
+  assert.ok(res.propMarkets.includes('Player Triples'), 'propMarkets must include Player Triples');
+  assert.ok(res.propMarkets.includes('Pitcher Outs Recorded'), 'propMarkets must include Pitcher Outs Recorded');
+});
+
+test('get_market_registry returns empty propMarkets for unknown sport', async () => {
+  const res = await handlers.get_market_registry({ sport: 'Curling' });
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.propMarkets, [], 'unknown sport must yield empty propMarkets');
+});
