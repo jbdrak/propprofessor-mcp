@@ -18,6 +18,7 @@ const { runRecommendedMarket } = require('./handlers/recommended-market');
 const { mapRecommendedPlay } = require('./handlers/recommended-play');
 const { stripLiteResponse } = require('./handlers/strip-lite-response');
 const { logLargeQuickScreenResponse } = require('./handlers/log-large-response');
+const { selectRecommendedRows } = require('./handlers/select-recommended-rows');
 const { createPicksHandlers } = require('./handlers/picks');
 const { createPricingHandlers } = require('./handlers/pricing');
 const { createContextPluginsHandlers } = require('./handlers/context-plugins');
@@ -1099,30 +1100,9 @@ function createMcpHandlers({
               { concurrency: 3 }
             );
             const allRows = marketResults.flat();
-            // Deduplicate by gameId+selection (keep higher screenScore)
-            const seen = new Map();
-            for (const row of allRows) {
-              const key = `${row.gameId || ''}:${row.selection || ''}`;
-              const existing = seen.get(key);
-              if (!existing || Number(row.screenScore ?? 0) > Number(existing.screenScore ?? 0)) {
-                seen.set(key, row);
-              }
-            }
-            const deduped = Array.from(seen.values());
-            let eligible = deduped.filter((row) => {
-              // Use the live (current) tier for filtering so a deteriorating play
-              // that was cached as TIER 1 earlier cannot sneak into TIER 1 results.
-              const liveTier = row.confidenceTierLive || row.confidenceTier || getConfidenceTierStable(row);
-              return targetTiers.includes(liveTier);
+            const recommended = selectRecommendedRows(allRows, targetTiers, limit, {
+              getStableTier: getConfidenceTierStable
             });
-            const recommended = eligible
-              .sort((a, b) => {
-                const tierOrder = { 'TIER 1': 0, 'TIER 2': 1, 'TIER 3': 2, 'TIER 4': 3 };
-                const tierDiff = (tierOrder[a.confidenceTier] ?? 9) - (tierOrder[b.confidenceTier] ?? 9);
-                if (tierDiff !== 0) return tierDiff;
-                return (Number(b.screenScore ?? 0) || 0) - (Number(a.screenScore ?? 0) || 0);
-              })
-              .slice(0, limit);
 
             // === kaiCall filter + sortBy (agent ergonomics) ===
             // When args.sortBy is set, override the default tier-then-screenScore order.
