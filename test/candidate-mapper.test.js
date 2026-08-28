@@ -44,6 +44,27 @@ describe('mapCandidateRow screenUrl', () => {
     assert.equal(out.sharpBookMovementConfirmed, true);
   });
 
+  it('keeps the current quote when movement evidence is aged', () => {
+    const out = mapCandidateRow({
+      gameId: 'Tennis:PREMATCH:Fery:Duckworth:1783937400',
+      market: 'Moneyline',
+      selection: 'Fery',
+      odds: -144,
+      currentOdds: -144,
+      targetBookOdds: -144,
+      liquidityUsd: 232,
+      movementGrade: 'green',
+      movementLabel: 'supportive',
+      recentSharpMoveDirection: 'supportive',
+      fullWindowSharpMoveDirection: 'supportive',
+      clvProxyPct: 1.1,
+      lastPointAgeMs: 72 * 60 * 1000
+    });
+    assert.equal(out.odds, -144);
+    assert.equal(out.liquidityUsd, 232);
+    assert.equal(out.movementDisposition, 'supportive_clean');
+    assert.equal(out.movementEvidenceAged, true);
+  });
   it('does not trust a stale incoming movementDisposition when the flag is present', () => {
     // Incoming row carries a stale 'insufficient' stamp (pre-tag) — mapper must override it.
     const out = mapCandidateRow({
