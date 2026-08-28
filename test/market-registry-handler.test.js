@@ -3,10 +3,15 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createMetaHandlers } = require('../scripts/server/handlers/meta');
+// The live get_market_registry handler is registered by createContextPluginsHandlers,
+// which createMcpHandlers() merges LAST (after createMetaHandlers). So the test must
+// exercise the assembled handler set, not createMetaHandlers alone — otherwise it would
+// pass against the dead duplicate in meta.js and miss the actual live seam.
+const { createMcpHandlers } = require('../scripts/server/handlers');
 
-// Handler takes (client, ctx) but the meta handler under test ignores both.
-const handlers = createMetaHandlers(null, null);
+// createMcpHandlers requires a client for the ctx, but get_market_registry ignores it.
+// A harmless stub satisfies the construction path without any network calls.
+const handlers = createMcpHandlers({ client: {} });
 
 test('get_market_registry exposes player prop catalogs for MLB', async () => {
   const res = await handlers.get_market_registry({ sport: 'MLB' });

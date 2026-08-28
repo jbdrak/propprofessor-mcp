@@ -15,7 +15,7 @@ const { ok } = require('../../../lib/response-envelope');
 const { getPlayerContext } = require('../../../lib/propprofessor-player-context');
 const { getMlbGameContext } = require('../../../lib/propprofessor-mlb-game-context');
 const { clearScoreTimeline } = require('../../../lib/propprofessor-risk-score');
-const { getMarketsForSport } = require('../../../lib/propprofessor-market-registry');
+const { getMarketsForSport, getPropMarketsForSport } = require('../../../lib/propprofessor-market-registry');
 const { getLeagueRankingPreset } = require('../../../lib/propprofessor-mcp-ranked-screen');
 const { getSharpBookComparisonSet, getSharpBookContext } = require('../../../lib/propprofessor-sharp-books');
 
@@ -116,11 +116,13 @@ function createContextPluginsHandlers(client, _ctx) {
         return { ok: false, error: { code: 'MISSING_PARAMS', message: 'sport is required' } };
       }
       const markets = getMarketsForSport(sport, book);
+      const propMarkets = getPropMarketsForSport(sport);
       return {
         ok: true,
         sport,
         book: book || 'default',
         markets,
+        propMarkets,
         note:
           sport.toUpperCase() === 'SOCCER'
             ? 'Soccer uses Draw No Bet (not Moneyline), Match Handicap (not Spread), and Total Goals'
