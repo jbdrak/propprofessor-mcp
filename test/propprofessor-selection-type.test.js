@@ -37,6 +37,12 @@ describe('isPlayerSelection', () => {
     assert.strictEqual(isPlayerSelection('Dallas Wings +7.5'), false);
   });
 
+  it('returns false for team totals', () => {
+    assert.strictEqual(isPlayerSelection('Team Total Points'), false);
+    assert.strictEqual(isPlayerSelection('Team Total Runs'), false);
+    assert.strictEqual(isPlayerSelection('Team Total Touchdowns'), false);
+  });
+
   it('returns true for player + prop label', () => {
     assert.strictEqual(isPlayerSelection('Giannis Antetokounmpo Points'), true);
     assert.strictEqual(isPlayerSelection('LeBron James Assists'), true);
