@@ -1417,6 +1417,36 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.ok(leagueNames.includes('NBA') || leagueNames.includes('MLB') || leagueNames.includes('WNBA'));
   });
 
+  it('quick_screen includeProps merges exact MLB player and pitcher markets', async () => {
+    const { client } = createRankedScreenClientStub();
+    const handlers = createMcpHandlers({ client });
+    const requestedMarkets = [];
+    handlers.runLeagueScreen = async () => ({ ok: true, result: [{ gameId: 'stub-mlb-game' }] });
+    handlers.sharp_plays = async (args) => {
+      requestedMarkets.push(args.market);
+      return { ok: true, result: [] };
+    };
+
+    const result = await handlers.quick_screen({
+      books: ['NoVigApp'],
+      leagues: ['MLB'],
+      markets: ['Moneyline'],
+      includeProps: true,
+      includeResearch: false,
+      cardWindow: 'all'
+    });
+
+    assert.ok(result.ok);
+    assert.ok(
+      requestedMarkets.includes('Player Triples'),
+      `expected Player Triples in fanned-out markets, got: ${JSON.stringify(requestedMarkets)}`
+    );
+    assert.ok(
+      requestedMarkets.includes('Pitcher Outs Recorded'),
+      `expected Pitcher Outs Recorded in fanned-out markets, got: ${JSON.stringify(requestedMarkets)}`
+    );
+  });
+
   it('quick_screen includeProps merges player prop markets for NBA', async () => {
     const { client } = createRankedScreenClientStub();
     const handlers = createMcpHandlers({ client });
