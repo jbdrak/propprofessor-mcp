@@ -19,40 +19,42 @@ function createStateHandlers(client, _ctx) {
     },
 
     async manage_hidden_bets(args = {}) {
-      const action = String(args.action || '')
-        .toLowerCase()
-        .trim();
-      if (!['list', 'hide', 'unhide', 'clear'].includes(action)) {
-        return { ok: false, error: { code: 'INVALID_PARAMS', message: 'action must be list, hide, unhide, or clear' } };
+      const { action } = args;
+      if (action === 'list') {
+        const result = await client.getHiddenBets();
+        return { ok: true, action, result };
       }
-
-      try {
-        switch (action) {
-          case 'list':
-            return { ok: true, result: await client.getHiddenBets() };
-          case 'hide': {
-            if (!args.gameId) {
-              return { ok: false, error: { code: 'MISSING_PARAMS', message: 'gameId is required' } };
-            }
-            await client.hideBet(args.gameId, args.selection || null, args.market || null);
-            return { ok: true, message: `Bet(s) hidden for game ${args.gameId}.` };
-          }
-          case 'unhide': {
-            if (!args.gameId) {
-              return { ok: false, error: { code: 'MISSING_PARAMS', message: 'gameId is required' } };
-            }
-            await client.unhideBet(args.gameId, args.selection || null, args.market || null);
-            return { ok: true, message: `Bet(s) unhidden for game ${args.gameId}.` };
-          }
-          case 'clear':
-            await client.clearHiddenBets();
-            return { ok: true, message: 'All hidden bets cleared.' };
-          default:
-            return { ok: false, error: { code: 'INVALID_PARAMS', message: `Unknown action: ${action}` } };
+      if (action === 'hide') {
+        if (!args.bet || typeof args.bet !== 'object') {
+          const error = new Error('The bet parameter is required and must be an object.');
+          error.code = 'MISSING_BET';
+          error.category = 'validation';
+          error.status = 400;
+          throw error;
         }
-      } catch (err) {
-        return { ok: false, error: { code: 'BACKEND_ERROR', message: String(err?.message || err) } };
+        const result = await client.hideBet(args.bet);
+        return { ok: true, action, result };
       }
+      if (action === 'unhide') {
+        if (!args.id) {
+          const error = new Error('The id parameter is required.');
+          error.code = 'MISSING_ID';
+          error.category = 'validation';
+          error.status = 400;
+          throw error;
+        }
+        const result = await client.unhideBet(args.id);
+        return { ok: true, action, result };
+      }
+      if (action === 'clear') {
+        const result = await client.clearHiddenBets();
+        return { ok: true, action, result };
+      }
+      const error = new Error(`Unknown action: ${action}. Must be one of: list, hide, unhide, clear.`);
+      error.code = 'INVALID_ACTION';
+      error.category = 'validation';
+      error.status = 400;
+      throw error;
     }
   };
 }

@@ -20,19 +20,6 @@ describe('handler module registration', () => {
     assert.equal(owners.get('example'), 'inline');
   });
 
-  it('allows only the documented state-to-context override', () => {
-    const stateHandler = () => 'state';
-    const contextHandler = () => 'context';
-    const handlers = {};
-    const owners = new Map();
-
-    mergeHandlerModule(handlers, owners, 'state', { clear_score_timeline: stateHandler });
-    mergeHandlerModule(handlers, owners, 'context-plugins', { clear_score_timeline: contextHandler });
-
-    assert.equal(handlers.clear_score_timeline, contextHandler);
-    assert.equal(owners.get('clear_score_timeline'), 'context-plugins');
-  });
-
   it('uses the live context-plugin contract for hidden bets', async () => {
     const calls = [];
     const client = {

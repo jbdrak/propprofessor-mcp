@@ -62,15 +62,9 @@ function resolveMarkets(args, league, defaultMarket = 'Moneyline') {
   return result;
 }
 
-const ALLOWED_HANDLER_OVERRIDES = new Set([
-  'state:clear_score_timeline->context-plugins',
-  'state:manage_hidden_bets->context-plugins',
-  'meta:get_market_registry->context-plugins'
-]);
-
 /**
  * Merge an extracted handler module without silently losing a registration.
- * The few existing override pairs are explicit so new collisions fail fast.
+ * Any duplicate registration fails fast instead of being silently overwritten.
  * @param {Object} handlers
  * @param {Map<string, string>} owners
  * @param {string} moduleName
@@ -80,7 +74,7 @@ const ALLOWED_HANDLER_OVERRIDES = new Set([
 function mergeHandlerModule(handlers, owners, moduleName, moduleHandlers) {
   for (const key of Object.keys(moduleHandlers)) {
     const previousOwner = owners.get(key);
-    if (previousOwner && !ALLOWED_HANDLER_OVERRIDES.has(`${previousOwner}:${key}->${moduleName}`)) {
+    if (previousOwner) {
       throw new Error(`Duplicate MCP handler "${key}" from ${moduleName}; already registered by ${previousOwner}`);
     }
   }
