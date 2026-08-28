@@ -13,6 +13,7 @@ const { createHandlerContext } = require('./handler-context');
 const { createHealthHandlers } = require('./handlers/health');
 const { createMetaHandlers } = require('./handlers/meta');
 const { createStateHandlers } = require('./handlers/state');
+const { createScanHandlers } = require('./handlers/scan');
 const { createPicksHandlers } = require('./handlers/picks');
 const { createPricingHandlers } = require('./handlers/pricing');
 const { createContextPluginsHandlers } = require('./handlers/context-plugins');
@@ -330,43 +331,6 @@ function createMcpHandlers({
     // ─── Smart Money ───────────────────────────────────────────────
     // smart_money is registered by createDiscoveryHandlers() at line 4261.
     // The inline copy here is dead code — intentionally removed.
-
-    // scan: Simplified one-call entry point. Same engine as quick_screen
-    // but with agent-friendly defaults and cleaner output. The preferred
-    // tool for AI agents — quick_screen remains for backward compat.
-    async scan(args = {}) {
-      // Map sport→league for user ergonomics
-      const sport = String(args.sport || '')
-        .trim()
-        .toLowerCase();
-      const leagueMap = {
-        tennis: 'Tennis',
-        nba: 'NBA',
-        mlb: 'MLB',
-        nfl: 'NFL',
-        nhl: 'NHL',
-        wnba: 'WNBA',
-        ufc: 'UFC',
-        soccer: 'Soccer',
-        ncaab: 'NCAAB',
-        ncaaf: 'NCAAF',
-        nbasl: 'NBASL'
-      };
-      const resolvedLeague = args.league || (sport ? leagueMap[sport] || args.sport : undefined);
-
-      return handlers.quick_screen({
-        ...args,
-        league: resolvedLeague,
-        book: args.book || 'NoVigApp',
-        verbosity: args.verbosity || 'bets',
-        lite: args.lite !== false,
-        sortBy: args.sortBy || 'edge',
-        sortDir: args.sortDir || 'desc',
-        // Default: only show plays with supportive movement (clean or bouncy).
-        // The line IS moving the right direction — that's the whole point.
-        movement: args.movement || ['supportive_clean', 'supportive_bouncy']
-      });
-    },
 
     // quick_screen: Accepts any book(s) via the `books` param and runs
     // sharp_plays + player_context for each (league, market) pair.
@@ -1668,6 +1632,7 @@ function createMcpHandlers({
   mergeHandlerModule(handlers, handlerOwners, 'health', createHealthHandlers(client, ctx));
   mergeHandlerModule(handlers, handlerOwners, 'meta', createMetaHandlers(client, ctx));
   mergeHandlerModule(handlers, handlerOwners, 'state', createStateHandlers(client, ctx));
+  mergeHandlerModule(handlers, handlerOwners, 'scan', createScanHandlers(client, ctx));
   mergeHandlerModule(handlers, handlerOwners, 'picks', createPicksHandlers(client, ctx));
   mergeHandlerModule(handlers, handlerOwners, 'pricing', createPricingHandlers(client, ctx));
   mergeHandlerModule(handlers, handlerOwners, 'context-plugins', createContextPluginsHandlers(client, ctx));
