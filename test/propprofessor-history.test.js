@@ -359,7 +359,10 @@ describe('propprofessor history matching', () => {
       { odds: -120, start_ts: '1782551782005' }
     ]);
 
-    assert.deepEqual(result.map((point) => point.time), ['1782551782005', '1782551889460']);
+    assert.deepEqual(
+      result.map((point) => point.time),
+      ['1782551782005', '1782551889460']
+    );
   });
 
   it('does not use response_received as a history timestamp', () => {
@@ -368,7 +371,10 @@ describe('propprofessor history matching', () => {
       { odds: -120, response_received: '2026-08-28T12:01:00Z' }
     ]);
 
-    assert.deepEqual(result.map((point) => point.time), [null, null]);
+    assert.deepEqual(
+      result.map((point) => point.time),
+      [null, null]
+    );
   });
 
   it('passes preferred and sharp sportsbooks into odds-history hydration requests', async () => {
