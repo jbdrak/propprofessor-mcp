@@ -59,4 +59,25 @@ describe('propprofessor query parser', () => {
     assert.deepEqual(parsed.suggestedTool.args, { books: ['OnyxOdds'] });
     assert.equal(inferPreferredBook('use OnyxOdds'), 'OnyxOdds');
   });
+
+  it('infers NCAAF from specific college football phrasing over generic football', () => {
+    assert.equal(inferDefaultLeague('college football odds'), 'NCAAF');
+    assert.equal(parseNaturalLanguagePropQuery('best college football play').league, 'NCAAF');
+  });
+
+  it('still infers NFL from plain football phrasing', () => {
+    assert.equal(inferDefaultLeague('football odds'), 'NFL');
+    assert.equal(parseNaturalLanguagePropQuery('best football play').league, 'NFL');
+  });
+
+  it('still infers NCAAF from the explicit ncaaf keyword', () => {
+    assert.equal(inferDefaultLeague('ncaaf'), 'NCAAF');
+    assert.equal(parseNaturalLanguagePropQuery('best ncaaf passing play').league, 'NCAAF');
+  });
+
+  it('infers the existing NCAAF player yards prop markets', () => {
+    assert.equal(inferDefaultMarket('college football passing yards'), 'Player Passing Yards');
+    assert.equal(inferDefaultMarket('college football rushing yards'), 'Player Rushing Yards');
+    assert.equal(inferDefaultMarket('college football receiving yards'), 'Player Receiving Yards');
+  });
 });
