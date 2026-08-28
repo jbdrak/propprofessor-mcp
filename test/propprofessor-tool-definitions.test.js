@@ -22,6 +22,13 @@ describe('propprofessor-tool-definitions', () => {
         assert.equal(tool.inputSchema.type, 'object', `${tool.name}: schema must be object`);
       }
     });
+
+    it('documents the player-prop fields on get_market_registry', () => {
+      const tool = buildToolDefinitions().find(({ name }) => name === 'get_market_registry');
+      assert.ok(tool);
+      assert.match(tool.description, /propMarkets/);
+      assert.match(tool.description, /includeProps/);
+    });
   });
 
   describe('lite mode', () => {
