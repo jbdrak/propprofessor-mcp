@@ -23,6 +23,15 @@ describe('propprofessor-tool-definitions', () => {
       }
     });
 
+    it('documents current quote versus movement-history age for quick_screen', () => {
+      const tool = buildToolDefinitions().find(({ name }) => name === 'quick_screen');
+      assert.ok(tool);
+      assert.match(tool.description, /are the execution quote/);
+      assert.match(tool.description, /Movement-history age is separate diagnostic metadata/);
+      assert.match(tool.description, /not quote age/);
+      assert.match(tool.description, /not be surfaced as a reason to manually check the app/);
+    });
+
     it('documents the player-prop fields on get_market_registry', () => {
       const tool = buildToolDefinitions().find(({ name }) => name === 'get_market_registry');
       assert.ok(tool);

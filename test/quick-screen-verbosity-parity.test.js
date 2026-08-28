@@ -40,6 +40,8 @@ const sample = {
           edge: 3.2,
           consensusEdge: 3.2,
           movementDisposition: 'supportive_clean',
+          movementEvidenceAged: true,
+          movementHistoryAgeMs: 72 * 60 * 1000,
           validatedMovementDisposition: 'supportive_clean',
           finalVerdict: 'BET',
           finalConfidenceTier: 'TIER 1',
@@ -84,6 +86,18 @@ describe('quick_screen verbosity field parity', () => {
     assert.ok('confidenceTier' in row || 'finalConfidenceTier' in row, 'standard should expose tier');
     assert.ok('finalVerdict' in row, 'standard should expose finalVerdict');
     assert.ok('movementDisposition' in row, 'standard should expose movementDisposition');
+  });
+
+  it('keeps movement disposition and current odds but hides movement-age diagnostics', async () => {
+    const minimalRow = minimal.plays?.[0];
+    const standardRow = standard.results?.[0]?.candidates?.[0];
+    for (const row of [minimalRow, standardRow]) {
+      assert.equal(row.odds, -110);
+      assert.equal(row.movementDisposition, 'supportive_clean');
+      assert.equal('lastPointAgeMs' in row, false);
+      assert.equal('movementHistoryAgeMs' in row, false);
+      assert.equal('movementEvidenceAged' in row, false);
+    }
   });
 
   it('bets row keeps identity fields', async () => {
