@@ -3,6 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { mergeHandlerModule } = require('../scripts/server/handlers/handler-utils');
+const { createMcpHandlers } = require('../scripts/server/handlers');
 
 describe('handler module registration', () => {
   it('rejects an undocumented handler collision before overwriting', () => {
@@ -30,5 +31,37 @@ describe('handler module registration', () => {
 
     assert.equal(handlers.clear_score_timeline, contextHandler);
     assert.equal(owners.get('clear_score_timeline'), 'context-plugins');
+  });
+
+  it('uses the live context-plugin contract for hidden bets', async () => {
+    const calls = [];
+    const client = {
+      getHiddenBets: async () => [{ id: 'hidden-1' }],
+      hideBet: async (bet) => calls.push(['hide', bet]),
+      unhideBet: async (id) => calls.push(['unhide', id]),
+      clearHiddenBets: async () => calls.push(['clear'])
+    };
+    const handlers = createMcpHandlers({ client });
+    const bet = { betId: 'bet-1', matchId: 'match-1', market: 'Moneyline', selection: 'Team A' };
+
+    assert.deepEqual(await handlers.manage_hidden_bets({ action: 'hide', bet }), {
+      ok: true,
+      action: 'hide',
+      result: 1
+    });
+    assert.deepEqual(await handlers.manage_hidden_bets({ action: 'unhide', id: 'hidden-1' }), {
+      ok: true,
+      action: 'unhide',
+      result: 2
+    });
+    assert.deepEqual(await handlers.manage_hidden_bets({ action: 'list' }), {
+      ok: true,
+      action: 'list',
+      result: [{ id: 'hidden-1' }]
+    });
+    assert.deepEqual(calls, [
+      ['hide', bet],
+      ['unhide', 'hidden-1']
+    ]);
   });
 });
