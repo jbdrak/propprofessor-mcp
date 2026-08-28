@@ -391,3 +391,62 @@ test('resolveMarketName MLS aliases route to soccer-style markets', async (t) =>
     });
   });
 });
+
+test('resolveMarketName MLB player/pitcher shorthand aliases', async (t) => {
+  await t.test('"triples" + MLB -> "Player Triples"', () => {
+    assert.deepStrictEqual(resolveMarketName('triples', 'MLB'), {
+      resolved: 'Player Triples',
+      wasAliased: true,
+      original: 'triples',
+      aliasKey: 'triples'
+    });
+  });
+  await t.test('"walks" + MLB -> "Player Walks"', () => {
+    assert.deepStrictEqual(resolveMarketName('walks', 'MLB'), {
+      resolved: 'Player Walks',
+      wasAliased: true,
+      original: 'walks',
+      aliasKey: 'walks'
+    });
+  });
+  await t.test('"earned_runs" + MLB -> "Pitcher Earned Runs Allowed"', () => {
+    assert.deepStrictEqual(resolveMarketName('earned_runs', 'MLB'), {
+      resolved: 'Pitcher Earned Runs Allowed',
+      wasAliased: true,
+      original: 'earned_runs',
+      aliasKey: 'earned_runs'
+    });
+  });
+  await t.test('"walks_allowed" + MLB -> "Pitcher Walks Allowed"', () => {
+    assert.deepStrictEqual(resolveMarketName('walks_allowed', 'MLB'), {
+      resolved: 'Pitcher Walks Allowed',
+      wasAliased: true,
+      original: 'walks_allowed',
+      aliasKey: 'walks_allowed'
+    });
+  });
+  await t.test('"outs_recorded" + MLB -> "Pitcher Outs Recorded"', () => {
+    assert.deepStrictEqual(resolveMarketName('outs_recorded', 'MLB'), {
+      resolved: 'Pitcher Outs Recorded',
+      wasAliased: true,
+      original: 'outs_recorded',
+      aliasKey: 'outs_recorded'
+    });
+  });
+  await t.test('"outs" + MLB uses the live pitcher market name', () => {
+    assert.deepStrictEqual(resolveMarketName('outs', 'MLB'), {
+      resolved: 'Pitcher Outs Recorded',
+      wasAliased: true,
+      original: 'outs',
+      aliasKey: 'outs'
+    });
+  });
+  await t.test('"hits_runs_rbis" + MLB -> "Player Hits + Runs + RBIs"', () => {
+    assert.deepStrictEqual(resolveMarketName('hits_runs_rbis', 'MLB'), {
+      resolved: 'Player Hits + Runs + RBIs',
+      wasAliased: true,
+      original: 'hits_runs_rbis',
+      aliasKey: 'hits_runs_rbis'
+    });
+  });
+});
