@@ -1497,6 +1497,23 @@ describe('propprofessor MCP server stdio contract', () => {
     );
   });
 
+  it('scan forwards includeProps and keeps it off by default', async () => {
+    const handlers = createMcpHandlers({ client: {} });
+    const forwarded = [];
+    handlers.quick_screen = async (args) => {
+      forwarded.push(args);
+      return { ok: true };
+    };
+
+    await handlers.scan({ sport: 'mlb', includeProps: true });
+    await handlers.scan({ sport: 'mlb' });
+
+    assert.equal(forwarded[0].league, 'MLB');
+    assert.equal(forwarded[0].includeProps, true);
+    assert.equal(forwarded[1].league, 'MLB');
+    assert.equal(forwarded[1].includeProps, undefined);
+  });
+
   it('validate_play returns a structured response with required fields', async () => {
     const { client } = createRankedScreenClientStub();
     const handlers = createMcpHandlers({ client });
