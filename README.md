@@ -435,6 +435,8 @@ Agent: quick_screen({ books: ["Fliff"] })
 | `find_best_price`     | Line-shop across all books for the best execution price                                                                        |
 | `health_status`       | Auth freshness and endpoint connectivity                                                                                       |
 
+`get_market_registry` returns main-line markets in the markets field and exact player/pitcher prop names in the propMarkets field. `scan` and `quick_screen` accept `includeProps:true` to merge those prop markets into a scan. Prop scans are manual-only because they increase backend fan-out and rate-limit risk.
+
 ### Deeper Signal Analysis
 
 | Tool              | What it does                                                                         |
