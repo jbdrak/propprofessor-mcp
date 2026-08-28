@@ -17,6 +17,7 @@ const { normalizeTennisMarketQuery } = require('../../../lib/screen-tennis');
 const { formatGetPlayDetailsMinimal, formatGetPlayDetailsStandard } = require('../../../lib/propprofessor-formatter');
 const { parseGameIdIdentity, findBestMatchGameIdChanged } = require('../../../lib/selection-matcher');
 const flashscoreTimes = require('../../../lib/flashscore-times');
+const { stripExactLineHistoryFields } = require('./strip-exact-line-history');
 
 /**
  * Normalize a selection label for exact (case-insensitive) matching.
@@ -465,29 +466,7 @@ async function queryPlayDetailsResponse({
         });
       }
     });
-    for (const row of response.result || []) {
-      if (row?.lineVariantUsed !== 'exact_nested' && !row?.exactLineHistorySuppressed) continue;
-      for (const field of [
-        'lineHistory',
-        'lineHistoryAvailable',
-        'lineHistorySource',
-        'movementSourceBook',
-        'movementMode',
-        'movementLabel',
-        'movementDisposition',
-        'openingOdds',
-        'currentOdds',
-        'clvProxyPct',
-        'movementSummary',
-        'normalizedSelectionId',
-        'historyMatchKey',
-        'historyGameId',
-        'lineVariantUsed',
-        'exactLineHistorySuppressed'
-      ]) {
-        delete row[field];
-      }
-    }
+    stripExactLineHistoryFields(response.result);
   } catch (err) {
     return {
       ok: true,
