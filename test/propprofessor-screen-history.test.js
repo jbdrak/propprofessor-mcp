@@ -208,6 +208,29 @@ describe('hydrateScreenRowsWithHistory', () => {
     assert.equal(result.lineHistory.length, 0);
   });
 
+  it('preserves the requested-book quote and liquidity on degraded history fallback', async () => {
+    const client = makeClient(async () => {
+      const error = new Error('history timeout');
+      error.status = 503;
+      throw error;
+    });
+    const row = makeRow({
+      gameId: 'game-preserve',
+      selectionId: 'sel-preserve',
+      odds: -123,
+      currentOdds: -123,
+      liquidityUsd: 47,
+      liquidity: 47
+    });
+    const [result] = await hydrateScreenRowsWithHistory([row], { client });
+
+    assert.equal(result.lineHistoryAvailable, false);
+    assert.equal(result.odds, -123);
+    assert.equal(result.currentOdds, -123);
+    assert.equal(result.liquidityUsd, 47);
+    assert.equal(result.liquidity, 47);
+  });
+
   it('limits concurrency — with concurrency=2 it does not exceed 2 in-flight', async () => {
     let maxInFlight = 0;
     let currentInFlight = 0;
