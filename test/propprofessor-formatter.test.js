@@ -273,6 +273,16 @@ describe('formatBetStandard', () => {
     assert.equal(result.rationale, 'Good play');
   });
 
+  it('preserves the non-verbose screenUrl deep link', () => {
+    const result = formatBetStandard({
+      selection: 'Player X',
+      market: 'Player Hits',
+      gameId: 'MLB:1',
+      screenUrl: 'https://app.propprofessor.com/screen?x=1'
+    });
+    assert.equal(result.screenUrl, 'https://app.propprofessor.com/screen?x=1');
+  });
+
   it('handles null/undefined input gracefully', () => {
     const result = formatBetStandard(null);
     assert.deepEqual(result, {});
@@ -422,7 +432,8 @@ describe('formatQuickScreenMinimal — parseable flag', () => {
             edge: 2.1,
             startCST: 'Thu, Jul 9, 7:00 AM',
             movementDisposition: 'supportive_clean',
-            screenScore: 90
+            screenScore: 90,
+            screenUrl: 'https://app.propprofessor.com/screen?x=1'
           }
         ]
       }
@@ -435,6 +446,7 @@ describe('formatQuickScreenMinimal — parseable flag', () => {
     assert.equal(out.plays.length, 1);
     assert.equal(out.plays[0].selection, 'Gauff');
     assert.equal(out.plays[0].confidenceTier, 'TIER 1');
+    assert.equal(out.plays[0].screenUrl, 'https://app.propprofessor.com/screen?x=1');
     assert.equal(typeof out.summary, 'string');
   });
 
