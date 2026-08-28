@@ -13,6 +13,7 @@ const {
   mapWithConcurrency
 } = require('../scripts/propprofessor-mcp-server');
 const { runSharpPlays } = require('../lib/propprofessor-sharp-plays-service');
+const { getPropMarketsForSport } = require('../lib/propprofessor-market-registry');
 const { ALL_SCREEN_BOOKS } = require('../lib/propprofessor-sharp-books');
 const { RateLimiter } = require('../lib/rate-limiter');
 
@@ -1437,13 +1438,12 @@ describe('propprofessor MCP server stdio contract', () => {
     });
 
     assert.ok(result.ok);
-    assert.ok(
-      requestedMarkets.includes('Player Triples'),
-      `expected Player Triples in fanned-out markets, got: ${JSON.stringify(requestedMarkets)}`
-    );
-    assert.ok(
-      requestedMarkets.includes('Pitcher Outs Recorded'),
-      `expected Pitcher Outs Recorded in fanned-out markets, got: ${JSON.stringify(requestedMarkets)}`
+    const expectedMarkets = ['Moneyline', ...getPropMarketsForSport('MLB')].sort();
+    assert.equal(requestedMarkets.length, expectedMarkets.length);
+    assert.deepEqual(
+      [...new Set(requestedMarkets)].sort(),
+      expectedMarkets,
+      `MLB includeProps fan-out drifted: ${JSON.stringify(requestedMarkets)}`
     );
   });
 
