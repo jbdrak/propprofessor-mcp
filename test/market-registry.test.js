@@ -78,6 +78,113 @@ test('prop markets exist for major leagues', () => {
   assert.ok(getPropMarketsForSport('NFL').includes('Player Passing Yards'));
 });
 
+const LIVE_PROP_MARKETS = {
+  MLB: [
+    'Player Hits',
+    'Player Total Bases',
+    'Player Runs',
+    'Player RBIs',
+    'Player Hits + Runs + RBIs',
+    'Player Singles',
+    'Player Doubles',
+    'Player Triples',
+    'Player Home Runs',
+    'Player Strikeouts',
+    'Player Walks',
+    'Pitcher Earned Runs Allowed',
+    'Pitcher Strikeouts',
+    'Pitcher Hits Allowed',
+    'Pitcher Walks Allowed',
+    'Pitcher Outs Recorded'
+  ],
+  WNBA: [
+    'Player Points',
+    'Player Assists',
+    'Player Rebounds',
+    'Player Steals',
+    'Player Blocks',
+    'Player Turnovers',
+    'Player Blocks + Steals',
+    'Player Points + Rebounds',
+    'Player Points + Assists',
+    'Player Rebounds + Assists',
+    'Player Points + Rebounds + Assists',
+    'Player Threes Made',
+    'Player Double Double',
+    'Player Triple Double'
+  ],
+  NFL: [
+    'Player Passing Yards',
+    'Player Passing Attempts',
+    'Player Passing Completions',
+    'Player Longest Completion',
+    'Player Interceptions',
+    'Player Passing Touchdowns',
+    'Player Rushing Yards',
+    'Player Rushing Attempts',
+    'Player Longest Rush',
+    'Player Receiving Yards',
+    'Player Receptions',
+    'Player Receiving Targets',
+    'Player Receiving Touchdowns',
+    'Player Longest Reception',
+    'Player Tackles',
+    'Player Tackles + Assists',
+    'Player Tackles For Loss',
+    'Player Tackles Assisted',
+    'Player Sacks',
+    'Player Field Goals Made',
+    'Player Extra Points',
+    'Player Kicking Points',
+    'Player Punts',
+    'Player Touchdowns',
+    'Player Passing + Rushing Yards',
+    'Player Passing + Receiving Yards',
+    'Player Rushing + Receiving Yards'
+  ],
+  NCAAF: [
+    'Player Passing Yards',
+    'Player Passing Attempts',
+    'Player Passing Completions',
+    'Player Longest Completion',
+    'Player Interceptions',
+    'Player Passing Touchdowns',
+    'Player Rushing Yards',
+    'Player Rushing Attempts',
+    'Player Longest Rush',
+    'Player Receiving Yards',
+    'Player Receptions',
+    'Player Receiving Targets',
+    'Player Receiving Touchdowns',
+    'Player Longest Reception',
+    'Player Tackles',
+    'Player Tackles + Assists',
+    'Player Tackles For Loss',
+    'Player Tackles Assisted',
+    'Player Sacks',
+    'Player Field Goals Made',
+    'Player Extra Points',
+    'Player Kicking Points',
+    'Player Punts',
+    'Player Touchdowns',
+    'Player Passing + Rushing Yards',
+    'Player Passing + Receiving Yards',
+    'Player Rushing + Receiving Yards'
+  ]
+};
+
+test('prop registry mirrors the observed live frontend catalogs', () => {
+  for (const [league, markets] of Object.entries(LIVE_PROP_MARKETS)) {
+    assert.deepEqual(getPropMarketsForSport(league), markets, `${league} prop catalog drifted`);
+  }
+});
+
+test('prop registry has no duplicate canonical market names', () => {
+  for (const [league, markets] of Object.entries(LIVE_PROP_MARKETS)) {
+    assert.equal(new Set(markets).size, markets.length, `${league} contains duplicate prop markets`);
+  }
+});
+
 test('prop markets default to empty for unknown leagues', () => {
   assert.deepEqual(getPropMarketsForSport('Curling'), []);
 });
