@@ -9,6 +9,7 @@ const {
   inferPreferredBook,
   parseNaturalLanguagePropQuery
 } = require('../lib/propprofessor-query-parser');
+const { getPropMarketsForSport } = require('../lib/propprofessor-market-registry');
 
 describe('propprofessor query parser', () => {
   it('parses a player prop question with book, line, and side', () => {
@@ -99,5 +100,13 @@ describe('propprofessor query parser', () => {
     assert.equal(inferDefaultMarket('college football passing yards'), 'Player Passing Yards');
     assert.equal(inferDefaultMarket('college football rushing yards'), 'Player Rushing Yards');
     assert.equal(inferDefaultMarket('college football receiving yards'), 'Player Receiving Yards');
+  });
+
+  it('keeps the parser aligned with every observed prop registry market', () => {
+    for (const league of ['MLB', 'WNBA', 'NFL', 'NCAAF']) {
+      for (const market of getPropMarketsForSport(league)) {
+        assert.equal(inferDefaultMarket(`${league} ${market}`, league), market, `${league} ${market}`);
+      }
+    }
   });
 });
