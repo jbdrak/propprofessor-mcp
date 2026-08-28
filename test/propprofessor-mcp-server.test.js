@@ -1447,6 +1447,28 @@ describe('propprofessor MCP server stdio contract', () => {
     );
   });
 
+  it('quick_screen keeps props off by default', async () => {
+    const { client } = createRankedScreenClientStub();
+    const handlers = createMcpHandlers({ client });
+    const requestedMarkets = [];
+    handlers.runLeagueScreen = async () => ({ ok: true, result: [{ gameId: 'stub-mlb-game' }] });
+    handlers.sharp_plays = async (args) => {
+      requestedMarkets.push(args.market);
+      return { ok: true, result: [] };
+    };
+
+    const result = await handlers.quick_screen({
+      books: ['NoVigApp'],
+      leagues: ['MLB'],
+      markets: ['Moneyline'],
+      includeResearch: false,
+      cardWindow: 'all'
+    });
+
+    assert.ok(result.ok);
+    assert.deepEqual(requestedMarkets, ['Moneyline']);
+  });
+
   it('quick_screen includeProps merges player prop markets for NBA', async () => {
     const { client } = createRankedScreenClientStub();
     const handlers = createMcpHandlers({ client });
