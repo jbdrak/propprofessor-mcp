@@ -17,9 +17,9 @@ describe('computeMovementDisposition', () => {
     );
   });
 
-  it('labels a stale supportive quote as stale (last point > 10 min old)', () => {
-    // Regression: 2026-08-14 Broncos ML -178 was quoted supportive_clean from
-    // a 17-min-old history point while the live market had moved to -163/-160.
+  it('labels aged supportive movement evidence as stale when no current quote is present', () => {
+    // Regression: an old movement trail must not be treated as a current
+    // execution quote when the live quote is absent.
     assert.equal(
       computeMovementDisposition({
         movementGrade: 'green',
@@ -28,6 +28,38 @@ describe('computeMovementDisposition', () => {
         fullWindowSharpMoveDirection: 'supportive',
         peakAdverseClvPct: 0.5,
         lastPointAgeMs: 17 * 60 * 1000
+      }),
+      'stale'
+    );
+  });
+
+  it('keeps movement direction when the current quote is present but history is aged', () => {
+    assert.equal(
+      computeMovementDisposition({
+        odds: -144,
+        currentOdds: -144,
+        targetBookOdds: -144,
+        liquidityUsd: 232,
+        movementGrade: 'green',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        clvProxyPct: 1.1,
+        lastPointAgeMs: 72 * 60 * 1000
+      }),
+      'supportive_clean'
+    );
+  });
+
+  it('keeps stale disposition when the current quote is absent', () => {
+    assert.equal(
+      computeMovementDisposition({
+        movementGrade: 'green',
+        movementLabel: 'supportive',
+        recentSharpMoveDirection: 'supportive',
+        fullWindowSharpMoveDirection: 'supportive',
+        clvProxyPct: 1.1,
+        lastPointAgeMs: 72 * 60 * 1000
       }),
       'stale'
     );
