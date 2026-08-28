@@ -2,7 +2,7 @@
 
 /**
  * Context plugins handlers: player_context, mlb_game_context, fantasy_optimizer,
- * clear_score_timeline, get_market_registry, manage_hidden_bets, league_presets.
+ * league_presets.
  *
  * Extracted from createMcpHandlers() in handlers.js (v2.x.x).
  *
@@ -14,8 +14,6 @@
 const { ok } = require('../../../lib/response-envelope');
 const { getPlayerContext } = require('../../../lib/propprofessor-player-context');
 const { getMlbGameContext } = require('../../../lib/propprofessor-mlb-game-context');
-const { clearScoreTimeline } = require('../../../lib/propprofessor-risk-score');
-const { getMarketsForSport, getPropMarketsForSport } = require('../../../lib/propprofessor-market-registry');
 const { getLeagueRankingPreset } = require('../../../lib/propprofessor-mcp-ranked-screen');
 const { getSharpBookComparisonSet, getSharpBookContext } = require('../../../lib/propprofessor-sharp-books');
 
@@ -102,71 +100,6 @@ function createContextPluginsHandlers(client, _ctx) {
         count: Array.isArray(result) ? result.length : 0,
         result: Array.isArray(result) ? result : []
       };
-    },
-
-    async clear_score_timeline() {
-      clearScoreTimeline();
-      return { ok: true, message: 'Score timeline cache cleared. Tier trajectory data reset.' };
-    },
-
-    async get_market_registry(args = {}) {
-      const sport = String(args.sport || '').trim();
-      const book = args.book ? String(args.book).trim() : null;
-      if (!sport) {
-        return { ok: false, error: { code: 'MISSING_PARAMS', message: 'sport is required' } };
-      }
-      const markets = getMarketsForSport(sport, book);
-      const propMarkets = getPropMarketsForSport(sport);
-      return {
-        ok: true,
-        sport,
-        book: book || 'default',
-        markets,
-        propMarkets,
-        note:
-          sport.toUpperCase() === 'SOCCER'
-            ? 'Soccer uses Draw No Bet (not Moneyline), Match Handicap (not Spread), and Total Goals'
-            : undefined
-      };
-    },
-
-    async manage_hidden_bets(args = {}) {
-      const { action } = args;
-      if (action === 'list') {
-        const result = await client.getHiddenBets();
-        return { ok: true, action, result };
-      }
-      if (action === 'hide') {
-        if (!args.bet || typeof args.bet !== 'object') {
-          const error = new Error('The bet parameter is required and must be an object.');
-          error.code = 'MISSING_BET';
-          error.category = 'validation';
-          error.status = 400;
-          throw error;
-        }
-        const result = await client.hideBet(args.bet);
-        return { ok: true, action, result };
-      }
-      if (action === 'unhide') {
-        if (!args.id) {
-          const error = new Error('The id parameter is required.');
-          error.code = 'MISSING_ID';
-          error.category = 'validation';
-          error.status = 400;
-          throw error;
-        }
-        const result = await client.unhideBet(args.id);
-        return { ok: true, action, result };
-      }
-      if (action === 'clear') {
-        const result = await client.clearHiddenBets();
-        return { ok: true, action, result };
-      }
-      const error = new Error(`Unknown action: ${action}. Must be one of: list, hide, unhide, clear.`);
-      error.code = 'INVALID_ACTION';
-      error.category = 'validation';
-      error.status = 400;
-      throw error;
     },
 
     async league_presets() {

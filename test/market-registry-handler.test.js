@@ -3,10 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-// The live get_market_registry handler is registered by createContextPluginsHandlers,
-// which createMcpHandlers() merges LAST (after createMetaHandlers). So the test must
-// exercise the assembled handler set, not createMetaHandlers alone — otherwise it would
-// pass against the dead duplicate in meta.js and miss the actual live seam.
+// Exercise the assembled handler set so the test covers the live registration seam.
 const { createMcpHandlers } = require('../scripts/server/handlers');
 
 // createMcpHandlers requires a client for the ctx, but get_market_registry ignores it.

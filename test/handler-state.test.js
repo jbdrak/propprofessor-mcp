@@ -26,12 +26,14 @@ describe('state handlers', () => {
       })
     );
 
-    const result = await handlers.manage_hidden_bets({ action: 'archive' });
-
-    assert.deepEqual(result, {
-      ok: false,
-      error: { code: 'INVALID_PARAMS', message: 'action must be list, hide, unhide, or clear' }
-    });
+    await assert.rejects(
+      () => handlers.manage_hidden_bets({ action: 'archive' }),
+      (error) => {
+        assert.equal(error.code, 'INVALID_ACTION');
+        assert.match(error.message, /Must be one of: list, hide, unhide, clear/);
+        return true;
+      }
+    );
     assert.equal(calls, 0);
   });
 
@@ -39,44 +41,68 @@ describe('state handlers', () => {
     const hidden = [{ gameId: 'game-1', selection: 'Team A' }];
     const handlers = createStateHandlers(makeClient({ getHiddenBets: async () => hidden }));
 
-    assert.deepEqual(await handlers.manage_hidden_bets({ action: 'list' }), { ok: true, result: hidden });
+    assert.deepEqual(await handlers.manage_hidden_bets({ action: 'list' }), {
+      ok: true,
+      action: 'list',
+      result: hidden
+    });
   });
 
-  it('requires gameId for hide and unhide', async () => {
+  it('requires bet and id for hide and unhide', async () => {
     const handlers = createStateHandlers(makeClient());
 
-    for (const action of ['hide', 'unhide']) {
-      assert.deepEqual(await handlers.manage_hidden_bets({ action }), {
-        ok: false,
-        error: { code: 'MISSING_PARAMS', message: 'gameId is required' }
-      });
-    }
+    await assert.rejects(
+      () => handlers.manage_hidden_bets({ action: 'hide' }),
+      (error) => {
+        assert.equal(error.code, 'MISSING_BET');
+        return true;
+      }
+    );
+    await assert.rejects(
+      () => handlers.manage_hidden_bets({ action: 'unhide' }),
+      (error) => {
+        assert.equal(error.code, 'MISSING_ID');
+        return true;
+      }
+    );
   });
 
   it('forwards hide and unhide arguments and clears all hidden bets', async () => {
     const calls = [];
     const handlers = createStateHandlers(
       makeClient({
-        hideBet: async (...args) => calls.push(['hide', ...args]),
-        unhideBet: async (...args) => calls.push(['unhide', ...args]),
-        clearHiddenBets: async () => calls.push(['clear'])
+        hideBet: async (...args) => {
+          calls.push(['hide', ...args]);
+          return 'hidden';
+        },
+        unhideBet: async (...args) => {
+          calls.push(['unhide', ...args]);
+          return 'unhidden';
+        },
+        clearHiddenBets: async () => {
+          calls.push(['clear']);
+          return 'cleared';
+        }
       })
     );
 
-    assert.equal(
-      (
-        await handlers.manage_hidden_bets({
-          action: 'hide',
-          gameId: 'game-1',
-          selection: 'Team A',
-          market: 'Moneyline'
-        })
-      ).ok,
-      true
-    );
-    assert.equal((await handlers.manage_hidden_bets({ action: 'unhide', gameId: 'game-1' })).ok, true);
-    assert.equal((await handlers.manage_hidden_bets({ action: 'clear' })).ok, true);
-    assert.deepEqual(calls, [['hide', 'game-1', 'Team A', 'Moneyline'], ['unhide', 'game-1', null, null], ['clear']]);
+    const bet = { betId: 'bet-1', matchId: 'game-1', market: 'Moneyline', selection: 'Team A' };
+    assert.deepEqual(await handlers.manage_hidden_bets({ action: 'hide', bet }), {
+      ok: true,
+      action: 'hide',
+      result: 'hidden'
+    });
+    assert.deepEqual(await handlers.manage_hidden_bets({ action: 'unhide', id: 'hidden-1' }), {
+      ok: true,
+      action: 'unhide',
+      result: 'unhidden'
+    });
+    assert.deepEqual(await handlers.manage_hidden_bets({ action: 'clear' }), {
+      ok: true,
+      action: 'clear',
+      result: 'cleared'
+    });
+    assert.deepEqual(calls, [['hide', bet], ['unhide', 'hidden-1'], ['clear']]);
   });
 
   it('returns a clean backend error when the client throws null', async () => {
@@ -88,10 +114,13 @@ describe('state handlers', () => {
       })
     );
 
-    assert.deepEqual(await handlers.manage_hidden_bets({ action: 'clear' }), {
-      ok: false,
-      error: { code: 'BACKEND_ERROR', message: 'null' }
-    });
+    await assert.rejects(
+      () => handlers.manage_hidden_bets({ action: 'clear' }),
+      (error) => {
+        assert.equal(error, null);
+        return true;
+      }
+    );
   });
 
   it('clears the score timeline and returns confirmation', async () => {
