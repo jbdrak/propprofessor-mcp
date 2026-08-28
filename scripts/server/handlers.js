@@ -16,6 +16,7 @@ const { createStateHandlers } = require('./handlers/state');
 const { createScanHandlers } = require('./handlers/scan');
 const { runRecommendedMarket } = require('./handlers/recommended-market');
 const { mapRecommendedPlay } = require('./handlers/recommended-play');
+const { stripLiteResponse } = require('./handlers/strip-lite-response');
 const { createPicksHandlers } = require('./handlers/picks');
 const { createPricingHandlers } = require('./handlers/pricing');
 const { createContextPluginsHandlers } = require('./handlers/context-plugins');
@@ -93,68 +94,6 @@ const { getPickStats, getBacktestSummary } = require('../../lib/propprofessor-pi
 // promoteFinalVerdictToDisplay (and TIER_RANK) were extracted to
 // lib/bet-verdict.js on 2026-08-27. They are imported at the top of this file
 // and re-exported at the bottom for backward compatibility.
-
-/**
- * Strip heavy post-validation fields from the quick_screen response when
- * lite=true. The lite 'fields' array only controls screen_ranked output;
- * validatedGameContext, redundant validatedEdge/Clv/Odds, and the separate
- * research array are appended after that pass and balloon the payload even
- * in lite mode (4 leagues × 19 candidates = ~118K chars, truncated).
- *
- * This function collapses research into the candidate rows directly and
- * drops objects that duplicate what validatedActionableSummary already says.
- */
-function stripLiteResponse(response) {
-  // 1. Collapse research into candidates: look up each row's risk info
-  //    and attach it inline, then drop the separate research array.
-  //    Composite key is game|player|market so the same selection across
-  //    markets (Moneyline vs Total Games) joins to the right research row
-  //    and its research context never bleeds across markets.
-  const researchByGame = new Map();
-  for (const r of response.research || []) {
-    if (r.player && r.game) {
-      researchByGame.set(`${r.game}:${r.player.toLowerCase()}:${(r.market || '').toLowerCase()}`, r);
-    }
-  }
-  for (const entry of response.results || []) {
-    for (const c of entry.candidates || []) {
-      const player = (c.selection || '').toLowerCase();
-      const game = c.game || '';
-      const key = `${game}:${player}:${String(c.market || entry.market || '').toLowerCase()}`;
-      const research = researchByGame.get(key);
-      if (research) {
-        c.riskFlag = research.riskFlag || c.riskFlag || null;
-        c.riskSummary = research.riskSummary || c.riskSummary || null;
-      }
-      // Strip heavy validated bloat — actionableSummary already captures the signal.
-      delete c.validatedGameContext;
-      delete c.validatedEdge;
-      delete c.validatedClv;
-      delete c.validatedOdds;
-      delete c.priceDrift;
-      delete c.finalWarnings;
-      delete c.screenUrl;
-      delete c.rationale;
-      // validatedConsensusSupport is a free-text string, keep it (small).
-      // validatedUnverified, validatedConsensusDrift, validatedDriftReason:
-      // keep them — they're compact flags the agent needs.
-    }
-  }
-  // 2. Drop the separate research array (now inlined on candidates).
-  response.research = undefined;
-  // 3. Trim activeSlate to per-league summaries instead of per-market entries.
-  if (Array.isArray(response.activeSlate)) {
-    const leagueCounts = {};
-    for (const s of response.activeSlate) {
-      leagueCounts[s.league] = (leagueCounts[s.league] || 0) + (s.count || 0);
-    }
-    response.activeSlate = Object.entries(leagueCounts).map(([league, count]) => ({
-      league,
-      count
-    }));
-  }
-  return response;
-}
 
 /**
  * Hint the JS engine that now is a good time to run GC.
