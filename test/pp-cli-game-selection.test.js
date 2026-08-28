@@ -4,6 +4,27 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { cmdGame } = require('../bin/pp-cli');
 
+async function runGameOutput(row) {
+  const originalError = console.error;
+  const originalLog = console.log;
+  const output = [];
+  console.error = () => {};
+  console.log = (line = '') => output.push(String(line));
+  try {
+    await cmdGame(
+      {
+        get_play_details: async () => ({ result: [row] })
+      },
+      ['game', 'MLB:PREMATCH:TeamA:TeamB:1786017600'],
+      {}
+    );
+  } finally {
+    console.error = originalError;
+    console.log = originalLog;
+  }
+  return output.join('\n');
+}
+
 async function runGame(playId, flags = {}) {
   const calls = [];
   const originalError = console.error;
@@ -45,5 +66,26 @@ describe('pp game exact tennis selection propagation', () => {
 
     assert.equal(args.selection, 'Over 23.5');
     assert.equal(args.playId, undefined);
+  });
+
+  it('labels old movement history without calling the current quote old', async () => {
+    const output = await runGameOutput({
+      awayTeam: 'Team A',
+      homeTeam: 'Team B',
+      start: '2026-08-28T18:00:00Z',
+      market: 'Moneyline',
+      defaultKey: 'selection1',
+      movementLabel: 'supportive',
+      movementGrade: 'green',
+      movementDisposition: 'supportive_clean',
+      odds: -144,
+      currentOdds: -144,
+      targetBookOdds: -144,
+      lastPointAgeMs: 72 * 60 * 1000
+    });
+
+    assert.match(output, /movement history is 72 min old/);
+    assert.doesNotMatch(output, /quote is 72 min old/);
+    assert.doesNotMatch(output, /verify current price/);
   });
 });

@@ -1307,10 +1307,14 @@ async function cmdGame(handlers, positional, flags) {
         '  |  disposition: ' +
         movementColor(r.movementDisposition)
     );
-    const quoteAgeMs = Number(r.lastPointAgeMs);
-    if (Number.isFinite(quoteAgeMs) && quoteAgeMs > 10 * 60 * 1000) {
+    const movementHistoryAgeMs = Number(r.movementHistoryAgeMs ?? r.lastPointAgeMs);
+    if (Number.isFinite(movementHistoryAgeMs) && movementHistoryAgeMs > 10 * 60 * 1000) {
       console.log(
-        Y + '⚠ quote is ' + Math.round(quoteAgeMs / 60000) + ' min old — verify current price before betting' + R
+        Y +
+          '⚠ movement history is ' +
+          Math.round(movementHistoryAgeMs / 60000) +
+          ' min old; this does not describe current quote age' +
+          R
       );
     }
     if (selection) {
