@@ -302,8 +302,8 @@ When `compact` is paired with a `fields: [...]` list, `fields` takes precedence 
 Tools with ranked rows accept `verbosity: "minimal" | "standard" | "full"`:
 
 - `minimal`: plain English summary + count. No row-level data.
-- `standard` (default): row-level tier + risk + rationale. Standard fields.
-- `full`: all movement data, line history, debug payloads.
+- `standard` (default): row-level tier + risk + rationale. Standard fields. The returned `odds`/`targetBookOdds` are the current execution quote from the on-demand lookup; movement-history age is not quote age and is omitted from this mode.
+- `full`: all movement data, line history, debug payloads. `lastPointAgeMs`/`movementHistoryAgeMs` are movement-history diagnostics only, not current quote age.
 
 At `minimal` verbosity, the `ok` and `result` fields are replaced with `{ summary, count }` in the formatter pass — agents checking for `ok: true` should use `standard` or `full`.
 
