@@ -15,9 +15,9 @@ const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('..
 const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { normalizeTennisMarketQuery } = require('../../../lib/screen-tennis');
 const { formatGetPlayDetailsMinimal, formatGetPlayDetailsStandard } = require('../../../lib/propprofessor-formatter');
-const { parseGameIdIdentity, findBestMatchGameIdChanged } = require('../../../lib/selection-matcher');
-const flashscoreTimes = require('../../../lib/flashscore-times');
 const { stripExactLineHistoryFields } = require('./strip-exact-line-history');
+const { filterPlayDetailsRows } = require('./filter-play-details-rows');
+const { recoverPlayDetailsRows } = require('./recover-play-details-rows');
 
 /**
  * Normalize a selection label for exact (case-insensitive) matching.
@@ -575,85 +575,25 @@ function createPlayDetailsHandlers(_client, _ctx) {
       };
     }
 
-    const normalizeGameId = (id) =>
-      String(id || '')
-        .replace(/:\d{10,}$/, '')
-        .trim();
-    const normalizedRequested = gameIds.map(normalizeGameId);
-    const gameIdSet = new Set(normalizedRequested);
-    const safeResult = Array.isArray(response.result) ? response.result : [];
-    const verifiedTennisDate =
-      league.toLowerCase() === 'tennis' && safeResult.length
-        ? flashscoreTimes.lookupMatchTime(safeResult[0].homeTeam, safeResult[0].awayTeam)?.date || ''
-        : '';
-    const exactGameIdMatches = (row) => {
-      const rowId = String(row?.gameId || '').trim();
-      if (!rowId) return false;
-      if (args.playId && String(row?.playId || '').trim() !== String(args.playId).trim()) return false;
-      if (gameIds.includes(rowId)) return true;
-      // A timestamp-less backend row is safe to match against the requested
-      // identity. A different embedded timestamp is not: it may be a stale
-      // or re-keyed event and must go through drift reconciliation.
-      const rowHasTimestamp = /:\d{10,}$/.test(rowId);
-      const requestedHasTimestamp = gameIds.some((id) => /:\d{10,}$/.test(String(id)));
-      if (verifiedTennisDate && row.start) {
-        const rowDate = new Date(row.start).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-        if (rowDate !== verifiedTennisDate) return false;
-      }
-      return !rowHasTimestamp && requestedHasTimestamp && gameIdSet.has(normalizeGameId(rowId));
-    };
-    const filtered = relaxedGameIdMatch ? safeResult : safeResult.filter(exactGameIdMatches);
-
-    const fallbackRows = Array.isArray(response.focusBookMissingRows) ? response.focusBookMissingRows : [];
-    const merged = [...filtered];
-    for (const fbRow of fallbackRows) {
-      if (relaxedGameIdMatch || exactGameIdMatches(fbRow)) {
-        merged.push({ ...fbRow, __focusBookMissing: true });
-      }
-    }
-
-    // Direct `game` lookups need the same timestamp-drift recovery as
-    // validate_play. The old path normalized timestamps before filtering,
-    // which let stale rows win and prevented the fallback from running.
-    if (
-      !relaxedGameIdMatch &&
-      args.disableTimestampDriftFallback !== true &&
-      merged.length === 0 &&
-      gameIds.length === 1
-    ) {
-      const identity = parseGameIdIdentity(gameIds[0]);
-      if (identity) {
-        const relaxedResponse = await queryPlayDetailsResponse({
-          client,
-          args,
-          gameIds,
-          league,
-          market,
-          relaxedGameIdMatch: true,
-          relaxedParticipants: Array.isArray(args.participants) ? args.participants : [],
-          augmentedBooksExcluded,
-          focusBook,
-          augmentedBooks
-        });
-        const relaxedRows = Array.isArray(relaxedResponse.result) ? relaxedResponse.result : [];
-        let verifiedDateKey = '';
-        if (league.toLowerCase() === 'tennis' && relaxedRows.length) {
-          const first = relaxedRows[0];
-          const schedule = flashscoreTimes.lookupMatchTime(first.homeTeam, first.awayTeam);
-          verifiedDateKey = schedule?.date || '';
-        }
-        const fallbackRow = findBestMatchGameIdChanged(relaxedRows, {
-          league,
-          market,
-          selection: args.selection || '',
-          playId: args.playId || '',
-          gameId: gameIds[0],
-          requestedBook: focusBook,
-          verifiedDateKey
-        });
-        if (fallbackRow) merged.push(fallbackRow);
-      }
-    }
+    const merged = await recoverPlayDetailsRows({
+      merged: filterPlayDetailsRows({
+        response,
+        args,
+        gameIds,
+        league,
+        relaxedGameIdMatch
+      }),
+      relaxedGameIdMatch,
+      args,
+      gameIds,
+      league,
+      market,
+      client,
+      augmentedBooksExcluded,
+      focusBook,
+      augmentedBooks,
+      queryPlayDetailsResponse
+    });
     return finalizePlayDetailsResponse({
       response,
       merged,
