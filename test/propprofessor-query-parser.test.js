@@ -35,6 +35,26 @@ describe('propprofessor query parser', () => {
     assert.equal(parsed.market, 'Pitcher Strikeouts');
   });
 
+  it('distinguishes player strikeouts from pitcher strikeouts', () => {
+    assert.equal(inferDefaultMarket('MLB player strikeouts', 'MLB'), 'Player Strikeouts');
+    assert.equal(inferDefaultMarket('MLB pitcher strikeouts', 'MLB'), 'Pitcher Strikeouts');
+  });
+
+  it('recognizes the live MLB player and pitcher prop names', () => {
+    assert.equal(inferDefaultMarket('player hits', 'MLB'), 'Player Hits');
+    assert.equal(inferDefaultMarket('player runs', 'MLB'), 'Player Runs');
+    assert.equal(inferDefaultMarket('player triples', 'MLB'), 'Player Triples');
+    assert.equal(inferDefaultMarket('player walks', 'MLB'), 'Player Walks');
+    assert.equal(inferDefaultMarket('pitcher earned runs allowed', 'MLB'), 'Pitcher Earned Runs Allowed');
+    assert.equal(inferDefaultMarket('pitcher walks allowed', 'MLB'), 'Pitcher Walks Allowed');
+    assert.equal(inferDefaultMarket('pitcher outs recorded', 'MLB'), 'Pitcher Outs Recorded');
+  });
+
+  it('checks combo and team-total phrases before component prop keywords', () => {
+    assert.equal(inferDefaultMarket('player points rebounds assists', 'WNBA'), 'Player Points + Rebounds + Assists');
+    assert.equal(inferDefaultMarket('team total points', 'WNBA'), 'Team Total Points');
+  });
+
   it('keeps fantasy phrasing on the screen intent now that fantasy is not a public CLI command', () => {
     const parsed = parseNaturalLanguagePropQuery('is Underdog fantasy good today');
     assert.equal(parsed.intent, 'screen');
