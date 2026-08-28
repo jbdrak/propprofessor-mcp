@@ -15,6 +15,7 @@ const { createMetaHandlers } = require('./handlers/meta');
 const { createStateHandlers } = require('./handlers/state');
 const { createScanHandlers } = require('./handlers/scan');
 const { runRecommendedMarket } = require('./handlers/recommended-market');
+const { mapRecommendedPlay } = require('./handlers/recommended-play');
 const { createPicksHandlers } = require('./handlers/picks');
 const { createPricingHandlers } = require('./handlers/pricing');
 const { createContextPluginsHandlers } = require('./handlers/context-plugins');
@@ -1245,30 +1246,7 @@ function createMcpHandlers({
                 count: recommended.length,
                 markets_queried: markets,
                 downgradedCount: downgraded,
-                plays: recommended.map((row) => {
-                  const playerName = String(row.selection || row.participant || '');
-                  const gameName = String(
-                    row.game || (row.awayTeam && row.homeTeam ? `${row.awayTeam} @ ${row.homeTeam}` : '')
-                  );
-                  const marketName = String(row._market || row.market || row.screenMarket || '').toLowerCase();
-                  const research = researchResults.find(
-                    (r) =>
-                      String(r.player || '').toLowerCase() === playerName.toLowerCase() &&
-                      String(r.game || '') === gameName &&
-                      String(r.market || '').toLowerCase() === marketName
-                  );
-                  // Route every play through mapCandidateRow so recommended_bets
-                  // matches quick_screen's field shape (startCST, hoursUntilStart,
-                  // consistent odds/edge/clv). Keeps research flags as overlay.
-                  const mapped = mapCandidateRow(row);
-                  if (row._market) mapped.market = row._market;
-                  if (research) {
-                    mapped.riskFlag = research.riskFlag;
-                    mapped.riskSummary = research.riskSummary;
-                    mapped.topTweet = research.topTweet;
-                  }
-                  return mapped;
-                })
+                plays: recommended.map((row) => mapRecommendedPlay(row, researchResults))
               });
             }
           } catch (error) {
