@@ -260,7 +260,7 @@ async function runCompositeGetStarted(ctx, args = {}) {
         '1. Call today({ leagues: [...], book: "NoVigApp" }) for a one-call briefing — sharp slate + your pending picks + recent stats.',
         '2. For quick picks: quick_screen({ book: "NoVigApp", kaiCall: ["BET"], sortBy: "start", verbosity: "minimal" }). Present the top 3-5 plays.',
         '3. Before recommending: player_context({ player, sport }) for injury/availability flags.',
-        '4. Skip sharp_consensus and ev_candidates — those are for advanced users.'
+        '4. Use ev_candidates when you need the Positive EV board directly; exact validation still controls actionability.'
       ],
       key_tools: ['today', 'quick_screen', 'player_context'],
       pitfall:

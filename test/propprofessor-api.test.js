@@ -213,6 +213,37 @@ describe('createPropProfessorClient', () => {
     }
   });
 
+  it('posts Positive EV queries to the paid EV-prof endpoint with frontend-compatible fields', async () => {
+    const { dir, file } = makeTempAuthState({
+      cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],
+      origins: []
+    });
+    const fetchCalls = [];
+    const client = createPropProfessorClient({
+      authFile: file,
+      gotScrapingImpl: async () => ({
+        body: JSON.stringify({ token: 'jwt-ev', exp: Math.floor(Date.now() / 1000) + 600, perm: { sportsbook: true } }),
+        statusCode: 200
+      }),
+      fetchImpl: async (url, options) => {
+        fetchCalls.push({ url, options });
+        return { ok: true, status: 200, json: async () => ({ rows: [{ id: 'ev-1' }], meta: { omitted: 0 } }) };
+      }
+    });
+    try {
+      const result = await client.queryPositiveEV({ leagues: ['NCAAF'], minEV: 1.5 });
+      const body = JSON.parse(fetchCalls[0].options.body);
+      assert.equal(fetchCalls[0].url, 'https://backend.propprofessor.com/ev-prof');
+      assert.deepEqual(result.rows, [{ id: 'ev-1' }]);
+      assert.deepEqual(body.leagues, ['NCAAF']);
+      assert.equal(body.minEV, 1.5);
+      assert.deepEqual(body.allowedTiming, ['prematch']);
+      assert.equal(body.devig, 'worst');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('posts odds screen queries to the screen retrieve endpoint', async () => {
     const { dir, file } = makeTempAuthState({
       cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'cookie-value' }],

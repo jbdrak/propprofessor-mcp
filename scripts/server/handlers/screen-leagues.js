@@ -17,6 +17,8 @@ const {
 const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/propprofessor-sharp-books');
 const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { buildUfcShortlist } = require('../../../lib/propprofessor-sharp-plays');
+const { validatePositiveEvCandidates } = require('../../../lib/validate-ev-candidates');
+const { buildEvRecoveryRequest, extractEvRows, dedupeEvRows } = require('./ev-recovery');
 
 function buildCacheKey(prefix, args, league) {
   return JSON.stringify({
@@ -30,8 +32,44 @@ function buildCacheKey(prefix, args, league) {
       .toLowerCase(),
     lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : null,
     games: args.games || [],
-    participants: args.participants || []
+    participants: args.participants || [],
+    evFirst: args.evFirst !== false
   });
+}
+
+function marketMatches(row, market) {
+  const wanted = String(market || '').trim().toLowerCase();
+  if (!wanted) return true;
+  return [row.market, row.marketType, row.playType]
+    .filter((value) => value != null)
+    .some((value) => String(value).trim().toLowerCase() === wanted);
+}
+
+async function runEvFirst(client, args, league, market, requestedBooks) {
+  if (args.evFirst === false || args.skipHistory === true || (typeof client.queryPositiveEV !== 'function' && typeof client.querySportsbook !== 'function')) return null;
+  try {
+    const query = typeof client.queryPositiveEV === 'function' ? client.queryPositiveEV.bind(client) : client.querySportsbook.bind(client);
+    const raw = await query(
+      buildEvRecoveryRequest({ league, market, books: ALL_SCREEN_BOOKS, maxHoursAway: args.maxHoursAway ?? 48 })
+    );
+    const candidates = dedupeEvRows(extractEvRows(raw))
+      .filter((row) => row && marketMatches(row, market))
+      .slice(0, Number.isFinite(Number(args.scanLimit)) ? Number(args.scanLimit) : 100);
+    if (!candidates.length) return null;
+    const validated = await validatePositiveEvCandidates({
+      client,
+      candidates,
+      args: { ...args, league, market, books: requestedBooks, validated: true }
+    });
+    if (!Array.isArray(validated.result) || !validated.result.length) return null;
+    return {
+      ...validated,
+      result: validated.result.map((row) => ({ ...row, discoverySource: 'ev_board' })),
+      resultMeta: { ...validated.resultMeta, source: 'ev_first', evBoardCandidateCount: candidates.length }
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function runLeagueScreen(client, ctx, args = {}, league) {
@@ -56,6 +94,9 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
       return { ...cached, resultMeta: { ...cached.resultMeta, cached: true } };
     }
   }
+
+  const evResult = await runEvFirst(client, args, league, market, requestedBooks);
+  if (evResult) return evResult;
 
   const payload = await client.queryScreenOddsBestComps({
     market,
@@ -170,4 +211,4 @@ function createScreenLeaguesHandlers(client, ctx) {
   };
 }
 
-module.exports = { createScreenLeaguesHandlers };
+module.exports = { createScreenLeaguesHandlers, runEvFirst };

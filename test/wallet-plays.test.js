@@ -36,6 +36,7 @@ describe('leagueFromSlug', () => {
     assert.equal(leagueFromSlug('wnba-ny-ct-2026-08-17'), 'WNBA');
     assert.equal(leagueFromSlug('ncaab-duke-unc-2026-08-17'), 'NCAAB');
     assert.equal(leagueFromSlug('ncaaf-ala-uga-2026-08-17'), 'NCAAF');
+    assert.equal(leagueFromSlug('cfb-unc-tcu-2026-08-29'), 'NCAAF');
     assert.equal(leagueFromSlug('nbasl-nyk-bos-2026-08-17'), 'NBASL');
     assert.equal(leagueFromSlug('mls-atx-dal-2026-08-17'), 'MLS');
     assert.equal(leagueFromSlug('tennis-atp-2026-08-17'), 'Tennis');
