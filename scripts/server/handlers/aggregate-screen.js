@@ -143,7 +143,8 @@ function planAggregateScreen(args = {}, deps = {}) {
       minEV: args.minEV === undefined ? null : Number(args.minEV),
       verbosity: String(args.verbosity || 'full').toLowerCase(),
       includeResearch: includeResearch === true,
-      lite: lite === true
+      lite: lite === true,
+      evFirst: args.evFirst !== false
     });
     if (responseCache) {
       const cached = responseCache.get(aggregateCacheKey);
