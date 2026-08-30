@@ -139,4 +139,57 @@ describe('formatScanDiagnostics', () => {
     });
     assert.ok(!lines.some((l) => /BET candidate/.test(l)), 'no staleness warning when plays are present');
   });
+
+  it('labels an empty market unresolved when its scan block was truncated', () => {
+    const lines = formatScanDiagnostics({
+      mixedScan: false,
+      tennisFallbackApplied: false,
+      emptySlate: [{ league: 'UFC', market: 'Moneyline', reason: 'no_ranked_rows_scanned' }],
+      scanHealth: {
+        truncated: true,
+        incomplete: true,
+        preHistoryShortlist: [{ league: 'UFC', market: 'Moneyline', truncated: true }]
+      }
+    });
+    assert.ok(
+      lines.some((l) => /Unresolved: UFC › Moneyline/.test(l)),
+      'should flag the truncated market as unresolved'
+    );
+    assert.ok(
+      !lines.some((l) => /No plays: UFC › Moneyline/.test(l)),
+      'should not label the truncated market as an ordinary empty market'
+    );
+  });
+
+  it('labels an empty market unresolved when validation was short (budget exhausted)', () => {
+    const lines = formatScanDiagnostics({
+      mixedScan: false,
+      tennisFallbackApplied: false,
+      emptySlate: [{ league: 'MLB', market: 'Moneyline', reason: 'no_ranked_rows_scanned' }],
+      scanHealth: { validationBudgetExhausted: true, validation: { eligible: 5, selected: 5, completedCount: 0 } }
+    });
+    assert.ok(
+      lines.some((l) => /Unresolved: MLB › Moneyline/.test(l)),
+      'should flag the validation-short market as unresolved'
+    );
+    // Retains the existing clean validation-budget message.
+    assert.ok(
+      lines.some((l) => /validation budget exhausted/.test(l)),
+      'should retain the validation-budget-exhausted message'
+    );
+  });
+
+  it('keeps the ordinary No plays label for a genuinely empty market with a complete scan', () => {
+    const lines = formatScanDiagnostics({
+      mixedScan: false,
+      tennisFallbackApplied: false,
+      emptySlate: [{ league: 'NBA', market: 'Spread', reason: 'no_ranked_rows_scanned' }],
+      scanHealth: null
+    });
+    assert.ok(
+      lines.some((l) => /No plays: NBA › Spread/.test(l)),
+      'should keep the ordinary No plays label when the scan was complete'
+    );
+    assert.ok(!lines.some((l) => /Unresolved/.test(l)), 'should not flag a complete-scan empty market as unresolved');
+  });
 });
