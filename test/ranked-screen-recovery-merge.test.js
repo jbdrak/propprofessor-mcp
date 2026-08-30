@@ -41,26 +41,46 @@ describe('mergeRecoveredRows', () => {
     assert.deepEqual(hydrateCalls, [{ rows: recoveryRows, options: { lookbackHours: 6 } }]);
   });
 
-  it('skips recovery when history is disabled or initial ranking is supportive', async () => {
+  it('skips recovery only when history is disabled', async () => {
     const hydratedRows = [{ gameId: 'game-1' }];
     const hydrateFn = async () => {
       throw new Error('should not hydrate');
     };
 
-    for (const options of [
-      { skipHistory: true, initialHasSupportive: false },
-      { skipHistory: false, initialHasSupportive: true }
-    ]) {
-      const result = await mergeRecoveredRows({
-        hydratedRows,
-        recoveryRows: [{ gameId: 'game-2' }],
-        ...options,
-        hydrateOptions: {},
-        args: {},
-        hydrateFn,
-        buildIdFn: (row) => row.gameId
-      });
-      assert.deepEqual(result, { allHydratedRows: hydratedRows, preHistoryRecoveryMeta: null });
-    }
+    const result = await mergeRecoveredRows({
+      hydratedRows,
+      recoveryRows: [{ gameId: 'game-2' }],
+      skipHistory: true,
+      hydrateOptions: {},
+      args: {},
+      hydrateFn,
+      buildIdFn: (row) => row.gameId
+    });
+    assert.deepEqual(result, { allHydratedRows: hydratedRows, preHistoryRecoveryMeta: null });
+  });
+
+  it('hydrates skipped rows even when the initial pass already found support', async () => {
+    const hydratedRows = [{ gameId: 'game-1' }];
+    const recoveryRows = [{ gameId: 'game-2' }];
+    const recoveredRows = [{ gameId: 'game-2' }];
+    let calls = 0;
+
+    const result = await mergeRecoveredRows({
+      hydratedRows,
+      recoveryRows,
+      skipHistory: false,
+      initialHasSupportive: true,
+      hydrateOptions: {},
+      args: { preHistoryRecoveryGameBudget: 1 },
+      hydrateFn: async () => {
+        calls += 1;
+        return recoveredRows;
+      },
+      buildIdFn: (row) => row.gameId
+    });
+
+    assert.equal(calls, 1);
+    assert.deepEqual(result.allHydratedRows, [...hydratedRows, ...recoveredRows]);
+    assert.equal(result.preHistoryRecoveryMeta.recoveredRowCount, 1);
   });
 });
