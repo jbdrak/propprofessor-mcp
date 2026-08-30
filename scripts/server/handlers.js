@@ -35,6 +35,7 @@ const { createTennisScreenHandler } = require('./handlers/tennis-screen');
 // staging extracted to a dependency-injected seam so tests can pin the cache-key
 // shape and hit/miss contract without the network path. Behavior unchanged.
 const { planAggregateScreen } = require('./handlers/aggregate-screen');
+const { recoverStandardTotals } = require('./handlers/totals-recovery');
 const { resolveMarkets, stripVerdictFields, mergeHandlerModule } = require('./handlers/handler-utils');
 const { ok } = require('../../lib/response-envelope');
 const { createPropProfessorClient } = require('../../lib/propprofessor-api');
@@ -63,6 +64,11 @@ const validationPipeline = require('../../lib/propprofessor-validation-pipeline'
 function getDefaultMarketsForLeague(league, _targetBooks) {
   return require('../../lib/propprofessor-market-registry').getMarketsForSport(league, _targetBooks);
 }
+
+function isStandardTotalsMarket(market) {
+  return new Set(['Total Runs', 'Total Points', 'Total Goals', 'Total Games', 'Total Rounds']).has(String(market || '').trim());
+}
+
 const { mapCandidateRow } = require('../../lib/propprofessor-mcp-candidate-mapper');
 const { getLimit, getLeagueRankingPreset } = require('../../lib/propprofessor-mcp-ranked-screen');
 const { categorizeError } = require('../../lib/propprofessor-mcp-stdio');
@@ -459,7 +465,36 @@ function createMcpHandlers({
               aggregatePairCount: leagueMarketPairs.length
             });
 
-            const candidates = Array.isArray(spResult?.result) ? spResult.result : [];
+            let candidates = Array.isArray(spResult?.result) ? spResult.result : [];
+            let totalsRecoveryApplied = false;
+            const totalsScanTruncated = Boolean(
+              spResult.resultMeta?.scanHealth?.truncated ||
+                (Array.isArray(spResult.resultMeta?.preHistoryShortlist) &&
+                  spResult.resultMeta.preHistoryShortlist.some((entry) => entry.truncated))
+            );
+            if (
+              !candidates.length &&
+              isStandardTotalsMarket(market) &&
+              totalsScanTruncated &&
+              typeof ctx.handlers.runLeagueScreen === 'function'
+            ) {
+              try {
+                const recoveredRows = await recoverStandardTotals({
+                  runLeagueScreen: ctx.handlers.runLeagueScreen,
+                  league,
+                  market,
+                  targetBooks,
+                  scanLimit,
+                  lookbackHours
+                });
+                if (recoveredRows?.length) {
+                  candidates = recoveredRows;
+                  totalsRecoveryApplied = true;
+                }
+              } catch {
+                // Keep the original empty-market diagnostics on recovery failure.
+              }
+            }
             if (!candidates.length) {
               emptySlate.push({
                 league,
@@ -498,7 +533,8 @@ function createMcpHandlers({
                 : {}),
               ...(spResult.resultMeta?.perPairDiagnostics
                 ? { perPairDiagnostics: spResult.resultMeta.perPairDiagnostics }
-                : {})
+                : {}),
+              ...(totalsRecoveryApplied ? { totalsRecoveryApplied: true } : {})
             });
           } catch (error) {
             const categorized = categorizeError(error);
