@@ -19,8 +19,9 @@ const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/li
 const { promoteCards } = require(PROJECT + '/lib/record-card');
 const { enrichScanPolyWallets } = require(PROJECT + '/lib/propprofessor-poly-wallets');
 const { analyzeWalletPlays } = require(PROJECT + '/lib/propprofessor-wallet-plays');
-const { formatScanDiagnostics } = require(PROJECT + '/lib/scan-diagnostics');
+const { formatScanDiagnostics, normalizeWatchCandidates } = require(PROJECT + '/lib/scan-diagnostics');
 const { getMarketsForSport } = require(PROJECT + '/lib/propprofessor-market-registry');
+const { getSoccerEventIdentity } = require(PROJECT + '/lib/soccer-event-identity');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
 // ── book alias resolution ──────────────────────────────────────
@@ -517,7 +518,7 @@ function formatScan(results) {
       if (p.books) details.push(p.books + ' books');
       if (p.executionQuality) details.push('exec:' + p.executionQuality);
       if (p.consensusEdge != null)
-        details.push('edge ' + (p.consensusEdge >= 0 ? '+' : '') + (p.consensusEdge * 100).toFixed(1) + '%');
+        details.push('edge ' + (p.consensusEdge >= 0 ? '+' : '') + Number(p.consensusEdge).toFixed(1) + '%');
       out += '    ' + details.join('  ·  ') + '\n';
       const openerLine = openerContextLabel(p.openingOdds, p.currentOdds);
       if (openerLine) out += '    ' + openerLine + '\n';
@@ -974,11 +975,12 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
   const jsonOut = flags.j || flags.json || false;
   const results = res.data?.results || res.results || [];
   const scanHealth = res.data?.scanHealth || res.scanHealth || null;
-  const watchCandidates = Array.isArray(res.data?.watchCandidates)
+  const rawWatchCandidates = Array.isArray(res.data?.watchCandidates)
     ? res.data.watchCandidates
     : Array.isArray(res.watchCandidates)
       ? res.watchCandidates
       : null;
+  const watchCandidates = rawWatchCandidates ? normalizeWatchCandidates(rawWatchCandidates) : null;
 
   // Surface existing diagnostics on the human path: truncated rows, empty
   // league×market pairs, and the tennis-fallback-on-mixed-scan caveat. The
@@ -1299,7 +1301,11 @@ async function cmdGame(handlers, positional, flags) {
       return;
     }
     const r = rows[0];
-    console.log(B + (r.awayTeam || 'Away') + ' @ ' + (r.homeTeam || 'Home') + R);
+    const eventLabel =
+      /^(soccer|mls)$/i.test(String(r.league || '')) && r.venueOrderVerified !== true
+        ? getSoccerEventIdentity(r).label
+        : (r.awayTeam || 'Away') + ' @ ' + (r.homeTeam || 'Home');
+    console.log(B + eventLabel + R);
     console.log('start: ' + r.start + '  |  market: ' + r.market + '  |  defaultKey: ' + r.defaultKey);
     console.log(
       'movementLabel: ' +
