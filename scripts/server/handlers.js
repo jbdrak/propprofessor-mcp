@@ -563,10 +563,10 @@ function createMcpHandlers({
         const filterBy = (key) => {
           for (const entry of allCandidates) {
             if (!entry.candidates || !entry.candidates.length) continue;
-            // Tennis: NO date filtering — odds presence is the ground truth.
-            // Scheduled match times are unreliable (rain delays, ITF mismatches,
-            // tournaments shifting day-of). If odds are on the book, show it.
-            if (String(entry.league || '').toLowerCase() === 'tennis') continue;
+            // Tennis times are corrected from Flashscore/ESPN before this
+            // post-filter. Apply the same local card-window rule as every
+            // other league; odds presence alone must not leak tomorrow's
+            // rows into a today scan.
             entry.candidates = entry.candidates.filter((row) => {
               const startMs = parseGameStartMs(row.start);
               if (!startMs) return true; // keep rows without parseable start time
@@ -764,7 +764,16 @@ function createMcpHandlers({
           // Skip alt-line rows already downgraded to TIER 4 by resolveAlternateLines
           // in the screen ranker. Validating them re-derives a fresh tier that
           // overwrites the downgrade — wasting API calls and surfacing noise.
-          isEligible: (candidate) => Boolean(candidate.gameId && candidate.selection && !candidate.altLineFiltered),
+          // A BET-only scan must validate every BET candidate, but it should
+          // not spend the whole history window validating rows that cannot be
+          // returned by -B. Other callers retain the broader eligibility rule.
+          isEligible: (candidate) =>
+            Boolean(
+              candidate.gameId &&
+                candidate.selection &&
+                !candidate.altLineFiltered &&
+                (!args.onlyBets || candidate.kaiCall === 'BET')
+            ),
           isBet: (candidate) => candidate.kaiCall === 'BET',
           selectTargets: validationPipeline.selectTopGlobal,
           onNotSelected: (candidate) => {
