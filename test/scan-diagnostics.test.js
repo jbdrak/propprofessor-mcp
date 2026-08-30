@@ -3,7 +3,42 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { formatScanDiagnostics } = require('../lib/scan-diagnostics');
+const { formatScanDiagnostics, normalizeWatchCandidates } = require('../lib/scan-diagnostics');
+const { formatScan } = require('../bin/pp-cli');
+
+it('marks validation-skipped candidates as watch-only in machine-readable output', () => {
+  const [candidate] = normalizeWatchCandidates([
+    {
+      selection: 'Nice +0.5',
+      verdict: 'BET',
+      finalVerdict: 'BET',
+      kaiCall: 'BET',
+      official: false,
+      validationFailureReason: 'validation not selected within validation budget'
+    }
+  ]);
+
+  assert.equal(candidate.verdict, 'WATCH');
+  assert.equal(candidate.finalVerdict, 'WATCH');
+  assert.equal(candidate.kaiCall, 'WATCH');
+  assert.equal(candidate.displayTier, 'WATCH');
+  assert.equal(candidate.originalVerdict, 'BET');
+  assert.equal(candidate.diagnosticOnly, true);
+  assert.equal(candidate.official, false);
+});
+
+it('renders consensus edge in the already-percent unit returned by PP', () => {
+  const output = formatScan([
+    {
+      league: 'MLB',
+      market: 'Moneyline',
+      plays: [{ selection: 'Miami', odds: -108, consensusEdge: 1.4, edge: 1.4, verdict: 'BET' }]
+    }
+  ]);
+
+  assert.match(output, /edge \+1\.4%/);
+  assert.doesNotMatch(output, /edge \+140\.0%/);
+});
 
 describe('formatScanDiagnostics', () => {
   it('returns empty lines for a clean scan', () => {

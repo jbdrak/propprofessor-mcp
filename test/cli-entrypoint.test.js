@@ -118,7 +118,11 @@ describe('pp CLI entrypoint', () => {
         limit: 5
       });
       const parsed = JSON.parse(stdout[0]);
-      assert.deepEqual(parsed.watchCandidates, watchCandidates);
+      assert.equal(parsed.watchCandidates.length, 1);
+      assert.equal(parsed.watchCandidates[0].gameId, 'watch-1');
+      assert.equal(parsed.watchCandidates[0].official, false);
+      assert.equal(parsed.watchCandidates[0].verdict, 'WATCH');
+      assert.equal(parsed.watchCandidates[0].diagnosticOnly, true);
 
       stdout.length = 0;
       stderr.length = 0;
