@@ -206,7 +206,7 @@ Flags:
   -B, --only-bets           Show only BET verdict plays
   -M, --movement <type>     Movement filter (supportive, clean, bouncy, adverse)
   -n, --limit <N>           Max results. Default: 50
-  --card-window <today|next|all>  Date window. Default: all (keeps pregame matches even if PP's clock stamps them past start)
+  --card-window <today|next|all>  Date window. Default: today (local timezone)
   --sort <field>            Sort by: start, edge, tier, clv, momentum. Default: start
   --asc                     Sort ascending (default: descending)
   -j, --json                Raw JSON output
@@ -1112,14 +1112,17 @@ async function cmdScan(handlers, positional, flags, client) {
   const resolvedSortBy = SORT_FIELD_MAP[sortBy] || sortBy;
   const resolvedSortDir = sortBy === 'momentum' ? 'asc' : sortDir; // momentum = lowest risk first
   const limit = parseInt(flags.n || flags.limit || 50);
-  // Default to 'all' so pregame matches survive even when PP's clock stamps
-  // them to a non-today UTC day or past their start time. The screen feed is
-  // pregame-only — if odds are present the match is still bettable. Pass
-  // --card-window today to narrow back to a single UTC day.
-  const cardWindow = flags['card-window'] || flags.cardWindow || 'all';
+  // Default to the local "today" window so plain scans don't surface future
+  // rows. The screen feed is pregame-only — if odds are present the match is
+  // still bettable.
+  const cardWindow = flags['card-window'] || flags.cardWindow || 'today';
   const tz = flags.tz || flags['tz'] || undefined;
   if (tz) process.env.LOCAL_TIMEZONE = tz;
-  const validateAll = flags['validate-all'] || false;
+  // A BET-only scan must validate every candidate it may return. Limiting
+  // validation to the top ten can silently hide a better row behind an
+  // unvalidated screen result. Unfiltered discovery scans keep the explicit
+  // --validate-all opt-in to avoid unnecessary history calls.
+  const validateAll = flags['validate-all'] || onlyBets;
 
   const targetTiers = tier
     ? tier === '1'
