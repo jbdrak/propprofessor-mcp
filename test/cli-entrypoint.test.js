@@ -27,6 +27,15 @@ describe('pp CLI entrypoint', () => {
     assert.notEqual(result.trim(), '');
   });
 
+  it('documents all-market rank recovery in rank help', () => {
+    const result = execFileSync(process.execPath, [ppPath, 'rank', '--help'], {
+      cwd: projectRoot,
+      encoding: 'utf8'
+    });
+
+    assert.match(result, /--all-markets/);
+  });
+
   it('prints help through the published backtest wrapper', () => {
     const result = execFileSync(process.execPath, [backtestPath, '--help'], {
       cwd: projectRoot,

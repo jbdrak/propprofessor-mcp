@@ -20,6 +20,7 @@ const { promoteCards } = require(PROJECT + '/lib/record-card');
 const { enrichScanPolyWallets } = require(PROJECT + '/lib/propprofessor-poly-wallets');
 const { analyzeWalletPlays } = require(PROJECT + '/lib/propprofessor-wallet-plays');
 const { formatScanDiagnostics } = require(PROJECT + '/lib/scan-diagnostics');
+const { getMarketsForSport } = require(PROJECT + '/lib/propprofessor-market-registry');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
 // ── book alias resolution ──────────────────────────────────────
@@ -364,6 +365,7 @@ Show all ranked plays for a league with full movement data.
 
 Flags:
   -m, --market <name>       Market filter
+  --all-markets             Query every registry-default market
   -b, --book <name>         Book (default: NoVigApp)
   -n, --limit <N>           Max results. Default: 20
   -j, --json                Raw JSON output
@@ -1541,6 +1543,32 @@ async function cmdRank(handlers, positional, flags) {
 
   console.error('Ranking ' + league + ' on ' + book + '...');
 
+  // --all-markets fans out one screen_ranked call per registry-default
+  // market for the league. Explicit -m (or --market) always wins and stays a
+  // single dispatch. (Task 2: NoVig All-Market Recovery)
+  if (flags['all-markets'] && !market) {
+    const markets = getMarketsForSport(league, book);
+    const responses = [];
+    for (const mkt of markets) {
+      const res = await handlers.screen_ranked({
+        league,
+        market: mkt,
+        books: [book],
+        limit,
+        verbosity: jsonOut ? 'full' : 'standard',
+        includeResearch: false
+      });
+      responses.push(res);
+    }
+    if (jsonOut) {
+      const merged = mergeRankedResponses(league, responses);
+      console.log(JSON.stringify(merged, null, 2));
+      return;
+    }
+    printRankedLeague(league, responses, book);
+    return;
+  }
+
   const res = await handlers.screen_ranked({
     league,
     market: market || undefined,
@@ -1555,13 +1583,66 @@ async function cmdRank(handlers, positional, flags) {
     return;
   }
 
-  const rows = res?.result || res?.data || res?.rows || [];
+  printRankedRows(league, res);
+}
+
+/** Merge the per-market screen_ranked responses for --all-markets JSON output. */
+function mergeRankedResponses(league, responses) {
+  const result = [];
+  const resultMeta = {
+    source: 'pp-rank-all-markets',
+    league,
+    marketCount: responses.length,
+    markets: [],
+    dispatched: 0,
+    merged: 0
+  };
+  for (const res of responses) {
+    const rows = res?.result || res?.data || res?.rows || [];
+    const dispatched = rows.length;
+    const mkt = (res && res.market) || undefined;
+    resultMeta.markets.push({ market: mkt, dispatched, merged: dispatched });
+    resultMeta.dispatched += dispatched;
+    resultMeta.merged += dispatched;
+    result.push(...rows);
+  }
+  // Preserve any per-call diagnostics from each response.
+  const callDiagnostics = responses
+    .map((res, idx) => (res && res.resultMeta ? { index: idx, ...res.resultMeta } : null))
+    .filter(Boolean);
+  if (callDiagnostics.length) resultMeta.callDiagnostics = callDiagnostics;
+  return { result, resultMeta };
+}
+
+/** Render the grouped, per-game rank view for a single or merged response. */
+function printRankedRows(league, res) {
+  printRankedLeague(league, [res]);
+}
+
+function printRankedLeague(league, responses) {
+  const rows = [];
+  const marketTags = [];
+  for (const res of responses) {
+    const r = res?.result || res?.data || res?.rows || [];
+    rows.push(...r);
+    if (res && res.market) marketTags.push(res.market);
+    else if (Array.isArray(r)) {
+      for (const row of r)
+        if (row && row.market) {
+          marketTags.push(row.market);
+          break;
+        }
+    }
+  }
   if (!rows.length) {
     console.log('No ranked plays for ' + league);
     return;
   }
 
-  console.log(B + league + ' ranked plays' + R + ' (' + rows.length + ' rows / ' + uniqueGames(rows) + ' games)');
+  const marketLabel = marketTags.length ? ' [' + [...new Set(marketTags)].join(', ') + ']' : '';
+  console.log(
+    B + league + ' ranked plays' + R + marketLabel + ' (' + rows.length + ' rows / ' + uniqueGames(rows) + ' games)'
+  );
   // Group by game so each side's movement sits under its own matchup header.
   // (pp rank returns one row PER SIDE of each market; a flat list made it easy
   //  to misattribute a side's movement to the wrong team. Grouped view fixes it.)
@@ -2064,6 +2145,8 @@ if (require.main === module) {
 module.exports = {
   main,
   formatError,
+  cmdRank,
+  parseArgs,
   cmdScan,
   cmdGame,
   renderScanOutput,
