@@ -730,6 +730,10 @@ function createMcpHandlers({
             league: entry.league,
             gameId: candidate.gameId,
             selection: candidate.selection,
+            // Validate against the execution book that produced the screen row.
+            // Without this, validate_play falls back to comparison-book data and
+            // can reject a live NoVig candidate as if its price were missing.
+            books: args.books,
             // Recheck only this exact selection (pre-hydration filter).
             exactSelectionOnly: true,
             playId: candidate.playId,

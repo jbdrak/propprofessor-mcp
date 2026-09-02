@@ -463,6 +463,41 @@ describe('handler integration: quick_screen', () => {
     assert.ok(!result._meta || !result._meta.validation, '_meta.validation should be absent when validate:false');
   });
 
+  it('forwards the execution book to bundled validation', async () => {
+    const handlers = createHandlers();
+    const calls = [];
+    handlers.runValidatePlayImpl = async (_client, args) => {
+      calls.push(args);
+      return {
+        ok: true,
+        verdict: 'BET',
+        tier: 'TIER 1',
+        verdictSummary: {
+          displayTier: 'BET',
+          movementDisposition: 'supportive_clean',
+          executionQuality: 'playable',
+          riskFlags: [],
+          actionableSummary: 'fixture validation',
+          consensusSupport: 'fixture'
+        },
+        play: { consensusBookCount: 10, executionQuality: 'playable' },
+        consensusDrift: false
+      };
+    };
+
+    await handlers.quick_screen({
+      leagues: ['NBA'],
+      markets: ['Moneyline'],
+      books: ['NoVigApp'],
+      limit: 5,
+      validate: true,
+      includeResearch: false
+    });
+
+    assert.ok(calls.length > 0, 'fixture should validate at least one candidate');
+    assert.deepEqual(calls[0].books, ['NoVigApp']);
+  });
+
   it('applies validateTop globally across league-market buckets', async () => {
     const handlers = createHandlers();
     const result = await handlers.quick_screen({
