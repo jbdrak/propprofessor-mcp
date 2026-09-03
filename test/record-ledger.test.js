@@ -186,4 +186,18 @@ describe('record-ledger', () => {
     assert.match(result.errors[0], /duplicate id/);
     assert.match(result.errors[1], /duplicate betId/);
   });
+
+  it('rejects duplicate identities at load and save boundaries', () => {
+    const duplicate = ledger.createLedger();
+    duplicate.bets.push({ id: 'bet-1' }, { id: 'bet-1' });
+    duplicate.settlements.push({ betId: 'bet-1' }, { betId: 'bet-1' });
+    const filePath = '/virtual/duplicate.json';
+    const fs = createFakeFs({ [filePath]: JSON.stringify(duplicate) });
+
+    const loaded = ledger.loadLedger({ fs, path: filePath });
+    assert.equal(loaded.ok, false);
+    assert.match(loaded.error, /Invalid ledger integrity/);
+    assert.equal(ledger.saveLedger(duplicate, { fs, path: '/virtual/new.json' }).ok, false);
+    assert.equal(fs.files.has('/virtual/new.json'), false);
+  });
 });
