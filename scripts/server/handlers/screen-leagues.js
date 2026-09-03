@@ -38,7 +38,9 @@ function buildCacheKey(prefix, args, league) {
 }
 
 function marketMatches(row, market) {
-  const wanted = String(market || '').trim().toLowerCase();
+  const wanted = String(market || '')
+    .trim()
+    .toLowerCase();
   if (!wanted) return true;
   return [row.market, row.marketType, row.playType]
     .filter((value) => value != null)
@@ -46,9 +48,17 @@ function marketMatches(row, market) {
 }
 
 async function runEvFirst(client, args, league, market, requestedBooks) {
-  if (args.evFirst === false || args.skipHistory === true || (typeof client.queryPositiveEV !== 'function' && typeof client.querySportsbook !== 'function')) return null;
+  if (
+    args.evFirst === false ||
+    args.skipHistory === true ||
+    (typeof client.queryPositiveEV !== 'function' && typeof client.querySportsbook !== 'function')
+  )
+    return null;
   try {
-    const query = typeof client.queryPositiveEV === 'function' ? client.queryPositiveEV.bind(client) : client.querySportsbook.bind(client);
+    const query =
+      typeof client.queryPositiveEV === 'function'
+        ? client.queryPositiveEV.bind(client)
+        : client.querySportsbook.bind(client);
     const raw = await query(
       buildEvRecoveryRequest({ league, market, books: ALL_SCREEN_BOOKS, maxHoursAway: args.maxHoursAway ?? 48 })
     );
