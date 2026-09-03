@@ -15,7 +15,7 @@ const {
   getLimit,
   getMaxAgeMs
 } = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { resolveMarkets } = require('./handler-utils');
+const { resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
 const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/propprofessor-sharp-books');
 const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { getGameContext } = require('../../../lib/propprofessor-game-context');
@@ -35,7 +35,16 @@ function createScreenHandlers(client, ctx) {
    */
   async function runScreenRankedImpl(client, args = {}) {
     const requestedBooks = normalizeBookList(args.books);
-    const league = args.league || 'NBA';
+    const requestedLeague = String(args.league || 'NBA').trim();
+    const requestedLeagueName = String(args.leagueName || '').trim();
+    const directTournament = /^(US Open|US Open Doubles)$/i.test(requestedLeague);
+    const league = directTournament ? 'Tennis' : requestedLeague;
+    const leagueNameFilter =
+      league.toLowerCase() === 'tennis' && requestedLeagueName
+        ? requestedLeagueName
+        : directTournament
+          ? requestedLeague
+          : null;
     const marketResolution = resolveMarkets(args, league);
     const market = marketResolution.single;
     const focusBook = requestedBooks.length ? requestedBooks[0] : '';
@@ -52,9 +61,10 @@ function createScreenHandlers(client, ctx) {
       books: augmentedBooks,
       is_live: false
     });
+    const scopedPayload = filterPayloadByLeagueName(payload, leagueNameFilter);
     const response = await buildRankedScreenResponseShared({
       client,
-      payloads: [payload],
+      payloads: [scopedPayload],
       args: { ...args, historySportsbooks: augmentedBooks },
       league,
       focusBook,

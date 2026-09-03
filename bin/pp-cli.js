@@ -1578,6 +1578,7 @@ async function cmdPrices(handlers, positional, flags) {
 async function cmdRank(handlers, positional, flags) {
   const league = positional[1] || flags.l || flags.league || 'MLB';
   const market = flags.m || flags.market || undefined;
+  const leagueName = flags['league-name'] || flags.leagueName || undefined;
   const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const limit = parseInt(flags.n || flags.limit || 20);
   const jsonOut = flags.j || flags.json || false;
@@ -1593,6 +1594,7 @@ async function cmdRank(handlers, positional, flags) {
     for (const mkt of markets) {
       const res = await handlers.screen_ranked({
         league,
+        leagueName,
         market: mkt,
         books: [book],
         limit,
@@ -1612,6 +1614,7 @@ async function cmdRank(handlers, positional, flags) {
 
   const res = await handlers.screen_ranked({
     league,
+    leagueName,
     market: market || undefined,
     books: [book],
     limit,

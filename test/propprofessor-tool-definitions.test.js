@@ -32,6 +32,13 @@ describe('propprofessor-tool-definitions', () => {
       assert.match(tool.description, /not be surfaced as a reason to manually check the app/);
     });
 
+    it('documents the optional Tennis tournament filter on screen_ranked', () => {
+      const tool = buildToolDefinitions().find(({ name }) => name === 'screen_ranked');
+      assert.ok(tool);
+      assert.equal(tool.inputSchema.properties.leagueName.type, 'string');
+      assert.equal(tool.inputSchema.additionalProperties, false);
+    });
+
     it('documents the player-prop fields on get_market_registry', () => {
       const tool = buildToolDefinitions().find(({ name }) => name === 'get_market_registry');
       assert.ok(tool);

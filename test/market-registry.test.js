@@ -30,7 +30,7 @@ test('MLS resolves generic market aliases to soccer-style markets', () => {
   assert.deepEqual(resolveMarketName('Total Goals', 'MLS').resolved, 'Total Goals');
 });
 
-test('Tennis registry defaults prefer Set Handicap over Game Handicap', () => {
+test('Tennis registry defaults include the frontend-supported markets', () => {
   assert.deepEqual(getMarketsForSport('Tennis'), ['Moneyline', 'Total Games', 'Set Handicap']);
 });
 

@@ -23,6 +23,24 @@ function defined(obj) {
 /**
  * Resolve market alias(es) in args using the league context.
  */
+function filterRowsByLeagueName(rows, leagueName) {
+  if (!Array.isArray(rows) || !String(leagueName || '').trim()) return rows;
+  const wanted = String(leagueName).trim().toLowerCase();
+  return rows.filter(
+    (row) =>
+      String(row?.leagueName || '')
+        .trim()
+        .toLowerCase() === wanted
+  );
+}
+
+function filterPayloadByLeagueName(payload, leagueName) {
+  if (!String(leagueName || '').trim()) return payload;
+  if (Array.isArray(payload)) return filterRowsByLeagueName(payload, leagueName);
+  if (!Array.isArray(payload?.game_data)) return payload;
+  return { ...payload, game_data: filterRowsByLeagueName(payload.game_data, leagueName) };
+}
+
 function resolveMarkets(args, league, defaultMarket = 'Moneyline') {
   const leagueKey = league ? String(league).trim().toUpperCase() : '';
   const result = { single: defaultMarket, array: [], aliasesUsed: [] };
@@ -142,6 +160,8 @@ function stripVerdictFields(candidate) {
 
 module.exports = {
   defined,
+  filterRowsByLeagueName,
+  filterPayloadByLeagueName,
   resolveMarkets,
   mergeHandlerModule,
   buildPositiveEvTarget,
