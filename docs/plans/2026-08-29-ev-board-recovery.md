@@ -13,6 +13,7 @@
 ### Task 1: Characterize the current EV and scan contracts
 
 **Files:**
+
 - Inspect only: `scripts/server/handlers/discovery.js`, `scripts/server/handlers/screen-leagues.js`, `scripts/server/handlers/aggregate-screen.js`, `lib/validate-ev-candidates.js`, relevant tests.
 
 **Verification:** Run the existing focused EV and quick-screen tests. Record current response fields, incomplete-scan markers, and the existing dirty worktree. Do not overwrite the two pre-existing modified files: `lib/propprofessor-wallet-plays.js` and `test/wallet-plays.test.js`.
@@ -20,10 +21,12 @@
 ### Task 2: Add a pure EV recovery/merge seam
 
 **Files:**
+
 - Create or modify the smallest existing handler utility module near `scripts/server/handlers/`.
 - Test: new focused `node:test` file.
 
 **Behavior:**
+
 - Detect recovery eligibility from explicit `includeEv` or a trustworthy incomplete/truncated screen response.
 - Normalize EV rows without changing American odds.
 - Preserve `evBoardValue`, `evBoardSource`, original event identity, line, side, and source metadata.
@@ -33,11 +36,13 @@
 ### Task 3: Wire EV-first discovery into the normal scan path
 
 **Files:**
+
 - Modify `scripts/server/handlers/screen-leagues.js` or the existing orchestration seam that owns one league/market screen call.
 - Modify `scripts/server/handlers/aggregate-screen.js` only if aggregate recovery belongs there.
 - Test: focused integration-style handler test with a fake client.
 
 **Behavior:**
+
 - Keep the current screen request as the fallback path.
 - Issue one bounded EV-board request before the screen request for the same league/market/date window.
 - Use the full comparison-book set for EV calculation, then preserve the requested execution book for validation.
@@ -49,10 +54,12 @@
 ### Task 4: Prevent stale EV rows from masking better current rows
 
 **Files:**
+
 - Modify `lib/validate-ev-candidates.js` or the shared reconciliation seam only if tests identify a gap.
 - Test: regression cases for stale EV + fresh screen, fresh EV + screen truncation, exact-line mismatch, and alternate-line dedupe.
 
 **Behavior:**
+
 - Exact current quote and event identity remain authoritative.
 - An EV percentage is discovery context, not a final win-probability claim.
 - If exact validation fails, preserve the row only as unresolved/watch metadata, never as an official bet.
@@ -61,10 +68,12 @@
 ### Task 5: Improve user-facing diagnostics
 
 **Files:**
+
 - Modify the existing response metadata/formatter path only as needed.
 - Add or update docs/reference note explaining the EV-board recovery behavior.
 
 **Behavior:**
+
 - Make incomplete scans visibly distinct from true zero-result scans.
 - State how many EV candidates were recovered and how many survived exact validation.
 - Never imply the EV board is sharp movement or a guaranteed probability.

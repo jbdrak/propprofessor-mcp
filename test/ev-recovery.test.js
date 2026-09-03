@@ -2,7 +2,13 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { hasIncompleteScan, shouldRecoverFromEv, buildEvRecoveryRequest, extractEvRows, dedupeEvRows } = require('../scripts/server/handlers/ev-recovery');
+const {
+  hasIncompleteScan,
+  shouldRecoverFromEv,
+  buildEvRecoveryRequest,
+  extractEvRows,
+  dedupeEvRows
+} = require('../scripts/server/handlers/ev-recovery');
 
 describe('bounded EV recovery helpers', () => {
   it('recovers when the screen path is truncated or empty', () => {
@@ -18,16 +24,19 @@ describe('bounded EV recovery helpers', () => {
   });
 
   it('builds a bounded pregame EV request without changing odds units', () => {
-    assert.deepEqual(buildEvRecoveryRequest({ league: 'NCAAF', market: 'Point Spread', books: ['NoVigApp', 'Pinnacle'] }), {
-      leagues: ['NCAAF'],
-      sportsbooks: ['NoVigApp', 'Pinnacle'],
-      marketTypes: ['Main Lines'],
-      minOdds: -9999,
-      maxOdds: 9999,
-      minValue: 0,
-      maxHoursAway: 48,
-      isLive: false
-    });
+    assert.deepEqual(
+      buildEvRecoveryRequest({ league: 'NCAAF', market: 'Point Spread', books: ['NoVigApp', 'Pinnacle'] }),
+      {
+        leagues: ['NCAAF'],
+        sportsbooks: ['NoVigApp', 'Pinnacle'],
+        marketTypes: ['Main Lines'],
+        minOdds: -9999,
+        maxOdds: 9999,
+        minValue: 0,
+        maxHoursAway: 48,
+        isLive: false
+      }
+    );
   });
 
   it('extracts rows from the live /ev-prof envelope', () => {
@@ -38,7 +47,11 @@ describe('bounded EV recovery helpers', () => {
   });
 
   it('deduplicates book-level copies of the same exact market', () => {
-    const rows = [{ gameId: 'g1', market: 'Point Spread', selection: 'Team +3.5' }, { gameId: 'g1', market: 'Point Spread', selection: 'Team +3.5' }, { gameId: 'g1', market: 'Point Spread', selection: 'Team +4.5' }];
+    const rows = [
+      { gameId: 'g1', market: 'Point Spread', selection: 'Team +3.5' },
+      { gameId: 'g1', market: 'Point Spread', selection: 'Team +3.5' },
+      { gameId: 'g1', market: 'Point Spread', selection: 'Team +4.5' }
+    ];
     assert.equal(dedupeEvRows(rows).length, 2);
   });
 });

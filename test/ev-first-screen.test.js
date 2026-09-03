@@ -10,7 +10,15 @@ describe('EV-first league screen', () => {
     const result = await runEvFirst(
       {
         querySportsbook: async () => [
-          { league: 'NBA', market: 'Moneyline', book: 'NoVigApp', participant: 'Lakers', selection: 'Lakers', game: 'Lakers vs Celtics', odds: -110 }
+          {
+            league: 'NBA',
+            market: 'Moneyline',
+            book: 'NoVigApp',
+            participant: 'Lakers',
+            selection: 'Lakers',
+            game: 'Lakers vs Celtics',
+            odds: -110
+          }
         ],
         queryOddsHistory: async () => ({})
       },
@@ -28,7 +36,12 @@ describe('EV-first league screen', () => {
   it('does not run EV recovery for no-history probes', async () => {
     let called = false;
     const result = await runEvFirst(
-      { querySportsbook: async () => { called = true; return []; } },
+      {
+        querySportsbook: async () => {
+          called = true;
+          return [];
+        }
+      },
       { skipHistory: true },
       'NBA',
       'Moneyline',

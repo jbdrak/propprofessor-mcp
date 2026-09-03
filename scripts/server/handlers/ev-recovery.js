@@ -44,7 +44,12 @@ function dedupeEvRows(rows) {
   if (!Array.isArray(rows)) return [];
   const seen = new Set();
   return rows.filter((row) => {
-    const key = [row.gameId || row.game_id || row.game || '', row.market || row.marketType || '', row.selection || row.participant || '', row.line ?? ''].join('|');
+    const key = [
+      row.gameId || row.game_id || row.game || '',
+      row.market || row.marketType || '',
+      row.selection || row.participant || '',
+      row.line ?? ''
+    ].join('|');
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
