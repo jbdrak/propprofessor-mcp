@@ -172,6 +172,10 @@ describe('validate_play handler', () => {
     assert.equal(result.play.playId, 'NBA:game-1::Moneyline::lakers');
     assert.equal(result.play.selectionKey, 'lakers');
     assert.equal(typeof result.play.freshnessSource, 'string');
+    assert.equal(result.play.movementDisposition, 'supportive_bouncy');
+    assert.equal(typeof result.play.movementSourceBook, 'string');
+    assert.equal(typeof result.play.movementMode, 'string');
+    assert.equal(result.play.lineHistoryLookbackHours, 6);
     assert.ok(result.screenFreshness && typeof result.screenFreshness === 'object');
     assert.equal(typeof result.screenFreshness.newestAgeMs, 'number');
     assert.equal(typeof result.screenFreshness.oldestAgeMs, 'number');

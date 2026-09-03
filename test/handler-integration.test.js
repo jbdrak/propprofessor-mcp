@@ -495,7 +495,45 @@ describe('handler integration: quick_screen', () => {
     });
 
     assert.ok(calls.length > 0, 'fixture should validate at least one candidate');
-    assert.deepEqual(calls[0].books, ['NoVigApp']);
+    assert.deepEqual(calls[0].books, [
+      'NoVigApp',
+      'Circa',
+      'Pinnacle',
+      'BookMaker',
+      'BetOnline',
+      'DraftKings'
+    ]);
+    assert.equal(calls[0].lookbackHours, 6, 'validation uses the shared default when the scan uses the default');
+  });
+
+  it('keeps scan and validation history windows aligned for non-tennis rows', async () => {
+    const handlers = createHandlers();
+    const calls = [];
+    handlers.runValidatePlayImpl = async (_client, args) => {
+      calls.push(args);
+      return {
+        ok: true,
+        verdict: 'BET',
+        tier: 'TIER 1',
+        verdictSummary: { displayTier: 'BET', movementDisposition: 'supportive_clean', executionQuality: 'best', riskFlags: [] },
+        play: { consensusBookCount: 5, executionQuality: 'best' },
+        consensusDrift: false
+      };
+    };
+
+    await handlers.quick_screen({
+      leagues: ['NBA'],
+      markets: ['Moneyline'],
+      books: ['NoVigApp'],
+      lookbackHours: 24,
+      recentWindowHours: 3,
+      validate: true,
+      includeResearch: false
+    });
+
+    assert.ok(calls.length > 0, 'fixture should validate at least one candidate');
+    assert.ok(calls.every((call) => call.lookbackHours === 24));
+    assert.ok(calls.every((call) => call.books?.[0] === 'NoVigApp'));
   });
 
   it('applies validateTop globally across league-market buckets', async () => {

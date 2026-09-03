@@ -14,7 +14,7 @@ const { buildCanonicalPlayId, normalizeSelectionKey } = require('../../../lib/pr
 const { buildValidationVerdict } = require('./validate-play-verdict');
 
 async function resolveValidationLookups(client, ctx, options) {
-  const { league, gameId, selection, market, books, lookbackHours, args, skipResearch, skipGameContext } = options;
+  const { league, gameId, selection, market, books, lookbackHours, recentWindowHours, args, skipResearch, skipGameContext } = options;
   const detailPromise = (async () => {
     try {
       return {
@@ -25,6 +25,7 @@ async function resolveValidationLookups(client, ctx, options) {
           gameIds: [gameId],
           books: books.length ? books : undefined,
           lookbackHours,
+          ...(recentWindowHours !== undefined ? { recentWindowHours } : {}),
           disableTimestampDriftFallback: true,
           ...(args.exactSelectionOnly === true && selection
             ? { selection, exactSelectionOnly: true, enableHistoryLineFallback: false }
@@ -109,7 +110,7 @@ async function resolveGeneralGameContext({ league, gameId, selection }) {
 }
 
 async function resolveValidationRow(client, ctx, options) {
-  const { detailRows, detailError, league, market, selection, gameId, requestedPlayId, books, lookbackHours } = options;
+  const { detailRows, detailError, league, market, selection, gameId, requestedPlayId, books, lookbackHours, recentWindowHours } = options;
   let matchingRow = findBestMatch(detailRows, selection, requestedPlayId, books[0] || '');
   let matchedViaGameIdChange = false;
   let fallbackNote = null;
@@ -124,6 +125,7 @@ async function resolveValidationRow(client, ctx, options) {
           participants: gameIdIdentity.participants,
           books: books.length ? books : undefined,
           lookbackHours,
+          ...(recentWindowHours !== undefined ? { recentWindowHours } : {}),
           disableTimestampDriftFallback: true,
           relaxedGameIdMatch: true
         });
@@ -171,6 +173,10 @@ function buildValidationPlay({ matchingRow, market, gameId, league, selection })
         openToCurrentClvPct: matchingRow.openToCurrentClvPct,
         freshnessSource: matchingRow.freshnessSource || null,
         movementLabel: matchingRow.movementLabel,
+        movementDisposition: matchingRow.movementDisposition || null,
+        movementSourceBook: matchingRow.movementSourceBook || null,
+        movementMode: matchingRow.movementMode || null,
+        lineHistoryLookbackHours: matchingRow.lineHistoryLookbackHours ?? null,
         kaiCall: matchingRow.kaiCall,
         screenScore: matchingRow.screenScore,
         screenUrl:
@@ -313,6 +319,10 @@ function createValidatePlayHandlers(client, ctx) {
     const skipGameContext = args.skipGameContext === true;
     const isMlb = league.toUpperCase() === 'MLB';
 
+    const recentWindowHours =
+      Number.isFinite(Number(args.recentWindowHours)) && Number(args.recentWindowHours) > 0
+        ? Number(args.recentWindowHours)
+        : undefined;
     const [detailOutcome, researchOutcome, gameContextOutcome] = await resolveValidationLookups(client, ctx, {
       league,
       gameId,
@@ -320,6 +330,7 @@ function createValidatePlayHandlers(client, ctx) {
       market,
       books,
       lookbackHours,
+      recentWindowHours,
       args,
       skipResearch,
       skipGameContext
@@ -339,7 +350,8 @@ function createValidatePlayHandlers(client, ctx) {
       gameId,
       requestedPlayId,
       books,
-      lookbackHours
+      lookbackHours,
+      recentWindowHours
     });
     const { matchingRow, matchedViaGameIdChange, fallbackNote } = rowResolution;
 

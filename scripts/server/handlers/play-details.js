@@ -455,10 +455,18 @@ async function queryPlayDetailsResponse({
       focusBook,
       rankRows: (hydratedRows, options = {}) => {
         const debug = Boolean(/** @type {any} */ (options).debug);
+        const recentWindowHours = Number.isFinite(Number(options.recentWindowHours))
+          ? Number(options.recentWindowHours)
+          : Number.isFinite(Number(args.recentWindowHours))
+            ? Number(args.recentWindowHours)
+            : Number.isFinite(Number(args.lookbackHours))
+              ? Number(args.lookbackHours)
+              : undefined;
         return rankLeagueScreenRows(hydratedRows, {
           league,
           market,
           limit: gameIds.length * 4,
+          ...(recentWindowHours !== undefined ? { recentWindowHours } : {}),
           books: augmentedBooks,
           focusBook,
           includeAll: true,

@@ -229,6 +229,34 @@ test('applyFinalVerdict downgrades BET to CONSIDER on consensus drift', () => {
   assert.ok(cand.finalWarnings.includes('consensus-drift'));
 });
 
+test('applyValidatedFields drops an unreconciled adverse movement risk flag when screen movement is preserved', () => {
+  const target = {
+    movementDisposition: 'supportive_clean',
+    executionQuality: 'playable',
+    confidenceTier: 'TIER 1',
+    kaiCall: 'BET',
+    displayTier: 'BET'
+  };
+  applyValidatedFields(target, {
+    verdict: {
+      displayTier: 'BET',
+      movementDisposition: 'adverse_full',
+      executionQuality: 'playable',
+      riskFlags: ['movement adverse'],
+      actionableSummary: 'fixture',
+      consensusSupport: 'fixture'
+    },
+    play: { executionQuality: 'playable' },
+    verdictSummary: {
+      movementDisposition: 'adverse_full',
+      executionQuality: 'playable'
+    },
+    consensusDrift: false
+  });
+  assert.equal(target.validatedMovementDisposition, 'supportive_clean');
+  assert.deepEqual(target.validatedRiskFlags, []);
+});
+
 test('applyFinalVerdict downgrades BET to PASS on insufficient movement disposition', () => {
   const cand = {
     displayTier: 'BET',

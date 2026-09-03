@@ -44,6 +44,22 @@ describe('mapCandidateRow screenUrl', () => {
     assert.equal(out.sharpBookMovementConfirmed, true);
   });
 
+  it('preserves movement provenance for validation parity', () => {
+    const out = mapCandidateRow({
+      gameId: 'NBA:PREMATCH:A:B:1783937400',
+      market: 'Moneyline',
+      selection: 'A',
+      lineHistoryLookbackHours: 24,
+      recentWindowHours: 3,
+      movementSourceBook: 'Pinnacle',
+      movementMode: 'comparison_book'
+    });
+    assert.equal(out.lineHistoryLookbackHours, 24);
+    assert.equal(out.recentWindowHours, 3);
+    assert.equal(out.movementSourceBook, 'Pinnacle');
+    assert.equal(out.movementMode, 'comparison_book');
+  });
+
   it('keeps the current quote when movement evidence is aged', () => {
     const out = mapCandidateRow({
       gameId: 'Tennis:PREMATCH:Fery:Duckworth:1783937400',
