@@ -568,7 +568,11 @@ describe('solve — ledger integration', () => {
 
   it('settles bets into the ledger with source URL, evidence, and both start dates', () => {
     const ledger = ledgerModule.createLedger();
-    const result = settlement.solve(ledger, { bets: [mlbBet()], resultData: mlbResult(), now });
+    const result = settlement.solve(ledger, {
+      bets: [mlbBet({ odds: undefined, oddsAtDecision: -120 })],
+      resultData: mlbResult(),
+      now
+    });
     assert.equal(result.ok, true);
     assert.equal(result.settled.length, 1);
     assert.equal(result.pending.length, 0);
@@ -578,6 +582,7 @@ describe('solve — ledger integration', () => {
     assert.equal(record.matchedBy, 'gameId');
     assert.equal(record.sourceUrl, MLB_URL);
     assert.equal(record.provider, 'espn');
+    assert.equal(record.odds, -120);
     assert.equal(record.scheduledStart, '2026-08-05T18:00:00.000Z');
     assert.equal(record.actualStart, '2026-08-05T23:05:00.000Z');
     assert.equal(record.evidence.homeScore, 5);
