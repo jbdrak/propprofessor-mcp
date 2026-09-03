@@ -670,7 +670,7 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.deepEqual(nfl.sharpMainMarkets, ['Circa', 'Pinnacle', 'BookMaker', 'NoVigApp', 'FanDuel']);
     assert.deepEqual(nfl.sharpProps, ['Pinnacle', 'FanDuel', 'BookMaker', 'Circa', 'BetOnline']);
     assert.deepEqual(mlb.sharpMainMarkets, ['Pinnacle', 'Circa', 'BookMaker', 'BetOnline', 'DraftKings', 'BetMGM']);
-    assert.deepEqual(mlb.sharpProps, ['Circa', 'FanDuel', 'PropBuilder', 'Pinnacle', 'DraftKings', 'Bet365']);
+    assert.deepEqual(mlb.sharpProps, ['Circa', 'FanDuel', 'Prop Builder', 'Pinnacle', 'DraftKings', 'Bet365']);
   });
 
   it('ufc_card returns a first-class shortlist response and honors card filters', async () => {
