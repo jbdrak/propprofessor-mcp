@@ -616,7 +616,7 @@ describe('tennis screen ranking helpers', () => {
     const mlbMain = getLeagueRankingPreset('MLB', 'Moneyline');
     const mlbProps = getLeagueRankingPreset('MLB', 'Player Strikeouts');
     assert.deepEqual(nbaMain.preferredBooks, ['Circa', 'Pinnacle', 'BookMaker', 'BetOnline', 'DraftKings']);
-    assert.deepEqual(nbaProps.preferredBooks, ['FanDuel', 'BookMaker', 'PropBuilder', 'NoVigApp', 'Pinnacle']);
+    assert.deepEqual(nbaProps.preferredBooks, ['FanDuel', 'BookMaker', 'Prop Builder', 'NoVigApp', 'Pinnacle']);
     assert.equal(nbaProps.sharpBookContext.key, 'nba_props');
     assert.deepEqual(nflMain.preferredBooks, ['Circa', 'Pinnacle', 'BookMaker', 'NoVigApp', 'FanDuel']);
     assert.deepEqual(nflProps.preferredBooks, ['Pinnacle', 'FanDuel', 'BookMaker', 'Circa', 'BetOnline']);

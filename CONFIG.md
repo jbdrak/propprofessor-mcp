@@ -54,7 +54,7 @@ Pre-configured in `lib/propprofessor-sharp-books.js`:
 
 | Sport                               | Main market                                               | Props                                                     |
 | ----------------------------------- | --------------------------------------------------------- | --------------------------------------------------------- |
-| **NBA**                             | Circa, Pinnacle, BookMaker, BetOnline, DraftKings         | FanDuel, BookMaker, PropBuilder, NoVigApp, Pinnacle       |
+| **NBA**                             | Circa, Pinnacle, BookMaker, BetOnline, DraftKings         | FanDuel, BookMaker, Prop Builder, NoVigApp, Pinnacle      |
 | **NFL**                             | Circa, Pinnacle, BookMaker, NoVigApp, FanDuel             | Pinnacle, FanDuel, BookMaker, Circa, BetOnline            |
 | **MLB**                             | Pinnacle, Circa, BookMaker, BetOnline, DraftKings, BetMGM | Circa, FanDuel, PropBuilder, Pinnacle, DraftKings, Bet365 |
 | **NHL**                             | Pinnacle, Circa, BookMaker, BetOnline, DraftKings         | (same as main)                                            |
