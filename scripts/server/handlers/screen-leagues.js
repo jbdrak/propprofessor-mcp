@@ -5,7 +5,7 @@
  * Extracted from createMcpHandlers() in handlers.js.
  */
 
-const { resolveMarkets } = require('./handler-utils');
+const { resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
 const {
   normalizeBookList,
   buildRankedScreenResponse: buildRankedScreenResponseShared,
@@ -33,6 +33,7 @@ function buildCacheKey(prefix, args, league) {
     lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : null,
     games: args.games || [],
     participants: args.participants || [],
+    leagueName: args.leagueName || null,
     evFirst: args.evFirst !== false
   });
 }
@@ -118,7 +119,7 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
   });
   const response = buildRankedScreenResponseShared({
     client,
-    payloads: [payload],
+    payloads: [filterPayloadByLeagueName(payload, args.leagueName)],
     args: { ...args, historySportsbooks: augmentedBooks },
     league,
     focusBook,

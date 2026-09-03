@@ -19,7 +19,7 @@ const {
   getMaxAgeMs,
   normalizeBookList
 } = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { resolveMarkets } = require('./handler-utils');
+const { resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
 const { extractScreenRows } = require('../../../lib/screen-parser');
 const { ALL_SCREEN_BOOKS } = require('../../../lib/propprofessor-sharp-books');
 const { filterTennisRowsByCardWindow } = require('../../../lib/tennis-fallback');
@@ -36,7 +36,8 @@ function buildCacheKey(prefix, args, league) {
       .toLowerCase(),
     lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : null,
     games: args.games || [],
-    participants: args.participants || []
+    participants: args.participants || [],
+    leagueName: args.leagueName || null
   });
 }
 
@@ -173,7 +174,8 @@ function createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }
       }
     }
 
-    const rows = payloads.flatMap((payload) => extractScreenRows(payload));
+    const scopedPayloads = payloads.map((payload) => filterPayloadByLeagueName(payload, args.leagueName));
+    const rows = scopedPayloads.flatMap((payload) => extractScreenRows(payload));
 
     const hasScreenBooks = rows.some((row) => {
       const text = JSON.stringify(row || '');
@@ -192,7 +194,7 @@ function createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }
     if (hasScreenBooks || hasScreenConsensus) {
       const screenResult = await buildRankedScreenResponseShared({
         client,
-        payloads,
+        payloads: scopedPayloads,
         args,
         league: 'Tennis',
         focusBook: preferredBook,

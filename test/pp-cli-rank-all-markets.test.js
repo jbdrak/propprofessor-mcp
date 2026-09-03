@@ -84,6 +84,13 @@ describe('pp rank explicit market selection', () => {
     assert.equal(cap.calls[0].market, 'Total Runs');
   });
 
+  it('passes the Tennis tournament filter through to screen_ranked', async () => {
+    const cap = await runRank({ 'league-name': 'US Open' }, ['rank', 'Tennis']);
+    assert.equal(cap.calls.length, 1);
+    assert.equal(cap.calls[0].league, 'Tennis');
+    assert.equal(cap.calls[0].leagueName, 'US Open');
+  });
+
   it('leaves market undefined (no -m) so the handler applies its own default', async () => {
     const cap = await runRank({});
     assert.equal(cap.calls.length, 1);

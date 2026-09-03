@@ -16,6 +16,7 @@ const { runSharpPlays } = require('../lib/propprofessor-sharp-plays-service');
 const { getPropMarketsForSport } = require('../lib/propprofessor-market-registry');
 const { ALL_SCREEN_BOOKS } = require('../lib/propprofessor-sharp-books');
 const { RateLimiter } = require('../lib/rate-limiter');
+const { filterRowsByLeagueName, filterPayloadByLeagueName } = require('../scripts/server/handlers/handler-utils');
 
 const serverPath = path.join(__dirname, '..', 'scripts', 'propprofessor-mcp-server.js');
 
@@ -840,6 +841,90 @@ describe('propprofessor MCP server stdio contract', () => {
     });
   }
 
+  it('filters tournament payloads without changing their container shape', () => {
+    const rows = [
+      { gameId: 'us-open-game', leagueName: ' US Open ' },
+      { gameId: 'other-game', leagueName: 'ATP Cincinnati' }
+    ];
+    assert.deepEqual(filterRowsByLeagueName(rows, 'us open'), [rows[0]]);
+
+    const payload = { ok: true, game_data: rows, resultMeta: { source: 'fixture' } };
+    assert.deepEqual(filterPayloadByLeagueName(payload, 'US OPEN'), {
+      ok: true,
+      game_data: [rows[0]],
+      resultMeta: { source: 'fixture' }
+    });
+  });
+
+  it('screen_ranked applies the Tennis leagueName scope from frontend-shaped args', async () => {
+    const rankedPayload = {
+      game_data: [
+        {
+          gameId: 'us-open-game',
+          league: 'Tennis',
+          leagueName: 'US Open',
+          market: 'Moneyline',
+          updatedAt: new Date(Date.now() - 30 * 1000).toISOString(),
+          homeTeam: 'Player A',
+          awayTeam: 'Player B',
+          selections: {
+            a: {
+              selection1: 'Player A',
+              participant1: 'Player A',
+              selection1Id: 'Moneyline:Player_A',
+              selection2: 'Player B',
+              participant2: 'Player B',
+              selection2Id: 'Moneyline:Player_B',
+              odds: {
+                NoVigApp: { odds1: -118, odds2: 104 },
+                Polymarket: { odds1: -125, odds2: 110 }
+              }
+            }
+          },
+          defaultKey: 'a'
+        },
+        {
+          gameId: 'other-tennis-game',
+          league: 'Tennis',
+          leagueName: 'ATP Cincinnati',
+          market: 'Moneyline',
+          updatedAt: new Date(Date.now() - 30 * 1000).toISOString(),
+          homeTeam: 'Player C',
+          awayTeam: 'Player D',
+          selections: {
+            a: {
+              selection1: 'Player C',
+              participant1: 'Player C',
+              selection1Id: 'Moneyline:Player_C',
+              selection2: 'Player D',
+              participant2: 'Player D',
+              selection2Id: 'Moneyline:Player_D',
+              odds: {
+                NoVigApp: { odds1: -118, odds2: 104 },
+                Polymarket: { odds1: -125, odds2: 110 }
+              }
+            }
+          },
+          defaultKey: 'a'
+        }
+      ]
+    };
+    const { client, calls } = createRankedScreenClientStub({ rankedPayload });
+    const handlers = createMcpHandlers({ client });
+
+    const result = await handlers.screen_ranked({
+      league: 'Tennis',
+      leagueName: 'US Open',
+      market: 'Moneyline',
+      includeAll: true,
+      books: ['NoVigApp']
+    });
+
+    assert.equal(calls.queryScreenOddsBestComps[0].league, 'Tennis');
+    assert.ok(result.result.length > 0);
+    assert.ok(result.result.every((row) => row.gameId === 'us-open-game'));
+  });
+
   it('screen_ranked returns a structured ranked response', async () => {
     const rankedPayload = {
       game_data: [
@@ -1347,7 +1432,7 @@ describe('propprofessor MCP server stdio contract', () => {
     }
   });
 
-  it('quick_screen materializes final verdicts when validation is skipped', async () => {
+  it('quick_screen never treats a skipped validation as an official BET', async () => {
     const { client } = createRankedScreenClientStub();
     const originalScreenQuery = client.queryScreenOddsBestComps;
     client.queryScreenOddsBestComps = async (...args) => {
@@ -1363,7 +1448,7 @@ describe('propprofessor MCP server stdio contract', () => {
       ok: true,
       result: [
         {
-          gameId: 'unvalidated-bet-game',
+          gameId: 'skipped-bet-game',
           game: 'Stub Away vs Stub Home',
           selection: 'Stub Home',
           participant: 'Stub Home',
@@ -1374,6 +1459,19 @@ describe('propprofessor MCP server stdio contract', () => {
           kaiCall: 'BET',
           movementDisposition: 'supportive_clean',
           screenScore: 10
+        },
+        {
+          gameId: 'never-validated-bet-game',
+          game: 'Another Away vs Another Home',
+          selection: 'Another Home',
+          participant: 'Another Home',
+          pick: 'Another Home',
+          odds: -105,
+          confidenceTier: 'TIER 1',
+          displayTier: 'BET',
+          kaiCall: 'BET',
+          movementDisposition: 'supportive_clean',
+          screenScore: 9
         }
       ]
     });
@@ -1390,11 +1488,10 @@ describe('propprofessor MCP server stdio contract', () => {
     });
 
     const candidates = result.results.flatMap((entry) => entry.candidates || []);
-    assert.equal(candidates.length, 1);
-    assert.equal(candidates[0].finalVerdict, 'BET');
-    assert.equal(candidates[0].finalConfidenceTier, 'TIER 1');
-    assert.equal(candidates[0].validationSkipped, true);
-    assert.ok(!candidates[0].finalWarnings?.includes('validation-failed'));
+    assert.equal(candidates.length, 0);
+    assert.equal(result.watchCandidates.length, 2);
+    assert.ok(result.watchCandidates.every((candidate) => candidate.validationSkipped === true));
+    assert.ok(result.watchCandidates.every((candidate) => candidate.official === false));
   });
 
   it('quick_screen fans out across multiple leagues (concurrency)', async () => {
