@@ -29,7 +29,6 @@ const ALLOWED_DIRTY_PREFIXES = [
   'data/',
   'docs/plans/',
   'docs/cron-prompts/',
-  'examples/',
   'node_modules/'
 ];
 
