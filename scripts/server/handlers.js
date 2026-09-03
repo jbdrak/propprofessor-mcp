@@ -343,6 +343,7 @@ function createMcpHandlers({
       }
 
       const allCandidates = [];
+      const unresolvedCandidates = [];
       const researchResults = [];
       const emptySlate = []; // league+market pairs that returned zero candidates
 
@@ -466,6 +467,19 @@ function createMcpHandlers({
             });
 
             let candidates = Array.isArray(spResult?.result) ? spResult.result : [];
+            if (Array.isArray(spResult?.resultMeta?.unresolvedCandidates)) {
+              unresolvedCandidates.push(
+                ...spResult.resultMeta.unresolvedCandidates.map((candidate) => ({
+                  ...mapCandidateRow(candidate),
+                  official: false,
+                  status: 'unresolved',
+                  incomplete: true,
+                  lineHistoryAvailable: false,
+                  movementDisposition: 'unavailable',
+                  validationFailureReason: candidate.validationFailureReason
+                }))
+              );
+            }
             let totalsRecoveryApplied = false;
             const totalsScanTruncated = Boolean(
               spResult.resultMeta?.scanHealth?.truncated ||
@@ -561,16 +575,18 @@ function createMcpHandlers({
           cardWindow === 'today' ? localDateKey(Date.now(), tz) : localDateKey(Date.now() + 24 * 60 * 60 * 1000, tz);
 
         const filterBy = (key) => {
+          const nowMs = Date.now();
           for (const entry of allCandidates) {
             if (!entry.candidates || !entry.candidates.length) continue;
-            // Tennis times are corrected from Flashscore/ESPN before this
-            // post-filter. Apply the same local card-window rule as every
-            // other league; odds presence alone must not leak tomorrow's
-            // rows into a today scan.
+            // Tennis timestamps can lag while an executable quote remains;
+            // non-tennis betting rows must be pregame before validation.
+            const pregameOnly = String(entry.league || '').trim().toUpperCase() !== 'TENNIS';
             entry.candidates = entry.candidates.filter((row) => {
               const startMs = parseGameStartMs(row.start);
               if (!startMs) return true; // keep rows without parseable start time
-              return localDateKey(startMs, tz) === key;
+              if (localDateKey(startMs, tz) !== key) return false;
+              if (pregameOnly && (row.isLive === true || startMs < nowMs)) return false;
+              return true;
             });
           }
         };
@@ -983,6 +999,7 @@ function createMcpHandlers({
         activeSlate,
         emptySlate,
         ...(watchCandidates.length ? { watchCandidates } : {}),
+        ...(unresolvedCandidates.length ? { unresolvedCandidates } : {}),
         scanHealth: {
           incomplete:
             validationBudgetExhausted ||

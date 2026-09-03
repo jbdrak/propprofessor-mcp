@@ -4,7 +4,51 @@ const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const { describe, it } = require('node:test');
-const { renderScanOutput, formatError } = require('../bin/pp-cli');
+const { renderScanOutput, formatError, formatValidate, cmdPrices } = require('../bin/pp-cli');
+
+const validateResponse = {
+  selection: 'Bonzi',
+  verdict: 'BET',
+  tier: 'TIER 1',
+  play: {
+    odds: 106,
+    consensusBookCount: 18,
+    movementLabel: 'supportive',
+    executionQuality: 'playable'
+  },
+  verdictSummary: { movementDisposition: 'supportive_clean' }
+};
+
+it('formats NoVig validation quotes as probabilities', () => {
+  assert.match(formatValidate(validateResponse, 'NoVigApp'), /odds: 48\.5%/);
+});
+
+it('keeps non-NoVig validation quotes in American odds', () => {
+  assert.match(formatValidate(validateResponse, 'Pinnacle'), /odds: \+106/);
+});
+
+it('formats existing NoVig percentage quotes without reconverting them', () => {
+  const response = { ...validateResponse, play: { ...validateResponse.play, odds: '49.0%' } };
+  assert.match(formatValidate(response, 'NoVigApp'), /odds: 49\.0%/);
+});
+
+it('shows NoVig probabilities in the today slate', () => {
+  const { formatToday } = require('../bin/pp-cli');
+  const output = formatToday(
+    { slate: [{ startCST: '3:00 PM CT', game: 'Bonzi vs Buse', selection: 'Bonzi', odds: 106, tier: 'TIER 1' }] },
+    'NoVigApp'
+  );
+  assert.match(output, /Bonzi\s+48\.5%\s+TIER 1/);
+});
+
+it('keeps American odds in the today slate for another book', () => {
+  const { formatToday } = require('../bin/pp-cli');
+  const output = formatToday(
+    { slate: [{ startCST: '3:00 PM CT', game: 'Bonzi vs Buse', selection: 'Bonzi', odds: 106, tier: 'TIER 1' }] },
+    'Pinnacle'
+  );
+  assert.match(output, /Bonzi\s+\+106\s+TIER 1/);
+});
 
 const projectRoot = path.join(__dirname, '..');
 const ppPath = path.join(projectRoot, 'bin', 'pp');
@@ -12,6 +56,39 @@ const backtestPath = path.join(projectRoot, 'bin', 'backtest');
 const queryPath = path.join(projectRoot, 'scripts', 'query-propprofessor.js');
 
 describe('pp CLI entrypoint', () => {
+  it('shows NoVig prices as probabilities in the price-comparison command', async () => {
+    const originalLog = console.log;
+    const originalError = console.error;
+    const stdout = [];
+    try {
+      console.log = (line = '') => stdout.push(String(line));
+      console.error = () => {};
+      await cmdPrices(
+        {
+          find_best_price: async () => ({
+            data: {
+              allPrices: [
+                { book: 'NoVigApp', odds: -110 },
+                { book: 'Pinnacle', odds: -105 }
+              ],
+              bestPrice: { book: 'NoVigApp', odds: -110 }
+            }
+          })
+        },
+        ['prices', 'Tennis:GAME:A:B:1788436800::Moneyline::a'],
+        {}
+      );
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
+    }
+
+    const output = stdout.join('\n');
+    assert.match(output, /NoVigApp: 52\.4%/);
+    assert.match(output, /Pinnacle: -105/);
+    assert.match(output, /Best: NoVigApp @ 52\.4%/);
+  });
+
   it('formats a null error without throwing another error', () => {
     assert.equal(formatError(null, 'pp scan'), 'Error: null');
   });

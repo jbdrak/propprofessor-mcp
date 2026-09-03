@@ -321,6 +321,49 @@ describe('quick_screen aggregate odds-history budget', () => {
     assert.equal(result.resultMeta.scanHealth.skippedRowCount, 128);
   });
 
+  it('does not mark globally incomplete when bounded skips are fully accounted', async () => {
+    const unresolvedRows = [
+      { gameId: 'unresolved-1', selection: 'Away 1' },
+      { gameId: 'unresolved-2', selection: 'Away 2' },
+      { gameId: 'unresolved-3', selection: 'Away 3' }
+    ];
+    const result = await runSharpPlays(
+      {
+        book: 'NoVigApp',
+        targetBooks: ['NoVigApp'],
+        leagues: ['MLB'],
+        markets: ['Moneyline'],
+        limit: 5,
+        quickScreenAggregate: true,
+        aggregatePairCount: 1
+      },
+      {
+        queryLeagueScreen: async () => ({
+          ok: true,
+          result: [{ gameId: 'hydrated-1', selection: 'Home', kaiCall: 'PASS' }],
+          resultMeta: {
+            preHistoryShortlist: {
+              enabled: true,
+              truncated: true,
+              totalRows: 4,
+              shortlistedRows: 1,
+              skippedRowCount: 3
+            },
+            unresolvedRows
+          }
+        }),
+        queryTennisScreen: async () => ({ ok: true, result: [] })
+      }
+    );
+
+    assert.equal(result.resultMeta.scanHealth.truncated, false);
+    assert.equal(result.resultMeta.scanHealth.incomplete, false);
+    assert.equal(result.resultMeta.scanHealth.identityGap, false);
+    assert.equal(result.resultMeta.preHistoryShortlist[0].truncated, true);
+    assert.equal(result.resultMeta.preHistoryShortlist[0].skippedRowCount, 3);
+    assert.equal(result.resultMeta.unresolvedCandidates.length, 3);
+  });
+
   it('retains truncated zero-result pair health in quick_screen output', async () => {
     const { createMcpHandlers } = require('../scripts/server/handlers');
     const handlers = createMcpHandlers({ client: {} });
@@ -522,13 +565,14 @@ describe('quick_screen aggregate odds-history budget', () => {
     // Aggregate mode hydrates the strongest side per shortlisted game and
     // reserves 60% of the process budget for initial ranking.
     const allocation = Math.floor(ODDS_HISTORY_REQUEST_BUDGET * 0.6);
-    // PRE_HISTORY_SHORTLIST_MAX_GAMES is 60 (tuned to the real 300-call
-    // budget, not the historical 75). Only the 4-pair case hits the cap.
-    assert.equal(getAggregateGameBudget(36), Math.max(1, Math.min(60, Math.floor(allocation / 36))));
-    assert.equal(getAggregateGameBudget(12), Math.max(1, Math.min(60, Math.floor(allocation / 12))));
-    assert.equal(getAggregateGameBudget(4), Math.max(1, Math.min(60, Math.floor(allocation / 4))));
-    assert.equal(getAggregateGameBudget(1), 60); // capped at the per-call max
-    assert.equal(getAggregateGameBudget(0), 60); // degenerate input
+    // Aggregate budgets are now derived directly from the shared allocation;
+    // the old 60-game ceiling prevented an explicit larger budget from being
+    // used. Degenerate input still receives the full one-pair allocation.
+    assert.equal(getAggregateGameBudget(36), Math.max(1, Math.floor(allocation / 36)));
+    assert.equal(getAggregateGameBudget(12), Math.max(1, Math.floor(allocation / 12)));
+    assert.equal(getAggregateGameBudget(4), Math.max(1, Math.floor(allocation / 4)));
+    assert.equal(getAggregateGameBudget(1), allocation);
+    assert.equal(getAggregateGameBudget(0), allocation);
   });
 
   it('mixed quick_screen: empty pairs do not starve MLB/WNBA of the 40-call budget', async () => {

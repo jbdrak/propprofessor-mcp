@@ -13,9 +13,16 @@ const {
   getMaxAgeMs,
   normalizeBookList,
   getDebugFlag,
+  getPreHistoryShortlistGameBudget,
   DEFAULT_ODDS_HISTORY_LOOKBACK_HOURS
 } = require('../lib/propprofessor-mcp-ranked-screen');
 const { rankScreenRows } = require('../lib/screen-ranker');
+
+describe('pre-history shortlist budget', () => {
+  it('honors explicit aggregate budgets above the legacy 60-game ceiling', () => {
+    assert.equal(getPreHistoryShortlistGameBudget({ preHistoryGameBudget: 300 }), 300);
+  });
+});
 
 describe('normalizeBookList', () => {
   it('deduplicates book names', () => {

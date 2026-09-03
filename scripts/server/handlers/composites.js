@@ -437,7 +437,11 @@ async function runCompositeToday(ctx, args = {}) {
         limit: args.limit || 100,
         targetTiers:
           Array.isArray(args.targetTiers) && args.targetTiers.length ? args.targetTiers : ['TIER 1', 'TIER 2'],
-        validate: false,
+        // `today` is a bettor-facing card, not raw discovery. Exact-validate
+        // every returned candidate and keep it to the local calendar day so
+        // stale quotes and tomorrow's matches cannot masquerade as today plays.
+        validate: true,
+        cardWindow: 'today',
         includeResearch: false,
         lite: true
       })

@@ -15,8 +15,8 @@ const TEST_CACHE = {
   scrapedAt: '2026-07-29T20:00:00Z',
   source: 'flashscore',
   timezone: 'America/Chicago',
-  totalMatches: 5,
-  scheduled: 3,
+  totalMatches: 10,
+  scheduled: 8,
   matches: [
     {
       id: 'abc123',
@@ -47,6 +47,61 @@ const TEST_CACHE = {
       away: 'Dong E.',
       tournament: 'Vancouver',
       category: 'CHALLENGER WOMEN - SINGLES',
+      surface: 'hard'
+    },
+    {
+      id: 'multi001',
+      time: '22:00',
+      foundOn: '2026-07-30',
+      status: 'scheduled',
+      home: 'Leong M. W. K.',
+      away: 'Palan D.',
+      tournament: 'Test Open',
+      category: 'WTA - SINGLES',
+      surface: 'hard'
+    },
+    {
+      id: 'multi002',
+      time: '15:00',
+      foundOn: '2026-07-31',
+      status: 'scheduled',
+      home: 'Halys Q.',
+      away: 'Diaz Acosta F.',
+      tournament: 'Test Open',
+      category: 'ATP - SINGLES',
+      surface: 'hard'
+    },
+    {
+      id: 'multi003',
+      time: '18:00',
+      foundOn: '2026-07-31',
+      status: 'scheduled',
+      home: 'Swiatek I.',
+      away: 'Wang Xiy.',
+      tournament: 'Test Open',
+      category: 'WTA - SINGLES',
+      surface: 'clay'
+    },
+    {
+      id: 'multi004',
+      time: '22:00',
+      foundOn: '2026-07-30',
+      status: 'scheduled',
+      home: 'Moriya H.',
+      away: 'Dev S D P.',
+      tournament: 'Test Open',
+      category: 'WTA - SINGLES',
+      surface: 'hard'
+    },
+    {
+      id: 'multi005',
+      time: '08:30',
+      foundOn: '2026-07-31',
+      status: 'scheduled',
+      home: 'Bueno G.',
+      away: 'Reis Da Silva J.',
+      tournament: 'Test Open',
+      category: 'WTA - SINGLES',
       surface: 'hard'
     },
     {
@@ -115,6 +170,14 @@ describe('flashscore-times', () => {
       assert.equal(mod.normalizePlayer('De Minaur A.'), 'de minaur');
     });
 
+    it('strips all trailing initials and normalizes hyphens', () => {
+      assert.equal(mod.normalizePlayer('Leong M. W. K.'), 'leong');
+      assert.equal(mod.normalizePlayer('Dev S D P.'), 'dev');
+      assert.equal(mod.normalizePlayer('Diaz Acosta F.'), 'diaz acosta');
+      assert.equal(mod.normalizePlayer('Auger-Aliassime F.'), 'auger aliassime');
+      assert.equal(mod.normalizePlayer('Wang Xiy.'), 'wang');
+    });
+
     it('returns empty for empty input', () => {
       assert.equal(mod.normalizePlayer(''), '');
       assert.equal(mod.normalizePlayer(null), '');
@@ -155,6 +218,15 @@ describe('flashscore-times', () => {
       assert.equal(m.time, '22:10');
     });
 
+    it('matches abbreviated and hyphenated PP names', () => {
+      assert.equal(mod.lookupMatchTime('Leong', 'Palan').time, '22:00');
+      assert.equal(mod.lookupMatchTime('Halys', 'Diaz-Acosta').time, '15:00');
+      assert.equal(mod.lookupMatchTime('Swiatek', 'Wang').time, '18:00');
+      assert.equal(mod.lookupMatchTime('Moriya', 'Dev').time, '22:00');
+      assert.equal(mod.lookupMatchTime('Bueno', 'Reis-Da-Silva').time, '08:30');
+      assert.equal(mod.lookupMatchTime('Bueno', 'Reis Da Silva').time, '08:30');
+    });
+
     it('handles initials in PP names', () => {
       const m = mod.lookupMatchTime('Dart H.', 'Dong E.');
       assert.ok(m, 'should find match with initials');
@@ -183,6 +255,17 @@ describe('flashscore-times', () => {
       assert.equal(m.tournament, 'Los Cabos');
     });
 
+    it('tries the display matchup when PP team fields are stale', () => {
+      const row = {
+        homeTeam: 'Stale Home',
+        awayTeam: 'Stale Away',
+        game: 'Tomic vs Khachanov'
+      };
+      const m = mod.lookupFromPPRow(row);
+      assert.ok(m);
+      assert.equal(m.time, '23:15');
+    });
+
     it('returns null for incomplete row', () => {
       assert.equal(mod.lookupFromPPRow({ homeTeam: '' }), null);
       assert.equal(mod.lookupFromPPRow(null), null);
@@ -194,8 +277,8 @@ describe('flashscore-times', () => {
       const info = mod.getCacheInfo();
       assert.ok(info);
       assert.equal(info.date, '2026-07-29');
-      assert.equal(info.totalMatches, 5);
-      assert.equal(info.scheduled, 3);
+      assert.equal(info.totalMatches, 10);
+      assert.equal(info.scheduled, 8);
       assert.equal(info.source, 'flashscore');
       assert.equal(info.timezone, 'America/Chicago');
     });

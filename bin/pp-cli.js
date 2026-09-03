@@ -12,7 +12,7 @@ const fs = require('node:fs');
 const { createPropProfessorClient } = require(PROJECT + '/lib/propprofessor-api');
 const { createMcpHandlers } = require(PROJECT + '/scripts/server/handlers');
 const { getLocalTimezone } = require(PROJECT + '/lib/mcp-runtime-config');
-const { parseGameStartMs } = require(PROJECT + '/lib/propprofessor-shared-utils');
+const { parseGameStartMs, americanOddsToImpliedProbability } = require(PROJECT + '/lib/propprofessor-shared-utils');
 const { recoverTennisFromScreen } = require(PROJECT + '/lib/tennis-fallback');
 const { loadLedger, saveLedger, addRecord, defaultLedgerPath } = require(PROJECT + '/lib/record-ledger');
 const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/lib/record-candidates');
@@ -22,6 +22,7 @@ const { analyzeWalletPlays } = require(PROJECT + '/lib/propprofessor-wallet-play
 const { formatScanDiagnostics, normalizeWatchCandidates } = require(PROJECT + '/lib/scan-diagnostics');
 const { getMarketsForSport } = require(PROJECT + '/lib/propprofessor-market-registry');
 const { getSoccerEventIdentity } = require(PROJECT + '/lib/soccer-event-identity');
+const { correctTennisTimes } = require(PROJECT + '/lib/propprofessor-tennis');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
 // ── book alias resolution ──────────────────────────────────────
@@ -535,7 +536,7 @@ function formatScan(results) {
   return out;
 }
 
-function formatToday(data) {
+function formatToday(data, book = 'NoVigApp') {
   let out = '';
   const slate = data.slate || data.data?.slate || [];
   if (slate.length) {
@@ -579,7 +580,7 @@ function formatToday(data) {
         '  ' +
         p.selection +
         '  ' +
-        p.odds +
+        formatExecutionOdds(p.odds, book) +
         '  ' +
         tierColor(p.tier || '') +
         '\n';
@@ -597,12 +598,21 @@ function formatToday(data) {
   return out;
 }
 
-function formatValidate(data) {
+function formatExecutionOdds(odds, book) {
+  if (odds === null || odds === undefined || odds === '') return '?';
+  if (!/^novig(app)?$/i.test(String(book || '').replace(/[\s_-]/g, ''))) return oddsFmt(odds) || String(odds);
+  if (typeof odds === 'string' && /%\s*$/.test(odds)) return odds;
+  const probability = americanOddsToImpliedProbability(odds);
+  return Number.isFinite(probability) ? `${(probability * 100).toFixed(1)}%` : String(odds);
+}
+
+function formatValidate(data, book = 'NoVigApp') {
   const d = data.data || data;
   if (!d || !d.selection) return JSON.stringify(data, null, 2);
   let out = '';
   out += B + d.selection + R + '  —  ' + verdictSymbol(d.verdict) + '  ' + tierColor(d.tier) + '\n';
-  out += 'odds: ' + (d.play?.odds || '?') + '  |  books: ' + (d.play?.consensusBookCount || '?') + '\n';
+  out +=
+    'odds: ' + formatExecutionOdds(d.play?.odds, book) + '  |  books: ' + (d.play?.consensusBookCount || '?') + '\n';
   out +=
     'movement: ' +
     movementColor(d.verdictSummary?.movementDisposition || '?') +
@@ -981,6 +991,11 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
       ? res.watchCandidates
       : null;
   const watchCandidates = rawWatchCandidates ? normalizeWatchCandidates(rawWatchCandidates) : null;
+  const unresolvedCandidates = Array.isArray(res.data?.unresolvedCandidates)
+    ? res.data.unresolvedCandidates
+    : Array.isArray(res.unresolvedCandidates)
+      ? res.unresolvedCandidates
+      : null;
 
   // Surface existing diagnostics on the human path: truncated rows, empty
   // league×market pairs, and the tennis-fallback-on-mixed-scan caveat. The
@@ -1059,12 +1074,15 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
       results,
       ...(scanHealth ? { scanHealth } : {}),
       ...(watchCandidates ? { watchCandidates } : {}),
+      ...(unresolvedCandidates ? { unresolvedCandidates } : {}),
       ...(emptySlate && emptySlate.length ? { emptySlate } : {}),
       ...(tennisFallbackApplied ? { tennisFallbackApplied } : {})
     };
     console.log(
       JSON.stringify(
-        scanHealth || watchCandidates || emptySlate?.length || tennisFallbackApplied ? output : results,
+        scanHealth || watchCandidates || unresolvedCandidates || emptySlate?.length || tennisFallbackApplied
+          ? output
+          : results,
         null,
         2
       )
@@ -1073,6 +1091,11 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
     if (watchCandidates?.length) {
       console.error(
         `Diagnostic only: ${watchCandidates.length} watch candidate${watchCandidates.length === 1 ? '' : 's'}; never an official BET.`
+      );
+    }
+    if (unresolvedCandidates?.length) {
+      console.error(
+        `Diagnostic only: ${unresolvedCandidates.length} unresolved candidate${unresolvedCandidates.length === 1 ? '' : 's'}; history was not hydrated within the bounded scan budget.`
       );
     }
     if (rangeHeader) console.log(B + rangeHeader + R + '\n');
@@ -1256,7 +1279,7 @@ async function cmdValidate(handlers, positional, flags) {
   if (jsonOut) {
     console.log(JSON.stringify(res, null, 2));
   } else {
-    console.log(formatValidate(res));
+    console.log(formatValidate(res, book));
   }
 }
 
@@ -1290,11 +1313,14 @@ async function cmdGame(handlers, positional, flags) {
   if (selection) args.selection = selection;
   if (playId.includes('::')) args.playId = playId;
   const res = await handlers.get_play_details(args);
+  const rows = res.result || res.data || [];
+  if (/^tennis$/i.test(String(league)) && rows.length) {
+    await correctTennisTimes(rows);
+  }
 
   if (jsonOut) {
     console.log(JSON.stringify(res, null, 2));
   } else {
-    const rows = res.result || res.data || [];
     if (!rows.length) {
       if (selection && res.resultMeta?.selectionNotFound) {
         console.log('No exact match for selection "' + selection + '" in ' + gameId + '.');
@@ -1330,6 +1356,10 @@ async function cmdGame(handlers, positional, flags) {
     }
     if (selection) {
       console.log('selection: ' + (r.selection || r.pick || '') + '  [' + (r.selectionId || '') + ']');
+      console.log('price: ' + formatExecutionOdds(r.odds ?? r.currentOdds, book) + ' on ' + book);
+      if (Number.isFinite(Number(r.liquidityUsd)) && Number(r.liquidityUsd) > 0) {
+        console.log('liquidity: $' + Math.round(Number(r.liquidityUsd)).toLocaleString('en-US'));
+      }
     }
     if (r.selections) {
       console.log('\n' + B + 'Lines:' + R);
@@ -1357,7 +1387,7 @@ async function cmdToday(handlers, positional, flags) {
   if (jsonOut) {
     console.log(JSON.stringify(res, null, 2));
   } else {
-    console.log(formatToday(res));
+    console.log(formatToday(res, 'NoVigApp'));
   }
 }
 
@@ -1533,11 +1563,13 @@ async function cmdPrices(handlers, positional, flags) {
     for (const p of prices) {
       const isBest = best && p.book === best.book && p.odds === best.odds;
       const mark = isBest ? ' ' + G + '← best' + R : '';
-      console.log('  ' + (p.book || p.sportsbook || '?') + ': ' + (p.odds || '') + mark);
+      const priceBook = p.book || p.sportsbook || '';
+      console.log('  ' + (priceBook || '?') + ': ' + formatExecutionOdds(p.odds, priceBook) + mark);
     }
   }
   if (best) {
-    console.log('\n' + G + 'Best: ' + (best.book || best.sportsbook || '') + ' @ ' + best.odds + R);
+    const bestBook = best.book || best.sportsbook || '';
+    console.log('\n' + G + 'Best: ' + bestBook + ' @ ' + formatExecutionOdds(best.odds, bestBook) + R);
   }
 }
 
@@ -2158,6 +2190,7 @@ module.exports = {
   parseArgs,
   cmdScan,
   cmdGame,
+  cmdPrices,
   renderScanOutput,
   recordScanResults,
   cmdRecordCard,
@@ -2167,5 +2200,8 @@ module.exports = {
   formatScan,
   momentumLabel,
   openerContextLabel,
-  oddsFmt
+  oddsFmt,
+  formatExecutionOdds,
+  formatValidate,
+  formatToday
 };
