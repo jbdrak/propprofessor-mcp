@@ -48,6 +48,10 @@ function marketMatches(row, market) {
     .some((value) => String(value).trim().toLowerCase() === wanted);
 }
 
+function isPlayerPropMarket(market) {
+  return /^(player|pitcher)\b/i.test(String(market || '').trim());
+}
+
 async function runEvFirst(client, args, league, market, requestedBooks) {
   if (
     args.evFirst === false ||
@@ -132,7 +136,7 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
         includeAll: getIncludeAll(args),
         maxAgeMs: getMaxAgeMs(args),
         debug,
-        requirePreferredBook: requestedBooks.length > 0,
+        requirePreferredBook: requestedBooks.length > 0 && !isPlayerPropMarket(market),
         playableOnly: args.playableOnly === true
       })
   });
