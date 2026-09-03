@@ -495,14 +495,7 @@ describe('handler integration: quick_screen', () => {
     });
 
     assert.ok(calls.length > 0, 'fixture should validate at least one candidate');
-    assert.deepEqual(calls[0].books, [
-      'NoVigApp',
-      'Circa',
-      'Pinnacle',
-      'BookMaker',
-      'BetOnline',
-      'DraftKings'
-    ]);
+    assert.deepEqual(calls[0].books, ['NoVigApp', 'Circa', 'Pinnacle', 'BookMaker', 'BetOnline', 'DraftKings']);
     assert.equal(calls[0].lookbackHours, 6, 'validation uses the shared default when the scan uses the default');
   });
 
@@ -515,7 +508,12 @@ describe('handler integration: quick_screen', () => {
         ok: true,
         verdict: 'BET',
         tier: 'TIER 1',
-        verdictSummary: { displayTier: 'BET', movementDisposition: 'supportive_clean', executionQuality: 'best', riskFlags: [] },
+        verdictSummary: {
+          displayTier: 'BET',
+          movementDisposition: 'supportive_clean',
+          executionQuality: 'best',
+          riskFlags: []
+        },
         play: { consensusBookCount: 5, executionQuality: 'best' },
         consensusDrift: false
       };

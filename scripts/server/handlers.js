@@ -66,7 +66,9 @@ function getDefaultMarketsForLeague(league, _targetBooks) {
 }
 
 function isStandardTotalsMarket(market) {
-  return new Set(['Total Runs', 'Total Points', 'Total Goals', 'Total Games', 'Total Rounds']).has(String(market || '').trim());
+  return new Set(['Total Runs', 'Total Points', 'Total Goals', 'Total Games', 'Total Rounds']).has(
+    String(market || '').trim()
+  );
 }
 
 const { mapCandidateRow } = require('../../lib/propprofessor-mcp-candidate-mapper');
@@ -484,8 +486,8 @@ function createMcpHandlers({
             let totalsRecoveryApplied = false;
             const totalsScanTruncated = Boolean(
               spResult.resultMeta?.scanHealth?.truncated ||
-                (Array.isArray(spResult.resultMeta?.preHistoryShortlist) &&
-                  spResult.resultMeta.preHistoryShortlist.some((entry) => entry.truncated))
+              (Array.isArray(spResult.resultMeta?.preHistoryShortlist) &&
+                spResult.resultMeta.preHistoryShortlist.some((entry) => entry.truncated))
             );
             if (
               !candidates.length &&
@@ -581,7 +583,10 @@ function createMcpHandlers({
             if (!entry.candidates || !entry.candidates.length) continue;
             // Tennis timestamps can lag while an executable quote remains;
             // non-tennis betting rows must be pregame before validation.
-            const pregameOnly = String(entry.league || '').trim().toUpperCase() !== 'TENNIS';
+            const pregameOnly =
+              String(entry.league || '')
+                .trim()
+                .toUpperCase() !== 'TENNIS';
             entry.candidates = entry.candidates.filter((row) => {
               const startMs = parseGameStartMs(row.start);
               if (!startMs) return true; // keep rows without parseable start time
@@ -768,7 +773,8 @@ function createMcpHandlers({
             // Recheck with the same history window used by the scan row. Falling
             // back to 6 here made broad scans and validation grade different data.
             lookbackHours:
-              Number.isFinite(Number(candidate.lineHistoryLookbackHours)) && Number(candidate.lineHistoryLookbackHours) > 0
+              Number.isFinite(Number(candidate.lineHistoryLookbackHours)) &&
+              Number(candidate.lineHistoryLookbackHours) > 0
                 ? Number(candidate.lineHistoryLookbackHours)
                 : Number.isFinite(Number(args.lookbackHours))
                   ? Number(args.lookbackHours)
@@ -816,9 +822,9 @@ function createMcpHandlers({
           isEligible: (candidate) =>
             Boolean(
               candidate.gameId &&
-                candidate.selection &&
-                !candidate.altLineFiltered &&
-                (!args.onlyBets || candidate.kaiCall === 'BET')
+              candidate.selection &&
+              !candidate.altLineFiltered &&
+              (!args.onlyBets || candidate.kaiCall === 'BET')
             ),
           isBet: (candidate) => candidate.kaiCall === 'BET',
           selectTargets: validationPipeline.selectTopGlobal,
