@@ -15,7 +15,12 @@ async function runGameOutput(row) {
       {
         get_play_details: async () => ({ result: [row] })
       },
-      ['game', 'MLB:PREMATCH:TeamA:TeamB:1786017600'],
+      [
+        'game',
+        row.selection
+          ? 'MLB:PREMATCH:TeamA:TeamB:1786017600::Moneyline::' + row.selection
+          : 'MLB:PREMATCH:TeamA:TeamB:1786017600'
+      ],
       {}
     );
   } finally {
@@ -87,5 +92,25 @@ describe('pp game exact tennis selection propagation', () => {
     assert.match(output, /movement history is 72 min old/);
     assert.doesNotMatch(output, /quote is 72 min old/);
     assert.doesNotMatch(output, /verify current price/);
+  });
+
+  it('shows the exact NoVig probability and liquidity for a selected line', async () => {
+    const output = await runGameOutput({
+      awayTeam: 'Buse',
+      homeTeam: 'Bonzi',
+      start: '2026-09-03T20:00:00Z',
+      league: 'Tennis',
+      market: 'Moneyline',
+      selection: 'Bonzi',
+      odds: 104,
+      currentOdds: 104,
+      liquidityUsd: 2050,
+      movementLabel: 'supportive',
+      movementGrade: 'green',
+      movementDisposition: 'supportive_clean'
+    });
+
+    assert.match(output, /price: 49\.0% on NoVigApp/);
+    assert.match(output, /liquidity: \$2,050/);
   });
 });

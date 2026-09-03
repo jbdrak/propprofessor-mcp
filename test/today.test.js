@@ -24,6 +24,37 @@ describe('today() — one-call slate + pending picks + stats', () => {
     return handlers;
   }
 
+  it('validates the betting-card slate before returning it', async () => {
+    const handlers = makeHandlers();
+    let screenArgs;
+    handlers.quick_screen = async (args) => {
+      screenArgs = args;
+      return {
+        ok: true,
+        results: [
+          {
+            league: 'WNBA',
+            market: 'Moneyline',
+            candidates: [{ game: 'G1', selection: 'A', odds: -110, confidenceTier: 'TIER 1', kaiCall: 'BET' }]
+          }
+        ]
+      };
+    };
+
+    const r = await handlers.today({ leagues: ['WNBA', 'NBA'], book: 'NoVigApp' });
+    assert.equal(screenArgs.validate, true);
+    assert.equal(screenArgs.cardWindow, 'today');
+    assert.equal(screenArgs.book, 'NoVigApp');
+    assert.equal(r.ok, true);
+    assert.ok(Array.isArray(r.slate), 'slate should be an array');
+    assert.equal(r.slate.length, 1, 'slate should have the quick_screen candidate');
+    assert.ok(Array.isArray(r.pendingPicks), 'pendingPicks should be an array');
+    assert.equal(r.pendingPicks.length, 1);
+    assert.ok(r.stats, 'stats should be present');
+    assert.equal(r.stats.winRate, '54%');
+    assert.match(r.summary, /sharp plays/);
+  });
+
   it('returns slate + pending picks + stats in one call', async () => {
     const handlers = makeHandlers();
     const r = await handlers.today({ leagues: ['WNBA', 'NBA'], book: 'NoVigApp' });

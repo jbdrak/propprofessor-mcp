@@ -512,6 +512,35 @@ describe('formatQuickScreenBets', () => {
     assert.deepEqual(out.warnings, sampleResponse.warnings);
   });
 
+  it('preserves unresolved candidates separately from official plays', () => {
+    const out = formatQuickScreenBets({
+      ...sampleResponse,
+      unresolvedCandidates: [
+        {
+          league: 'Tennis',
+          market: 'Moneyline',
+          selection: 'Unhydrated Player',
+          gameId: 'unresolved-1',
+          status: 'unresolved',
+          incomplete: true,
+          lineHistoryAvailable: false,
+          movementDisposition: 'unavailable',
+          official: false,
+          validationFailureReason: 'history not hydrated within bounded scan budget'
+        }
+      ]
+    });
+    assert.equal(out.totalCandidates, 4);
+    assert.equal(out.results.flatMap((entry) => entry.plays).length, 2);
+    assert.equal(out.unresolvedCandidates.length, 1);
+    assert.equal(out.unresolvedCandidates[0].status, 'unresolved');
+    assert.equal(out.unresolvedCandidates[0].incomplete, true);
+    assert.equal(out.unresolvedCandidates[0].lineHistoryAvailable, false);
+    assert.equal(out.unresolvedCandidates[0].movementDisposition, 'unavailable');
+    assert.equal(out.unresolvedCandidates[0].official, false);
+    assert.equal(out.unresolvedCandidates[0].selection, 'Unhydrated Player');
+  });
+
   it('preserves compact scan health and diagnostic watch candidates', () => {
     const response = {
       ...sampleResponse,

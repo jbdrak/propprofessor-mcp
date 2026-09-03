@@ -23,6 +23,7 @@ describe('planPreHistoryHydration', () => {
     assert.deepEqual(result, {
       hydrationRows: rows,
       recoveryRows: [],
+      unresolvedRows: [],
       preHistoryShortlistMeta: null
     });
   });
@@ -56,12 +57,23 @@ describe('planPreHistoryHydration', () => {
     assert.deepEqual(result, {
       hydrationRows: shortlistRows,
       recoveryRows: [rows[1]],
+      unresolvedRows: [
+        {
+          ...rows[2],
+          official: false,
+          incomplete: true,
+          status: 'unresolved',
+          lineHistoryAvailable: false,
+          movementDisposition: 'unavailable',
+          validationFailureReason: 'history not hydrated within bounded scan budget'
+        }
+      ],
       preHistoryShortlistMeta: {
         enabled: true,
         truncated: true,
         totalRows: 3,
         shortlistedRows: 1,
-        skippedRowCount: 2,
+        skippedRowCount: 1,
         gameBudget: 2,
         marketBucketCount: 1
       }
