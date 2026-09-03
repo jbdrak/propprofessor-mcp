@@ -39,4 +39,20 @@ describe('sortRows near-even-odds tie break', () => {
     const out = sortRows(rows, { sortBy: 'tier', sortDir: 'asc' });
     assert.equal(out[0], positive, 'positive odds should outrank missing odds');
   });
+
+  it('compares negative odds by distance from even money', () => {
+    const nearEven = baseOdds(-110);
+    const farther = baseOdds(130);
+    const rows = [farther, nearEven];
+    const out = sortRows(rows, { sortBy: 'tier', sortDir: 'asc' });
+    assert.equal(out[0], nearEven, '-110 is closer to even than +130');
+  });
+
+  it('uses a non-negative distance for negative odds below -100', () => {
+    const nearEven = baseOdds(-90);
+    const farther = baseOdds(130);
+    const rows = [farther, nearEven];
+    const out = sortRows(rows, { sortBy: 'tier', sortDir: 'asc' });
+    assert.equal(out[0], nearEven, '-90 is closer to even than +130');
+  });
 });
