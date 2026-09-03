@@ -116,6 +116,7 @@ describe('normalizeScanCandidates', () => {
     assert.equal(r.startDisplay, '1:00 PM CDT');
     assert.equal(r.startSource, 'pp-mcp (unverified)');
     assert.equal(r.startConfidence, 0.3);
+    assert.equal(r.scanId, 'scan-full');
 
     // Missing fields are null, never invented.
     const sparse = normalizeScanCandidates([{ league: 'NBA', market: 'Spread', plays: [{ selection: 'Lakers' }] }], {
@@ -173,6 +174,7 @@ describe('normalizeScanCandidates', () => {
       'movement',
       'movementDisposition',
       'odds',
+      'scanId',
       'selection',
       'start',
       'startCST',
