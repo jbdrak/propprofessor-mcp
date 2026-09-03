@@ -28,11 +28,21 @@ today({ leagues: ["WNBA","NBA"], book: "NoVigApp", limit: 10 })
 - `summary` — one-line string for a status report
 
 If you don't know the user's context yet, call `ask({ query })` instead — it
-parses natural language and executes the right tool in one shot:
+parses natural language and suggests the right tool:
 
 ```
 ask({ query: "best WNBA play on NoVigApp tonight" })
 ```
+
+`ask` parses the query and executes the suggested tool on demand; inspect `_executed.tool`, `_executed.args`, and `result`. It never schedules or polls future calls.
+
+## Operating guardrails
+
+- PropProfessor is manual-only: no cron, scheduled workflow, polling loop, watchdog, or background live scan. Public-only settlement/schedule refresh must never call PropProfessor.
+- Fail closed: do not recommend unvalidated, skipped, unresolved, or history-degraded rows. `lookupStatus: "lookup_failed"`, `validatedUnverified: true`, `status: "unresolved"`, `incomplete: true`, `movementDisposition: "unavailable"`, or missing line history means stale/unverified—not a bet and not proof of a PASS.
+- Use standard main lines only. Alternate spreads/totals and expanded Game Handicap lines are non-actionable and should remain TIER 4/PASS; a target book needs a playable price, not necessarily the best price.
+- Preserve exact frontend Tennis `leagueName` tournament scope when supplied. Tennis defaults are Moneyline / Total Games / Set Handicap; Game Handicap is explicit-only.
+- Repository changes require focused deterministic tests plus `npm run install:verify`, `npm run lint`, `npm run check:types`, and relevant checker/format checks. Never test with live PropProfessor requests; commit task-scoped verified changes using the repository's conventional-commit and co-author rules.
 
 ---
 
