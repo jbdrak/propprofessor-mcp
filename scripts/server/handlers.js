@@ -446,6 +446,7 @@ function createMcpHandlers({
               limit: scanLimit,
               scanLimit,
               lookbackHours,
+              recentWindowHours: args.recentWindowHours,
               is_live: false,
               strict: false,
               includePasses: true,
@@ -749,13 +750,38 @@ function createMcpHandlers({
             // Validate against the execution book that produced the screen row.
             // Without this, validate_play falls back to comparison-book data and
             // can reject a live NoVig candidate as if its price were missing.
-            books: args.books,
+            books:
+              Array.isArray(candidate.historySportsbooksRequested) && candidate.historySportsbooksRequested.length
+                ? candidate.historySportsbooksRequested
+                : Array.isArray(args.books) && args.books.length
+                  ? args.books
+                  : candidate.book
+                    ? [candidate.book]
+                    : args.book
+                      ? [args.book]
+                      : undefined,
             // Recheck only this exact selection (pre-hydration filter).
             exactSelectionOnly: true,
             playId: candidate.playId,
             market: entry.market,
             skipResearch: true,
-            lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : 6,
+            // Recheck with the same history window used by the scan row. Falling
+            // back to 6 here made broad scans and validation grade different data.
+            lookbackHours:
+              Number.isFinite(Number(candidate.lineHistoryLookbackHours)) && Number(candidate.lineHistoryLookbackHours) > 0
+                ? Number(candidate.lineHistoryLookbackHours)
+                : Number.isFinite(Number(args.lookbackHours))
+                  ? Number(args.lookbackHours)
+                  : 6,
+            recentWindowHours:
+              Number.isFinite(Number(candidate.recentWindowHours)) && Number(candidate.recentWindowHours) > 0
+                ? Number(candidate.recentWindowHours)
+                : Number.isFinite(Number(args.recentWindowHours)) && Number(args.recentWindowHours) > 0
+                  ? Number(args.recentWindowHours)
+                  : undefined,
+            screenMovementSourceBook: candidate.movementSourceBook || undefined,
+            screenMovementMode: candidate.movementMode || undefined,
+            screenMovementDisposition: candidate.movementDisposition || undefined,
             screenTier: candidate.confidenceTier,
             screenKaiCall: candidate.kaiCall,
             // Pass the screen snapshot's consensus/exec so the validator
