@@ -1127,6 +1127,46 @@ describe('totals-conflict resolution (resolveTotalsConflicts)', () => {
     assert.equal(ranked[1].totalsConflictWith, undefined);
   });
 
+  it('removes alternates before the result limit hides the standard line', () => {
+    const ranked = rankScreenRows(
+      [
+        {
+          gameId: 'NBA:game-limit',
+          market: 'Total Points',
+          selection: 'Over 171.5',
+          participant: 'Over 171.5',
+          odds: -110,
+          consensusBookCount: 2,
+          consensusEdge: 8,
+          allBookOdds: {
+            NoVigApp: { odds1: -110 },
+            Pinnacle: { odds1: -112 }
+          }
+        },
+        {
+          gameId: 'NBA:game-limit',
+          market: 'Total Points',
+          selection: 'Over 168.5',
+          participant: 'Over 168.5',
+          odds: -500,
+          consensusBookCount: 5,
+          allBookOdds: {
+            NoVigApp: { odds1: -500 },
+            Pinnacle: { odds1: -505 },
+            Circa: { odds1: -510 },
+            BookMaker: { odds1: -501 },
+            BetOnline: { odds1: -502 }
+          }
+        }
+      ],
+      { preferredBook: 'NoVigApp', limit: 1, includeAll: false }
+    );
+
+    assert.equal(ranked.length, 1);
+    assert.equal(ranked[0].selection, 'Over 168.5');
+    assert.equal(ranked[0].altLineFiltered, undefined);
+  });
+
   it('keeps a same-direction alternate when an opposing row is demoted (3-row game)', () => {
     const ranked = [
       {

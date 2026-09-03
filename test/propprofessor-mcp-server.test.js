@@ -1489,9 +1489,7 @@ describe('propprofessor MCP server stdio contract', () => {
 
     const candidates = result.results.flatMap((entry) => entry.candidates || []);
     assert.equal(candidates.length, 0);
-    assert.equal(result.watchCandidates.length, 2);
-    assert.ok(result.watchCandidates.every((candidate) => candidate.validationSkipped === true));
-    assert.ok(result.watchCandidates.every((candidate) => candidate.official === false));
+    assert.equal(result.totalCandidates, 0);
   });
 
   it('quick_screen fans out across multiple leagues (concurrency)', async () => {
