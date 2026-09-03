@@ -21,7 +21,8 @@ const {
   isMlbMainMarket,
   isMlbPropMarket,
   normalizeMarket,
-  uniqueBooks
+  uniqueBooks,
+  canonicalizeScreenBookName
 } = require('../lib/propprofessor-sharp-books');
 
 describe('uniqueBooks', () => {
@@ -157,6 +158,10 @@ describe('getSharpBookComparisonSet', () => {
     assert.deepEqual(getSharpBookComparisonSet({ league: 'NBA', market: 'player points' }), [
       ...NBA_PROP_MARKET_SHARP_BOOKS
     ]);
+    assert.ok(NBA_PROP_MARKET_SHARP_BOOKS.includes('Prop Builder'));
+    assert.ok(!NBA_PROP_MARKET_SHARP_BOOKS.includes('PropBuilder'));
+    assert.equal(canonicalizeScreenBookName('Prop Builder'), 'Prop Builder');
+    assert.equal(canonicalizeScreenBookName('PropBuilder'), 'Prop Builder');
   });
 
   it('returns NFL main set for NFL main markets', () => {

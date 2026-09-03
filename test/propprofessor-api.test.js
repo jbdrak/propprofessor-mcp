@@ -436,7 +436,7 @@ describe('createPropProfessorClient', () => {
       const second = JSON.parse(fetchCalls[1].options.body);
       const third = JSON.parse(fetchCalls[2].options.body);
       assert.deepEqual(first.books, ['Circa', 'Pinnacle', 'BookMaker', 'BetOnline', 'DraftKings']);
-      assert.deepEqual(second.books, ['FanDuel', 'BookMaker', 'PropBuilder', 'NoVigApp', 'Pinnacle']);
+      assert.deepEqual(second.books, ['FanDuel', 'BookMaker', 'Prop Builder', 'NoVigApp', 'Pinnacle']);
       assert.deepEqual(third.books, []);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });

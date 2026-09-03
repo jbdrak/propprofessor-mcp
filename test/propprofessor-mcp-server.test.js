@@ -666,7 +666,7 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.equal(wnba.displayName, 'WNBA');
 
     assert.deepEqual(nba.sharpMainMarkets, ['Circa', 'Pinnacle', 'BookMaker', 'BetOnline', 'DraftKings']);
-    assert.deepEqual(nba.sharpProps, ['FanDuel', 'BookMaker', 'PropBuilder', 'NoVigApp', 'Pinnacle']);
+    assert.deepEqual(nba.sharpProps, ['FanDuel', 'BookMaker', 'Prop Builder', 'NoVigApp', 'Pinnacle']);
     assert.deepEqual(nfl.sharpMainMarkets, ['Circa', 'Pinnacle', 'BookMaker', 'NoVigApp', 'FanDuel']);
     assert.deepEqual(nfl.sharpProps, ['Pinnacle', 'FanDuel', 'BookMaker', 'Circa', 'BetOnline']);
     assert.deepEqual(mlb.sharpMainMarkets, ['Pinnacle', 'Circa', 'BookMaker', 'BetOnline', 'DraftKings', 'BetMGM']);
