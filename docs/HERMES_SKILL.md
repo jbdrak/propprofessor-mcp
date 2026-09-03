@@ -12,6 +12,14 @@ tags: [sports-betting, mcp, odds-analysis, sharp-movement]
 
 PropProfessor is an odds analysis engine for AI agents. It screens 36+ sportsbooks, ranks plays by sharp-book consensus and multi-window line movement, enriches candidates with player-context research (news + tweets), and outputs tiered recommendations with Kelly-based staking. Supported leagues: NBA, MLB, NHL, WNBA, Tennis, UFC, Soccer, NCAAB, NCAAF, NFL.
 
+## Mandatory Operating Rules
+
+- PropProfessor is manual-only. Call tools only on demand; never create cron jobs, scheduled workflows, polling loops, watchdogs, or background live scans. Public-only settlement or schedule refresh must not call PropProfessor.
+- Fail closed on incomplete evidence. Do not recommend rows that are unvalidated, skipped, unresolved, or history-degraded. Treat `lookupStatus: "lookup_failed"`, `validatedUnverified: true`, `status: "unresolved"`, `incomplete: true`, `movementDisposition: "unavailable"`, and missing line-history evidence as stale/unverified—not as a negative signal and not as a bet.
+- Use standard main lines. Alternate spreads/totals and expanded Game Handicap lines are non-actionable; honor `altLineFiltered` and TIER 4/PASS. The requested execution book needs a playable price, not necessarily the best price.
+- Preserve frontend Tennis tournament scope with exact `leagueName` when supplied. Tennis defaults are Moneyline / Total Games / Set Handicap; Game Handicap is explicit-only.
+- For repository changes, run focused deterministic tests, `npm run install:verify`, `npm run lint`, `npm run check:types`, and relevant checker/format checks. Keep changes task-scoped, never run live PropProfessor requests as tests, and use a conventional commit with the required co-author trailer only after verification.
+
 ## Quick Start
 
 Pick the workflow that matches the user's sophistication.
@@ -207,7 +215,7 @@ Clear the score timeline cache used for tier trajectory tracking. Resets all his
 ### Meta Tools
 
 **ask**
-Parse a natural language betting query into structured components (league, book, market, side, line, player) and suggest the best tool to call. Works as a query router — agents call this first, then call the suggested tool immediately. Routes to the right tool: book queries → quick_screen, player queries → player_context, validation queries ("should I bet X?") → validate_play guidance, general → quick_screen. No data is fetched by this tool itself — it's a pure parser + router.
+Parse a natural language betting query into structured components (league, book, market, side, line, player), execute the routed tool on demand, and return `_executed` plus the result. It never schedules or polls future calls. Routes to the right tool: book queries → quick_screen, player queries → player_context, validation queries ("should I bet X?") → validate_play, general → quick_screen.
 
 **get_market_registry**
 Returns the list of markets available for a sport on a specific book. Use this BEFORE calling quick_screen to know which markets to query. The response has two keys: `markets` (main-line markets, with per-book market name mappings where applicable) and `propMarkets` (exact player/pitcher prop market names for supported leagues). Soccer uses Draw No Bet / Match Handicap / Total Goals (not Moneyline / Spread / Total). Tennis uses Moneyline / Total Games / Set Handicap (not Spread / Total). On `scan`/`quick_screen`, passing `includeProps:true` merges `propMarkets` into the result, but this is manual-only — it increases backend fan-out and rate-limit risk, so only opt in when you actually need props. RECOMMENDED WORKFLOW: (1) get_market_registry → (2) quick_screen(leagues, markets=[...]) → (3) validate_play on top candidates → (4) log_pick.

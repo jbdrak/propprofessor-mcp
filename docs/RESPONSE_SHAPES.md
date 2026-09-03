@@ -220,7 +220,11 @@ The `_meta.validation` block on the response root reports how many candidates we
     "tool": "quick_screen",
     "args": { "books": ["Fliff"] }
   },
-  "workflow": "Parsed the natural language query. Call the suggested tool with the suggested args to get results back."
+  "_executed": {
+    "tool": "quick_screen",
+    "args": { "books": ["Fliff"] }
+  },
+  "result": []
 }
 ```
 
