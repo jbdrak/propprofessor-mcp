@@ -941,7 +941,12 @@ function createMcpHandlers({
               c.finalConfidenceTier || c.confidenceTier || 'TIER 4'
             );
             return (
-              c.finalVerdict === 'BET' && !c.validationBudgetExhausted && !c.validationBudgetSkipped && tierIdx <= floor
+              c.finalVerdict === 'BET' &&
+              c._validated === true &&
+              c.validationSkipped !== true &&
+              !c.validationBudgetExhausted &&
+              !c.validationBudgetSkipped &&
+              tierIdx <= floor
             );
           });
         }
