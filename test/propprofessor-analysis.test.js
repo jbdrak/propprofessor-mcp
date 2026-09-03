@@ -622,7 +622,8 @@ describe('tennis screen ranking helpers', () => {
     assert.deepEqual(nflProps.preferredBooks, ['Pinnacle', 'FanDuel', 'BookMaker', 'Circa', 'BetOnline']);
     assert.equal(nflProps.sharpBookContext.key, 'nfl_props');
     assert.deepEqual(mlbMain.preferredBooks, ['Pinnacle', 'Circa', 'BookMaker', 'BetOnline', 'DraftKings', 'BetMGM']);
-    assert.deepEqual(mlbProps.preferredBooks, ['Circa', 'FanDuel', 'PropBuilder', 'Pinnacle', 'DraftKings', 'Bet365']);
+    assert.deepEqual(mlbProps.preferredBooks, ['Circa', 'FanDuel', 'Prop Builder', 'Pinnacle', 'DraftKings', 'Bet365']);
+    assert.ok(!mlbProps.preferredBooks.includes('PropBuilder'));
     assert.equal(mlbProps.sharpBookContext.key, 'mlb_props');
   });
 
