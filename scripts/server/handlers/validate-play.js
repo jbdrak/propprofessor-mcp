@@ -14,7 +14,18 @@ const { buildCanonicalPlayId, normalizeSelectionKey } = require('../../../lib/pr
 const { buildValidationVerdict } = require('./validate-play-verdict');
 
 async function resolveValidationLookups(client, ctx, options) {
-  const { league, gameId, selection, market, books, lookbackHours, recentWindowHours, args, skipResearch, skipGameContext } = options;
+  const {
+    league,
+    gameId,
+    selection,
+    market,
+    books,
+    lookbackHours,
+    recentWindowHours,
+    args,
+    skipResearch,
+    skipGameContext
+  } = options;
   const detailPromise = (async () => {
     try {
       return {
@@ -110,7 +121,18 @@ async function resolveGeneralGameContext({ league, gameId, selection }) {
 }
 
 async function resolveValidationRow(client, ctx, options) {
-  const { detailRows, detailError, league, market, selection, gameId, requestedPlayId, books, lookbackHours, recentWindowHours } = options;
+  const {
+    detailRows,
+    detailError,
+    league,
+    market,
+    selection,
+    gameId,
+    requestedPlayId,
+    books,
+    lookbackHours,
+    recentWindowHours
+  } = options;
   let matchingRow = findBestMatch(detailRows, selection, requestedPlayId, books[0] || '');
   let matchedViaGameIdChange = false;
   let fallbackNote = null;
