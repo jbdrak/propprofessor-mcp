@@ -128,3 +128,8 @@ test('publish-tree verifier blocks dirty runtime content but allows local artifa
   assert.deepEqual(blocked, [' M lib/foo.js', '?? lib/record-new.js', 'D  lib/removed.js']);
   assert.ok(ALLOWED_DIRTY_PREFIXES.includes('.hermes/'));
 });
+
+test('publish-tree verifier blocks dirty shipped examples', () => {
+  const blocked = verifyTree([' M examples/example.js']);
+  assert.deepEqual(blocked, [' M examples/example.js']);
+});
