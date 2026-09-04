@@ -143,6 +143,74 @@ describe('handler integration: odds-history pacing injection', () => {
 // ─── screen_ranked ─────────────────────────────────────────────────
 
 describe('handler integration: screen_ranked', () => {
+  it('preserves the Tennis leagueName scope from frontend-shaped args', async () => {
+    const rankedPayload = {
+      game_data: [
+        {
+          gameId: 'us-open-game',
+          league: 'Tennis',
+          leagueName: 'US Open',
+          market: 'Moneyline',
+          updatedAt: new Date(Date.now() - 30 * 1000).toISOString(),
+          homeTeam: 'Player A',
+          awayTeam: 'Player B',
+          selections: {
+            a: {
+              selection1: 'Player A',
+              participant1: 'Player A',
+              selection1Id: 'Moneyline:Player_A',
+              selection2: 'Player B',
+              participant2: 'Player B',
+              selection2Id: 'Moneyline:Player_B',
+              odds: {
+                NoVigApp: { odds1: -118, odds2: 104 },
+                Polymarket: { odds1: -125, odds2: 110 }
+              }
+            }
+          },
+          defaultKey: 'a'
+        },
+        {
+          gameId: 'other-tennis-game',
+          league: 'Tennis',
+          leagueName: 'ATP Cincinnati',
+          market: 'Moneyline',
+          updatedAt: new Date(Date.now() - 30 * 1000).toISOString(),
+          homeTeam: 'Player C',
+          awayTeam: 'Player D',
+          selections: {
+            a: {
+              selection1: 'Player C',
+              participant1: 'Player C',
+              selection1Id: 'Moneyline:Player_C',
+              selection2: 'Player D',
+              participant2: 'Player D',
+              selection2Id: 'Moneyline:Player_D',
+              odds: {
+                NoVigApp: { odds1: -118, odds2: 104 },
+                Polymarket: { odds1: -125, odds2: 110 }
+              }
+            }
+          },
+          defaultKey: 'a'
+        }
+      ]
+    };
+    const handlers = createHandlers({ screenPayloads: { 'Tennis:Moneyline': rankedPayload } });
+
+    const result = await handlers.screen_ranked({
+      league: 'Tennis',
+      leagueName: 'US Open',
+      market: 'Moneyline',
+      includeAll: true,
+      books: ['NoVigApp']
+    });
+
+    assert.equal(result.ok, true);
+    assert.ok(result.result.length > 0);
+    assert.ok(result.result.every((row) => row.gameId === 'us-open-game'));
+  });
+
   it('returns ranked rows with consensus metadata from fixture data', async () => {
     const handlers = createHandlers();
     const result = await handlers.screen_ranked({
