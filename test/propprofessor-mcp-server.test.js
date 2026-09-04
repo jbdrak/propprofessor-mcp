@@ -925,6 +925,69 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.ok(result.result.every((row) => row.gameId === 'us-open-game'));
   });
 
+  it('screen_ranked maps named Soccer competitions to backend Soccer and filters leagueName', async () => {
+    const rankedPayload = {
+      game_data: [
+        {
+          gameId: 'epl-game',
+          league: 'Soccer',
+          leagueName: 'EPL',
+          market: 'Total Goals',
+          updatedAt: new Date(Date.now() - 30 * 1000).toISOString(),
+          homeTeam: 'Ipswich',
+          awayTeam: 'Liverpool',
+          selections: {
+            '3.5': {
+              selection1: 'Over 3.5',
+              participant1: 'Over 3.5',
+              selection1Id: 'Total_Goals:Over_3.5',
+              selection2: 'Under 3.5',
+              participant2: 'Under 3.5',
+              selection2Id: 'Total_Goals:Under_3.5',
+              odds: { NoVigApp: { odds1: 110, odds2: -130 }, Polymarket: { odds1: 105, odds2: -125 } }
+            }
+          },
+          defaultKey: '3.5'
+        },
+        {
+          gameId: 'laliga-game',
+          league: 'Soccer',
+          leagueName: 'La Liga',
+          market: 'Total Goals',
+          updatedAt: new Date(Date.now() - 30 * 1000).toISOString(),
+          homeTeam: 'Betis',
+          awayTeam: 'Real Madrid',
+          selections: {
+            '2.5': {
+              selection1: 'Over 2.5',
+              participant1: 'Over 2.5',
+              selection1Id: 'Total_Goals:Over_2.5',
+              selection2: 'Under 2.5',
+              participant2: 'Under 2.5',
+              selection2Id: 'Total_Goals:Under_2.5',
+              odds: { NoVigApp: { odds1: 100, odds2: -120 }, Polymarket: { odds1: 105, odds2: -125 } }
+            }
+          },
+          defaultKey: '2.5'
+        }
+      ]
+    };
+    const { client, calls } = createRankedScreenClientStub({ rankedPayload });
+    const handlers = createMcpHandlers({ client });
+
+    const result = await handlers.screen_ranked({
+      league: 'EPL',
+      market: 'Total Goals',
+      includeAll: true,
+      books: ['NoVigApp']
+    });
+
+    assert.equal(calls.queryScreenOddsBestComps[0].league, 'Soccer');
+    assert.equal(calls.queryScreenOddsBestComps[0].market, 'Total Goals');
+    assert.ok(result.result.length > 0);
+    assert.ok(result.result.every((row) => row.leagueName === 'EPL'));
+  });
+
   it('screen_ranked returns a structured ranked response', async () => {
     const rankedPayload = {
       game_data: [

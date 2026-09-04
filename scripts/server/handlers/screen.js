@@ -15,7 +15,7 @@ const {
   getLimit,
   getMaxAgeMs
 } = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
+const { resolveMarkets, filterPayloadByLeagueName, resolveSoccerLeague } = require('./handler-utils');
 const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/propprofessor-sharp-books');
 const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { getGameContext } = require('../../../lib/propprofessor-game-context');
@@ -38,13 +38,9 @@ function createScreenHandlers(client, ctx) {
     const requestedLeague = String(args.league || 'NBA').trim();
     const requestedLeagueName = String(args.leagueName || '').trim();
     const directTournament = /^(US Open|US Open Doubles)$/i.test(requestedLeague);
-    const league = directTournament ? 'Tennis' : requestedLeague;
-    const leagueNameFilter =
-      league.toLowerCase() === 'tennis' && requestedLeagueName
-        ? requestedLeagueName
-        : directTournament
-          ? requestedLeague
-          : null;
+    const soccerLeague = resolveSoccerLeague(requestedLeague, requestedLeagueName);
+    const league = directTournament ? 'Tennis' : soccerLeague.league;
+    const leagueNameFilter = directTournament ? requestedLeague : soccerLeague.leagueName;
     const marketResolution = resolveMarkets(args, league);
     const market = marketResolution.single;
     const focusBook = requestedBooks.length ? requestedBooks[0] : '';

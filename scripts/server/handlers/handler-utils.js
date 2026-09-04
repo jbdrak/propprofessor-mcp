@@ -23,6 +23,25 @@ function defined(obj) {
 /**
  * Resolve market alias(es) in args using the league context.
  */
+const SOCCER_COMPETITIONS = new Set([
+  'Bundesliga',
+  'Champions League',
+  'EFL Championship',
+  'EPL',
+  'Europa League',
+  'La Liga',
+  'Liga MX',
+  'Ligue 1'
+]);
+
+function resolveSoccerLeague(league, leagueName) {
+  const requested = String(league || '').trim();
+  const named = String(leagueName || '').trim();
+  const competition = SOCCER_COMPETITIONS.has(requested) ? requested : SOCCER_COMPETITIONS.has(named) ? named : null;
+  if (competition) return { league: 'Soccer', leagueName: competition };
+  return { league: requested || 'Soccer', leagueName: named || null };
+}
+
 function filterRowsByLeagueName(rows, leagueName) {
   if (!Array.isArray(rows) || !String(leagueName || '').trim()) return rows;
   const wanted = String(leagueName).trim().toLowerCase();
@@ -160,6 +179,7 @@ function stripVerdictFields(candidate) {
 
 module.exports = {
   defined,
+  resolveSoccerLeague,
   filterRowsByLeagueName,
   filterPayloadByLeagueName,
   resolveMarkets,
