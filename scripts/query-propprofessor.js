@@ -22,6 +22,7 @@ const { rankLeagueScreenRows, getLeagueRankingPreset } = require('../lib/screen-
 const { extractScreenRows } = require('../lib/screen-parser');
 const { buildRankedScreenResponse, getDebugFlag } = require('../lib/propprofessor-mcp-ranked-screen');
 const { createMcpHandlers } = require('./propprofessor-mcp-server');
+const { resolveSoccerLeague, filterPayloadByLeagueName } = require('./server/handlers/handler-utils');
 const { clearScoreTimeline } = require('../lib/propprofessor-risk-score');
 
 const LEAGUE_ALIASES = {
@@ -93,6 +94,8 @@ function buildHelpText() {
     '  pp-query doctor',
     '  pp-query health',
     '  pp-query screen --league NBA --market Moneyline',
+    '  pp-query screen --league EPL --market Total Goals',
+    '  pp-query screen --league Soccer --league-name EPL --market Total Goals',
     '  pp-query sharp-plays --book Fliff --leagues NBA,MLB,NHL,Tennis,WNBA,UFC --market Moneyline',
     '  pp-query nba --market Moneyline',
     '  pp-query ufc --market Moneyline',
@@ -224,6 +227,9 @@ function parseArgs(argv) {
     } else if (arg === '--league' || arg === '-g') {
       opts.league = next;
       i += 1;
+    } else if (arg === '--league-name' || arg === '--leagueName') {
+      opts.leagueName = next;
+      i += 1;
     } else if (arg === '--books' || arg === '-b') {
       opts.books = next;
       i += 1;
@@ -339,14 +345,19 @@ async function queryTennisPayloads(client, { market, books, is_live } = {}) {
 
 function resolveScreenCommand(command, opts = {}) {
   if (Object.prototype.hasOwnProperty.call(LEAGUE_ALIASES, command)) {
+    const baseLeague = LEAGUE_ALIASES[command] || opts.league || 'NBA';
+    const resolved = resolveSoccerLeague(baseLeague, opts.leagueName);
     return {
       command: 'screen',
-      league: LEAGUE_ALIASES[command] || opts.league || 'NBA'
+      league: resolved.league,
+      ...(resolved.leagueName ? { leagueName: resolved.leagueName } : {})
     };
   }
+  const resolved = resolveSoccerLeague(opts.league || 'NBA', opts.leagueName);
   return {
     command,
-    league: opts.league || 'NBA'
+    league: resolved.league,
+    ...(resolved.leagueName ? { leagueName: resolved.leagueName } : {})
   };
 }
 
@@ -796,7 +807,7 @@ async function runScreenCommand({ opts, client, logger, lookbackHours, debug, co
       : ['NoVigApp', 'Polymarket', 'Kalshi', 'BetOnline', 'Circa'];
     const result = await buildRankedScreenResponse({
       client,
-      payloads: [payload],
+      payloads: [filterPayloadByLeagueName(payload, screenCommand.leagueName)],
       args: {
         books: screenBooks,
         historySportsbooks: screenBooks,
@@ -924,6 +935,7 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
   } else if (screenCommand.command === 'screen') {
     payload = await client.queryScreenOddsBestComps({
       league: screenCommand.league,
+      leagueName: screenCommand.leagueName,
       market: opts.market || getMarketsForSport(screenCommand.league)[0] || 'Moneyline',
       books: opts.books
         ? String(opts.books)

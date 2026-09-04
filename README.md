@@ -568,10 +568,12 @@ The [Positive EV Command Center](https://github.com/jbdrak/positive-ev-command-c
 
 ### `pp-query` CLI
 
-`pp-query` is a standalone CLI for one-off queries without an MCP client:
+`pp-query` is a standalone CLI for one-off queries without an MCP client. Soccer is queried from the generic `Soccer` backend feed; named competitions are filtered by their `leagueName` (the same model used by the frontend):
 
 ```bash
 pp-query screen --league NBA --market Moneyline
+pp-query screen --league EPL --market "Total Goals"
+pp-query screen --league Soccer --league-name EPL --market "Total Goals"
 pp-query recommended --leagues NBA,MLB
 pp-query login
 pp-query doctor

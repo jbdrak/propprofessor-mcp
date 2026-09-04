@@ -399,7 +399,7 @@ The old behavior returned `PASS`, which falsely implied the play was bad. The ne
 
 ### Soccer returns 0 candidates on quick_screen
 
-`quick_screen` with `leagues=["Soccer"]` uses **Draw No Bet / Match Handicap / Total Goals** by default (not Moneyline/Spread/Total). If you get 0 results, the book may genuinely not have soccer that day. Probe `find_best_price` with `market="Draw No Bet"` on a known fixture to confirm.
+`quick_screen` with `leagues=["Soccer"]` uses **Draw No Bet / Match Handicap / Total Goals** by default (not Moneyline/Spread/Total). Named competitions in the frontend, such as `EPL`, `La Liga`, and `Bundesliga`, are `leagueName` scopes over the generic `Soccer` backend feed. Query the backend as `Soccer` and pass the exact competition name as `leagueName`; don't send `EPL` as the backend league. If you get 0 results, the book may genuinely not have a validated soccer play that day. Probe the correct soccer market on a known fixture to confirm.
 
 ### Tennis start time is stale
 
