@@ -439,34 +439,8 @@ function renderUfcCardOutput(result, logger = console) {
   logger.log(lines.join('\n'));
 }
 
-// eslint-disable-next-line complexity
-async function main({ argv = process.argv, client = createPropProfessorClient(), logger = console } = {}) {
-  const { command, opts } = parseArgs(argv);
+async function runInitCommand({ opts, client, logger }) {
 
-  // Audit fix (2026-07-11): --reset clears the module-level score timeline
-  // so a fresh CLI invocation starts with no cross-session tier history.
-  if (opts.reset === true) {
-    try {
-      clearScoreTimeline();
-    } catch {
-      /* defensive: never block startup */
-    }
-  }
-
-  const screenCommand = resolveScreenCommand(command, opts);
-
-  if (command === 'help') {
-    logger.log(buildHelpText());
-    process.exitCode = 0;
-    return;
-  }
-
-  if (command === 'list') {
-    emitJson(logger, { command, commands: getCommandInventory() });
-    return;
-  }
-
-  if (command === 'init') {
     const authPath = resolveAuthFile();
     const authInfo = inspectAuthSetup();
     const nodeVer = getNodeVersionStatus();
@@ -531,27 +505,11 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
     logger.log('');
     logger.log("Copy the above into your client's MCP config, then restart.");
     return;
-  }
 
-  if (command === 'setup') {
-    const CONFIG_DIR = path.join(os.homedir(), '.propprofessor');
-    const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
-    const DEFAULT_PATH = path.join(__dirname, '..', 'config.default.json');
+}
 
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+async function runOpinionCommand({ opts, client, logger }) {
 
-    if (fs.existsSync(CONFIG_PATH)) {
-      emitJson(logger, { command: 'setup', status: 'exists', path: CONFIG_PATH });
-      return;
-    }
-
-    const defaults = fs.readFileSync(DEFAULT_PATH, 'utf8');
-    fs.writeFileSync(CONFIG_PATH, defaults, { mode: 0o600 });
-    emitJson(logger, { command: 'setup', status: 'created', path: CONFIG_PATH });
-    return;
-  }
-
-  if (command === 'opinion') {
     const rows = extractRows(await client.querySportsbook());
     const query = {
       player: opts.player,
@@ -562,13 +520,12 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
     const result = analyzePlayerPropBet(query, rows);
     emitJson(logger, result);
     return;
-  }
 
-  let payload;
-  let payloads = null;
-  if (command === 'sportsbook') {
-    payload = await client.querySportsbook();
-  } else if (command === 'ufc-card') {
+}
+
+async function runMiscCommands({ command, opts, client, logger }) {
+  if (command === 'ufc-card') {
+
     const handlers = createMcpHandlers({ client });
     const result = await handlers.ufc_card({
       book: opts.book || opts.targetBook,
@@ -588,45 +545,29 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
     } else {
       renderUfcCardOutput(result, logger);
     }
-    return;
-  } else if (command === 'smart') {
-    payload = await client.querySmartMoney();
-  } else if (command === 'tennis') {
-    payloads = await queryTennisPayloads(client, {
-      market: opts.market || 'Moneyline',
-      books: opts.books
-        ? String(opts.books)
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : undefined,
-      is_live: Boolean(opts.live)
-    });
-    payload = payloads[0] || { game_data: [] };
-  } else if (command === 'sharp-plays') {
-    payload = { game_data: [] };
-  } else if (screenCommand.command === 'screen') {
-    payload = await client.queryScreenOddsBestComps({
-      league: screenCommand.league,
-      market: opts.market || getMarketsForSport(screenCommand.league)[0] || 'Moneyline',
-      books: opts.books
-        ? String(opts.books)
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : undefined,
-      is_live: Boolean(opts.live)
-    });
-  } else if (command === 'presets') {
+    return true;
+
+  }
+
+  if (command === 'presets') {
+
     const leagues = ['NBA', 'WNBA', 'MLB', 'NFL', 'NHL', 'UFC', 'SOCCER', 'TENNIS', 'NCAAB', 'NCAAF'];
     const presets = leagues.map((league) => getLeagueRankingPreset(league));
     emitJson(logger, { command, presets });
-    return;
-  } else if (command === 'health') {
+    return true;
+
+  }
+
+  if (command === 'health') {
+
     const result = await client.healthStatus();
     emitJson(logger, { command, ...result });
-    return;
-  } else if (command === 'doctor') {
+    return true;
+
+  }
+
+  if (command === 'doctor') {
+
     let healthResult;
     try {
       healthResult = await client.healthStatus();
@@ -637,8 +578,12 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
       };
     }
     emitJson(logger, buildDoctorReport(healthResult));
-    return;
-  } else if (command === 'install-auth') {
+    return true;
+
+  }
+
+  if (command === 'install-auth') {
+
     if (!opts.source) {
       throw new Error(`install-auth requires --source. Example: pp-query install-auth --source /path/to/auth.json`);
     }
@@ -647,8 +592,12 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
       destinationFile: opts.destination || DEFAULT_USER_AUTH_FILE
     });
     emitJson(logger, buildInstallAuthReport(installResult));
-    return;
-  } else if (command === 'login') {
+    return true;
+
+  }
+
+  if (command === 'login') {
+
     const { loginCli } = require('./pp-login');
     await loginCli({
       authFile: opts.destination || DEFAULT_USER_AUTH_FILE,
@@ -656,21 +605,25 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
       json: Boolean(opts.json),
       logger
     });
-    return;
-  } else if (command === 'exe') {
+    return true;
+
+  }
+
+  if (command === 'exe') {
+
     // Launch the tier-ranked plays display
     const { execSync } = require('child_process');
     const scriptPath = require('path').join(__dirname, 'prop-professor.exe.js');
     execSync(`node "${scriptPath}"`, { stdio: 'inherit' });
-    return;
-  } else {
-    throw new Error(`Unknown command: ${command}`);
+    return true;
+
   }
 
-  const rows = extractRows(payload);
-  const lookbackHours = getOddsHistoryLookbackHours(opts.lookbackHours);
-  const debug = getDebugFlag(opts.debug, true);
-  if (command === 'sharp-plays') {
+  return false;
+}
+
+async function runSharpPlaysCommand({ opts, client, logger, lookbackHours, debug }) {
+
     const targetBook = opts.book || opts.targetBook || opts.books?.split(',')?.[0] || 'NoVigApp';
     const leagues = opts.leagues
       ? String(opts.leagues)
@@ -713,8 +666,11 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
     });
     emitJson(logger, result);
     return;
-  }
-  if (command === 'tennis') {
+
+}
+
+async function runTennisCommand({ opts, payloads, client, logger, lookbackHours, debug, command, payload }) {
+
     // --book (singular) sets the focus/preferred book; --books (plural) sets
     // the full list. --book wins when both are provided. The full list defaults
     // to the standard sharp set so consensus comparison still has data; the
@@ -827,9 +783,11 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
     result.sample = normalized;
     emitJson(logger, result);
     return;
-  }
 
-  if (screenCommand.command === 'screen') {
+}
+
+async function runScreenCommand({ opts, client, logger, lookbackHours, debug, command, payload, screenCommand }) {
+
     const screenBooks = opts.books
       ? String(opts.books)
           .split(',')
@@ -881,6 +839,118 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
       timeInterpretation: `start values without an explicit timezone are treated as UTC, displayed in ${getLocalTimezone()}`
     };
     emitJson(logger, result);
+    return;
+
+}
+
+async function main({ argv = process.argv, client = createPropProfessorClient(), logger = console } = {}) {
+  const { command, opts } = parseArgs(argv);
+
+  // Audit fix (2026-07-11): --reset clears the module-level score timeline
+  // so a fresh CLI invocation starts with no cross-session tier history.
+  if (opts.reset === true) {
+    try {
+      clearScoreTimeline();
+    } catch {
+      /* defensive: never block startup */
+    }
+  }
+
+  const screenCommand = resolveScreenCommand(command, opts);
+
+  if (command === 'help') {
+    logger.log(buildHelpText());
+    process.exitCode = 0;
+    return;
+  }
+
+  if (command === 'list') {
+    emitJson(logger, { command, commands: getCommandInventory() });
+    return;
+  }
+
+  if (command === 'init')   if (command === 'init') {
+    await runInitCommand({ opts, client, logger });
+    return;
+  }
+
+  if (command === 'setup') {
+    const CONFIG_DIR = path.join(os.homedir(), '.propprofessor');
+    const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
+    const DEFAULT_PATH = path.join(__dirname, '..', 'config.default.json');
+
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+
+    if (fs.existsSync(CONFIG_PATH)) {
+      emitJson(logger, { command: 'setup', status: 'exists', path: CONFIG_PATH });
+      return;
+    }
+
+    const defaults = fs.readFileSync(DEFAULT_PATH, 'utf8');
+    fs.writeFileSync(CONFIG_PATH, defaults, { mode: 0o600 });
+    emitJson(logger, { command: 'setup', status: 'created', path: CONFIG_PATH });
+    return;
+  }
+
+  if (command === 'opinion')   if (command === 'opinion') {
+    await runOpinionCommand({ opts, client, logger });
+    return;
+  }
+
+  if (await runMiscCommands({ command, opts, client, logger })) {
+    return;
+  }
+
+  let payload;
+  let payloads = null;
+  if (command === 'sportsbook') {
+    payload = await client.querySportsbook();
+  } else if (command === 'smart') {
+    payload = await client.querySmartMoney();
+  } else if (command === 'tennis') {
+    payloads = await queryTennisPayloads(client, {
+      market: opts.market || 'Moneyline',
+      books: opts.books
+        ? String(opts.books)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined,
+      is_live: Boolean(opts.live)
+    });
+    payload = payloads[0] || { game_data: [] };
+  } else if (command === 'sharp-plays') {
+    payload = { game_data: [] };
+  } else if (screenCommand.command === 'screen') {
+    payload = await client.queryScreenOddsBestComps({
+      league: screenCommand.league,
+      market: opts.market || getMarketsForSport(screenCommand.league)[0] || 'Moneyline',
+      books: opts.books
+        ? String(opts.books)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined,
+      is_live: Boolean(opts.live)
+    });
+  } else {
+    throw new Error(`Unknown command: ${command}`);
+  }
+
+  const rows = extractRows(payload);
+  const lookbackHours = getOddsHistoryLookbackHours(opts.lookbackHours);
+  const debug = getDebugFlag(opts.debug, true);
+  if (command === 'sharp-plays')   if (command === 'sharp-plays') {
+    await runSharpPlaysCommand({ opts, client, logger, lookbackHours, debug });
+    return;
+  }
+  if (command === 'tennis')   if (command === 'tennis') {
+    await runTennisCommand({ opts, payloads, client, logger, lookbackHours, debug, command, payload });
+    return;
+  }
+
+  if (screenCommand.command === 'screen')   if (screenCommand.command === 'screen') {
+    await runScreenCommand({ opts, client, logger, lookbackHours, debug, command, payload, screenCommand });
     return;
   }
 
