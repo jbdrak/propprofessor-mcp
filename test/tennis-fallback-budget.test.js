@@ -136,6 +136,22 @@ describe('recoverTennisFromScreen — bounded history budget', () => {
   });
 });
 
+describe('recoverTennisFromScreen — default side budget', () => {
+  it('uses the 300-side default when the shared window permits it', async () => {
+    const client = makeHugeClient({ remaining: 400 });
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'NoVigApp',
+      markets: ['Moneyline', 'Total Games'],
+      skipTimeCorrection: true
+    });
+    const meta = plays.fallbackMeta;
+    assert.equal(meta.effectiveMaxHistorySelections, 300);
+    assert.equal(meta.historyCalls, 300);
+    assert.equal(client.historyCalls.length, 300);
+  });
+});
+
 describe('recoverTennisFromScreen — effectiveMax 0/1/2/3 side budgets', () => {
   // remaining = effectiveMax + 2 (the fallback reserves a 2-call margin).
   async function runWithEffectiveMax(effectiveMax, markets) {
