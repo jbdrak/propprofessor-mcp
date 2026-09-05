@@ -11,20 +11,40 @@ const STATUS_MESSAGES = {
 };
 
 /**
+ * Parse an odds value that may be American (-110) or a NoVig percentage
+ * string ('96.1%'). Returns { value, isPct } or null when unparseable.
+ */
+function parseOdds(raw) {
+  if (typeof raw === 'string' && raw.trim().endsWith('%')) {
+    const value = parseFloat(raw);
+    return Number.isFinite(value) ? { value, isPct: true } : null;
+  }
+  const value = Number(raw);
+  return Number.isFinite(value) ? { value, isPct: false } : null;
+}
+
+/**
  * Price agreement between the scan snapshot and the validation re-fetch.
- * Handles both American odds numbers (-110) and NoVig percentage strings
- * ('96.1%') — Number('96.1%') is NaN, so percentages are parsed explicitly.
  * Tolerance: 5 points American, 1.5 points percentage. Anything
- * unparseable or mixed-format returns false (fail-safe: old behavior).
+ * unparseable or mixed-format returns false (fail-safe).
  */
 function pricesAgree(screenRaw, currentRaw) {
-  const screenPct = typeof screenRaw === 'string' && screenRaw.trim().endsWith('%');
-  const currentPct = typeof currentRaw === 'string' && currentRaw.trim().endsWith('%');
-  if (screenPct !== currentPct) return false;
-  const screenNum = screenPct ? parseFloat(String(screenRaw)) : Number(screenRaw);
-  const currentNum = currentPct ? parseFloat(String(currentRaw)) : Number(currentRaw);
-  if (!Number.isFinite(screenNum) || !Number.isFinite(currentNum)) return false;
-  return Math.abs(screenNum - currentNum) <= (screenPct ? 1.5 : 5);
+  const screen = parseOdds(screenRaw);
+  const current = parseOdds(currentRaw);
+  if (!screen || !current || screen.isPct !== current.isPct) return false;
+  return Math.abs(screen.value - current.value) <= (screen.isPct ? 1.5 : 5);
+}
+
+/**
+ * Material price move between scan snapshot and re-fetch: 30+ points
+ * American, 5+ points percentage. Unparseable or mixed-format returns
+ * false (fail-safe: no downgrade on what we can't measure).
+ */
+function priceMovedBig(screenRaw, currentRaw) {
+  const screen = parseOdds(screenRaw);
+  const current = parseOdds(currentRaw);
+  if (!screen || !current || screen.isPct !== current.isPct) return false;
+  return Math.abs(screen.value - current.value) > (screen.isPct ? 5 : 30);
 }
 
 function resolveBaseVerdict({
@@ -39,16 +59,18 @@ function resolveBaseVerdict({
   const reasons = [];
   const screenTier = args.screenTier || (matchingRow && matchingRow.screenTier);
   const screenKaiCall = args.screenKaiCall || (matchingRow && matchingRow.screenKaiCall);
-  // Price agreement: when the re-fetch returns the same executable price the
-  // scan ranked, the re-fetch is confirming the screen snapshot, not new
-  // information. Suppress noise downgrades (consensus-drift, exec-quality
-  // flips, movement-label flips) that fire on comp-set jitter between two
-  // fetches seconds apart. Only material changes — line gone, big price
-  // move, game live — still downgrade.
-  const priceAgrees = pricesAgree(
-    args.screenOdds,
-    matchingRow && (matchingRow.odds ?? matchingRow.currentOdds)
-  );
+  // Scan-sourced validation (quick_screen) trusts the screen snapshot: the
+  // re-fetch confirms the line is still there, it doesn't re-grade it.
+  // Novig is a fast peer-to-peer market — comp-set jitter between two
+  // fetches seconds apart is noise, not signal. Only material changes
+  // downgrade: line gone (lookup_failed below), or a big price move.
+  // Direct validate_play calls (no screen snapshot) keep the legacy strict
+  // behavior: drift, exec-quality, and tier checks all apply.
+  const scanSourced = args.screenKaiCall != null;
+  const currentOddsRaw = matchingRow && (matchingRow.odds ?? matchingRow.currentOdds);
+  const priceAgrees = pricesAgree(args.screenOdds, currentOddsRaw);
+  const bigMove =
+    scanSourced && Boolean(matchingRow) && priceMovedBig(args.screenOdds, currentOddsRaw);
   let tier = screenTier || matchingRow?.confidenceTier || null;
   if (!tier) {
     const kaiCall = screenKaiCall || matchingRow?.kaiCall;
@@ -59,7 +81,10 @@ function resolveBaseVerdict({
 
   let consensusDrift = false;
   let driftReason = null;
-  if (matchingRow && !priceAgrees) {
+  if (bigMove) {
+    consensusDrift = true;
+    driftReason = `price moved ${args.screenOdds} → ${currentOddsRaw}`;
+  } else if (matchingRow && !priceAgrees && !scanSourced) {
     const screenCbk = Number(args.screenConsensusBookCount);
     const screenExec = String(args.screenExecutionQuality || '');
     const currentCbk = Number(matchingRow.consensusBookCount || 0);
@@ -121,7 +146,9 @@ function resolveBaseVerdict({
     }
 
     const exec = String(matchingRow.executionQuality || '');
-    if (exec === 'bad' && !priceAgrees) {
+    if (exec === 'bad' && scanSourced) {
+      reasons.push('execution quality reads "bad" on re-fetch — recorded as context, screen call stands');
+    } else if (exec === 'bad' && !priceAgrees) {
       verdict = 'PASS';
       reasons.push('execution quality is "bad" on the requested book');
     } else if (exec === 'bad' && priceAgrees) {
@@ -290,16 +317,18 @@ function buildValidationVerdict({
     rowForDisposition.sharpBookMovementConfirmed = true;
   }
   let disposition = rowForDisposition ? computeMovementDisposition(rowForDisposition) : 'insufficient';
-  // Price-agreement trust: the re-fetch confirmed the screen price, so a
-  // recomputed adverse/insufficient label is comp-set jitter between two
-  // fetches, not new information. Keep the screen's supportive read.
+  // Scan-sourced trust: the re-fetch confirmed the line is still there, so a
+  // recomputed adverse/insufficient label is comp-set jitter, not new
+  // information. Keep the screen's supportive read (recorded in reasons).
+  // Direct validate_play calls keep the recomputed disposition.
   const screenDisposition = String(args.screenMovementDisposition || '');
+  const scanTrustsScreen = args.screenKaiCall != null;
   if (
+    scanTrustsScreen &&
     screenDisposition.startsWith('supportive') &&
-    (disposition === 'adverse_recent' || disposition === 'adverse_full' || disposition === 'insufficient') &&
-    pricesAgree(args.screenOdds, matchingRow && (matchingRow.odds ?? matchingRow.currentOdds))
+    (disposition === 'adverse_recent' || disposition === 'adverse_full' || disposition === 'insufficient')
   ) {
-    reasons.push(`movement recomputed ${disposition} on re-fetch but price agrees with screen — kept screen ${screenDisposition}`);
+    reasons.push(`movement recomputed ${disposition} on re-fetch — kept screen ${screenDisposition} (scan-sourced trust)`);
     disposition = screenDisposition;
   }
   if ((disposition === 'adverse_recent' || disposition === 'adverse_full') && tier !== 'TIER 4') {

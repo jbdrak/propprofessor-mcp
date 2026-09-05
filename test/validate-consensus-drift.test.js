@@ -68,8 +68,8 @@ function makeGoneClient() {
   };
 }
 
-describe('validate_play consensus-drift downgrade (regression: 5 books on screen → thin on re-fetch)', () => {
-  it('downgrades a TIER 1 BET to CONSIDER when re-fetched consensus collapses', async () => {
+describe('validate_play scan-sourced trust (regression: 5 books on screen → thin on re-fetch)', () => {
+  it('keeps a TIER 1 BET when only consensus wobbles but the price agrees (fast-market noise)', async () => {
     const handlers = createMcpHandlers({ client: makeClient({ drift: true }) });
     handlers.player_context = async () => ({ riskFlag: 'low', tweets: [], news: [] });
     const result = await handlers.validate_play({
@@ -79,16 +79,37 @@ describe('validate_play consensus-drift downgrade (regression: 5 books on screen
       skipResearch: true,
       screenTier: 'TIER 1',
       screenKaiCall: 'BET',
+      screenOdds: 150,
       screenConsensusBookCount: 5,
       screenExecutionQuality: 'best'
     });
 
     assert.equal(result.ok, true);
-    assert.equal(result.consensusDrift, true, 'drift must be detected (5 → thin)');
-    assert.equal(result.verdict, 'CONSIDER', 'BET built on a phantom 5-book consensus must downgrade to CONSIDER');
+    assert.equal(result.consensusDrift, false, 'no drift without a price move');
+    assert.equal(result.verdict, 'BET', 'scan-sourced validation trusts the screen snapshot');
+  });
+
+  it('downgrades to CONSIDER when the price also moved materially', async () => {
+    const handlers = createMcpHandlers({ client: makeClient({ drift: true }) });
+    handlers.player_context = async () => ({ riskFlag: 'low', tweets: [], news: [] });
+    const result = await handlers.validate_play({
+      league: 'MLB',
+      gameId: 'MLB:PREMATCH:Los_Angeles_Angels:Minnesota_Twins:1783728600',
+      selection: 'Minnesota Twins -1.5',
+      skipResearch: true,
+      screenTier: 'TIER 1',
+      screenKaiCall: 'BET',
+      screenOdds: 100, // re-fetch at 150 = 50-point move
+      screenConsensusBookCount: 5,
+      screenExecutionQuality: 'best'
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.consensusDrift, true, 'material price move is real drift');
+    assert.equal(result.verdict, 'CONSIDER');
     assert.ok(
-      result.reasons.some((r) => /drift/i.test(r)),
-      'should mention consensus drift in reasons'
+      result.reasons.some((r) => /drift|moved/i.test(r)),
+      'should mention the price move in reasons'
     );
   });
 

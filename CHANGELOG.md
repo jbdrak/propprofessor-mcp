@@ -1,3 +1,7 @@
+## Unreleased
+
+- fix: scan-sourced validation trusts the screen snapshot for fast Novig markets. The validation re-fetch confirms the line is still there instead of re-grading it: consensus wobbles, exec-quality flips, and movement-label flips between two fetches seconds apart no longer downgrade a screen BET. Only material changes downgrade — line gone (lookup_failed) or a big price move (30+ pts American, 5+ pts NoVig percentage → CONSIDER). Direct `validate_play` calls without a screen snapshot keep the legacy strict behavior. Validated prices now carry `quoteAsOf` + `liquidityUsd` so every quote has an age — confirm the live number in-app at tap time.
+
 ## 2.9.3
 
 - fix: mixed-scan reliability and throughput. Tennis fallback now honors the caller's tier filter (`-t`); JSON scans summarize >50 unresolved rows into total/byReason/sample instead of shipping tens of megabytes of identical failure reasons; the odds-history gate is no longer serial (parallel, env `PP_ODDS_HISTORY_CONCURRENCY`, default 3) so the budget is actually spendable in-wall-clock. Upstream 429s still halt the gate with cooldown.

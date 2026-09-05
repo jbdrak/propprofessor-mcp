@@ -188,6 +188,11 @@ function buildValidationPlay({ matchingRow, market, gameId, league, selection })
         start: matchingRow.start,
         odds: matchingRow.odds,
         bestAvailableOdds: matchingRow.bestAvailableOdds,
+        // Quote provenance: Novig is a fast peer-to-peer market, so every
+        // validated price carries when it was fetched and the side-specific
+        // liquidity behind it. Confirm the live number in-app at tap time.
+        quoteAsOf: new Date().toISOString(),
+        liquidityUsd: matchingRow.liquidityUsd ?? null,
         executionQuality: matchingRow.executionQuality,
         consensusEdge: matchingRow.consensusEdge,
         consensusBookCount: matchingRow.consensusBookCount,
