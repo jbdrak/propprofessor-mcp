@@ -20,8 +20,8 @@ const WNBA_TOTAL_PAYLOAD = {
       updatedAt: new Date(NOW - 30_000).toISOString(),
       homeTeam: 'Indiana Fever',
       awayTeam: 'Las Vegas Aces',
-      // Use a dynamic start time that's today at 7pm CT = tomorrow 00:00 UTC
-      start: new Date(TODAY_7PM_CT.getTime() + 5 * 3600000).toISOString(),
+      // Use a dynamic start time that's today at 7pm CT.
+      start: TODAY_7PM_CT.toISOString(),
       selections: {
         tp: {
           selection1: 'Over 178.5',
