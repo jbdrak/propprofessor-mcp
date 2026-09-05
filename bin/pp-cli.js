@@ -1153,10 +1153,7 @@ async function cmdScan(handlers, positional, flags, client) {
   const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const tier = flags.t || flags.tier || undefined;
   const onlyBets = flags.B || flags['only-bets'] || false;
-  if (onlyBets && leagues.length === 1 && String(leagues[0]).toUpperCase() === 'NCAAF' && !marketList) {
-    marketList = ['Moneyline'];
-    console.error('[ncaaf] strict BET scan defaults to Moneyline; use -m for another market');
-  }
+
   const sortBy = flags.sort || 'start';
   const sortDir = flags.asc ? 'asc' : 'desc';
 
@@ -1189,6 +1186,7 @@ async function cmdScan(handlers, positional, flags, client) {
     : ['TIER 1', 'TIER 2', 'TIER 3'];
   // minFinalTier still controls the onlyBets floor when --tier is explicit.
   const minFinalTier = tier ? (tier === '1' ? 'TIER 1' : tier === '2' ? 'TIER 2' : 'TIER 2') : 'TIER 2';
+  const ncaafOnly = leagues.length === 1 && String(leagues[0]).toUpperCase() === 'NCAAF';
 
   const MOVEMENT_ALIASES = {
     supportive: ['supportive_clean', 'supportive_bouncy'],
@@ -1241,14 +1239,17 @@ async function cmdScan(handlers, positional, flags, client) {
         Number.isFinite(Number(flags['scan-limit'] || flags.scanLimit)) &&
         Number(flags['scan-limit'] || flags.scanLimit) > 0
           ? Number(flags['scan-limit'] || flags.scanLimit)
-          : onlyBets
-            ? Math.min(limit, 24)
-            : Math.min(limit, 50),
+          : ncaafOnly
+            ? 80
+            : onlyBets
+              ? Math.min(limit, 24)
+              : Math.min(limit, 50),
       lite: true,
       verbosity: 'bets',
       validate: validateAll ? true : undefined,
       validateTop: validateAll ? undefined : 10,
-      includeResearch: false
+      includeResearch: false,
+      ...(ncaafOnly ? { preHistoryGameBudget: 80, preHistoryRowBudget: 80 } : {})
     });
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
