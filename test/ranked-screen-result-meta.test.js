@@ -47,6 +47,7 @@ describe('buildResultMeta', () => {
       markets_queried: ['Total'],
       coverageGaps: ['NBA:Total'],
       focusBookMissingRowCount: 1,
+      droppedAltLineCount: 0,
       preHistoryShortlist,
       preHistoryRecovery
     });
