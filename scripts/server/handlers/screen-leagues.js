@@ -52,6 +52,29 @@ function isPlayerPropMarket(market) {
   return /^(player|pitcher)\b/i.test(String(market || '').trim());
 }
 
+// In aggregate quick_screen mode the main ranked query owns the ENTIRE
+// process-global, serial odds-history gate (ODDS_HISTORY_MAX_CONCURRENCY=1) —
+// the aggregate allocator reserves the full per-pair preHistoryShortlist
+// budget for it. EV-first runs BEFORE that query and, left unbounded, would
+// validate one queryOddsHistory call per EV candidate (slice = scanLimit,
+// default up to 100), flooding the gate and pushing the main path past its
+// PAIR_TIMEOUT_MS deadline (root cause of the "scan scope aborted" storm on
+// multi-league `pp scan`). Cap EV-first to a small slice of ONE pair's
+// main-path budget so it still discovers strong EV plays without starving the
+// main screen. Direct/targeted (non-aggregate) scans keep the full EV-first
+// pass. Derive the cap from the same allocator math so it tracks the budget.
+const EV_FIRST_AGGREGATE_CAP = (() => {
+  try {
+    const { getAggregateGameBudget } = require('../../../lib/propprofessor-sharp-plays-service');
+    // A mixed scan fans out ~9 league×market pairs; cap to 1/4 of one pair's
+    // main-path budget — generous enough for real EV discovery, tiny enough
+    // to leave the serial gate free for the main ranked query.
+    return Math.max(1, Math.floor(getAggregateGameBudget(9) / 4));
+  } catch {
+    return 25;
+  }
+})();
+
 async function runEvFirst(client, args, league, market, requestedBooks) {
   if (
     args.evFirst === false ||
@@ -59,6 +82,17 @@ async function runEvFirst(client, args, league, market, requestedBooks) {
     (typeof client.querySportsbook !== 'function' && typeof client.queryPositiveEV !== 'function')
   )
     return null;
+  // Aggregate quick_screen: bound the EV-first fan-out so it cannot flood the
+  // serial odds-history gate. Prefer the per-pair cap threaded through by
+  // the aggregate fan-out (it tracks the caller's limit); fall back to
+  // EV_FIRST_AGGREGATE_CAP for direct callers. Non-aggregate single-league
+  // / targeted scans keep the full candidate set.
+  const evFirstCap =
+    args.quickScreenAggregate === true
+      ? Number(args.evFirstHistoryCap) > 0
+        ? Math.floor(Number(args.evFirstHistoryCap))
+        : EV_FIRST_AGGREGATE_CAP
+      : null;
   try {
     // queryPositiveEV hardcodes minEV=0. The EV screen is not a positive-EV
     // screen: negative-EV rows still need history/CLV validation. Prefer the
@@ -72,7 +106,10 @@ async function runEvFirst(client, args, league, market, requestedBooks) {
     );
     const candidates = dedupeEvRows(extractEvRows(raw))
       .filter((row) => row && marketMatches(row, market))
-      .slice(0, Number.isFinite(Number(args.scanLimit)) ? Number(args.scanLimit) : 100);
+      .slice(
+        0,
+        evFirstCap != null ? evFirstCap : Number.isFinite(Number(args.scanLimit)) ? Number(args.scanLimit) : 100
+      );
     if (!candidates.length) return null;
     const validated = await validatePositiveEvCandidates({
       client,
@@ -230,4 +267,4 @@ function createScreenLeaguesHandlers(client, ctx) {
   };
 }
 
-module.exports = { createScreenLeaguesHandlers, runEvFirst };
+module.exports = { createScreenLeaguesHandlers, runEvFirst, EV_FIRST_AGGREGATE_CAP };
