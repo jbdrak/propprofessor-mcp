@@ -103,6 +103,7 @@ async function runQuickScreenFanout(
   const allCandidates = [];
   const unresolvedCandidates = [];
   const emptySlate = []; // league+market pairs that returned zero candidates
+  const cardWindow = args.cardWindow || 'all';
 
   const leagueMarketPairs = [];
   for (const league of leagues) {
@@ -115,7 +116,8 @@ async function runQuickScreenFanout(
     targetBooks,
     scanLimit,
     lookbackHours,
-    emptySlate
+    emptySlate,
+    cardWindow
   });
   const activeAggregatePairCount = Math.max(1, activeLeagueMarketPairs.length);
 
@@ -136,7 +138,8 @@ async function runQuickScreenFanout(
         activeAggregatePairCount,
         allCandidates,
         unresolvedCandidates,
-        emptySlate
+        emptySlate,
+        cardWindow
       });
     },
     { concurrency: 8 }
@@ -148,7 +151,7 @@ async function runQuickScreenFanout(
 // Active-pair probe (bounded, no-history): find which league×market pairs
 // actually have current rows so the hydrated fan-out only consumes odds-history
 // budget on live pairs.
-async function probeActivePairs(ctx, leagueMarketPairs, { targetBooks, scanLimit, lookbackHours, emptySlate }) {
+async function probeActivePairs(ctx, leagueMarketPairs, { targetBooks, scanLimit, lookbackHours, emptySlate, cardWindow }) {
   const activeLeagueMarketPairs = [];
   await mapWithConcurrency(
     leagueMarketPairs,
@@ -161,7 +164,7 @@ async function probeActivePairs(ctx, leagueMarketPairs, { targetBooks, scanLimit
           scanLimit,
           lookbackHours,
           is_live: false,
-          cardWindow: 'all',
+          cardWindow,
           skipHistory: true,
           compact: true,
           includeResearch: false,
@@ -213,7 +216,8 @@ async function runOneHydratedPair(
     activeAggregatePairCount,
     allCandidates,
     unresolvedCandidates,
-    emptySlate
+    emptySlate,
+    cardWindow,
   }
 ) {
   try {
@@ -229,7 +233,7 @@ async function runOneHydratedPair(
       strict: false,
       includePasses: true,
       includeResearch: false,
-      cardWindow: 'all',
+      cardWindow,
       debug,
       quickScreenAggregate: true,
       activeAggregatePairCount,
@@ -441,20 +445,20 @@ function getValidationFailureReason(candidate) {
 }
 
 function buildQuickScreenValidationArgs(candidate, entry, args) {
+  const executionBook = candidate.book || args.book || (Array.isArray(args.books) ? args.books[0] : undefined);
+  const comparisonBooks = Array.isArray(candidate.historySportsbooksRequested)
+    ? candidate.historySportsbooksRequested
+    : Array.isArray(args.books)
+      ? args.books
+      : [];
+  const validationBooks = executionBook
+    ? [executionBook, ...comparisonBooks.filter((book) => book !== executionBook)]
+    : comparisonBooks;
   return {
     league: entry.league,
     gameId: candidate.gameId,
     selection: candidate.selection,
-    books:
-      Array.isArray(candidate.historySportsbooksRequested) && candidate.historySportsbooksRequested.length
-        ? candidate.historySportsbooksRequested
-        : Array.isArray(args.books) && args.books.length
-          ? args.books
-          : candidate.book
-            ? [candidate.book]
-            : args.book
-              ? [args.book]
-              : undefined,
+    books: validationBooks.length ? validationBooks : undefined,
     exactSelectionOnly: true,
     playId: candidate.playId,
     market: entry.market,
@@ -1084,5 +1088,6 @@ module.exports = {
   // test/quick-screen-rejection-diagnostics.test.js). These are pure over their
   // inputs and owned by this module's reliability patch.
   getValidationFailureReason,
-  collectDowngradedWatchCandidates
+  collectDowngradedWatchCandidates,
+  buildQuickScreenValidationArgs
 };

@@ -21,6 +21,7 @@ const { rankScreenRows } = require('../lib/screen-ranker');
 describe('pre-history shortlist budget', () => {
   it('honors explicit aggregate budgets above the legacy 60-game ceiling', () => {
     assert.equal(getPreHistoryShortlistGameBudget({ preHistoryGameBudget: 300 }), 300);
+    assert.equal(getPreHistoryShortlistGameBudget({ preHistoryGameBudget: 700 }), 700);
   });
 });
 
