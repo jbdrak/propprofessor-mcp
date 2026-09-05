@@ -155,7 +155,7 @@ describe('formatScanDiagnostics', () => {
       }
     });
     assert.ok(
-      lines.some((l) => /16 BET candidate/.test(l) && /stale scan labels/.test(l)),
+      lines.some((l) => /16 BET candidate/.test(l) && /exact reason/.test(l)),
       'should report the eligible candidates that failed fresh validation'
     );
     assert.ok(

@@ -595,3 +595,44 @@ describe('selectTopPerBucket (recommended_bets selection strategy)', () => {
     );
   });
 });
+
+describe('runValidationPipeline onNotSelected entry contract', () => {
+  it('passes the row entry (with market) to onNotSelected for budget-skipped BETs', async () => {
+    // Regression: a BET row excluded by validateTop must be reported to
+    // onNotSelected WITH its entry (so the budget-skipped watch candidate keeps
+    // an explicit market for diagnostic identity — not a missing/undefined one).
+    const rows = [
+      {
+        target: makeRow({ gameId: 'NBA:g1', kaiCall: 'BET', screenScore: 90 }),
+        entry: { league: 'NBA', market: 'Moneyline' }
+      },
+      {
+        target: makeRow({ gameId: 'NBA:g2', kaiCall: 'BET', screenScore: 10 }),
+        entry: { league: 'NBA', market: 'Moneyline' }
+      }
+    ];
+    const captured = [];
+    await runValidationPipeline({
+      validate: async () => validatorResponse(),
+      buildArgs: () => ({}),
+      buildCacheKey: (t) => `${t.gameId}::${t.selection}`,
+      rows,
+      isEligible: (t) => Boolean(t.gameId && t.selection && !t.altLineFiltered),
+      isBet: (t) => t.kaiCall === 'BET',
+      selectTargets: selectTopGlobal,
+      onNotSelected: (target, entry) => captured.push({ target, entry }),
+      applyValidated: () => {},
+      validateAll: false,
+      validateTop: 1,
+      mapWithConcurrency: makeMapWithConcurrency().fn
+    });
+
+    assert.equal(captured.length, 1, 'one BET fell outside the budget');
+    assert.equal(captured[0].target.gameId, 'NBA:g2');
+    assert.equal(
+      captured[0].entry && captured[0].entry.market,
+      'Moneyline',
+      'entry (with market) must be forwarded to onNotSelected'
+    );
+  });
+});

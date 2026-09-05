@@ -19,13 +19,19 @@ const { stripExactLineHistoryFields } = require('./strip-exact-line-history');
 const { filterPlayDetailsRows } = require('./filter-play-details-rows');
 const { recoverPlayDetailsRows } = require('./recover-play-details-rows');
 
-/**
- * Normalize a selection label for exact (case-insensitive) matching.
- * Collapses whitespace and underscores; trims. Hyphens are left intact
- * because they are meaningful in some player/team names.
- * @param {*} value
- * @returns {string}
- */
+// Parse source values before coercion: unknown is not zero liquidity or odds.
+function finiteQuoteValue(value) {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && !value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+function isValidOdds(value) {
+  const odds = finiteQuoteValue(value);
+  return odds !== null && odds !== 0;
+}
+
+/** Normalize a selection label for exact, case-insensitive matching. */
 function normalizeSelectionText(value) {
   return String(value == null ? '' : value)
     .toLowerCase()
@@ -102,7 +108,7 @@ function rowContainsExactBookQuote(row, selectionFilter, requestedBook) {
       if (candidate.line != null && candidate.label) candidates.push(`${candidate.label} ${candidate.line}`);
       return candidates.some((value) => normalizeSelectionText(value) === needle);
     });
-    return Boolean(side && Number.isFinite(Number(nested?.odds?.[requestedBook]?.[side.oddsKey])));
+    return Boolean(side && isValidOdds(nested?.odds?.[requestedBook]?.[side.oddsKey]));
   });
 }
 
@@ -142,16 +148,17 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
   const needle = normalizeSelectionText(selectionFilter);
   const seenGames = new Set();
   const hasRequestedBookQuote = (row) => {
-    if (String(row?.book || '').trim() === requestedBook && Number.isFinite(Number(row?.odds))) return true;
+    const sameBook = String(row?.book || '').trim() === requestedBook;
+    if (sameBook) return isValidOdds(row?.odds);
     if (Array.isArray(row?.sportsbookData)) {
       return row.sportsbookData.some(
-        (entry) =>
-          String(entry?.book || '').trim() === requestedBook && Number.isFinite(Number(entry?.odds ?? entry?.noVigOdds))
+        (entry) => String(entry?.book || '').trim() === requestedBook && isValidOdds(entry?.odds ?? entry?.noVigOdds)
       );
     }
     return Object.values(row?.selections || {}).some((nested) => {
       const quote = nested?.odds?.[requestedBook];
-      return Number.isFinite(Number(quote?.odds1)) || Number.isFinite(Number(quote?.odds2));
+      if (!quote) return false;
+      return isValidOdds(quote?.odds1) || isValidOdds(quote?.odds2);
     });
   };
   const exactRowsByGame = new Map();
@@ -196,8 +203,10 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
       const bookOdds = oddsMap[requestedBook];
       const oddsKey = side.index === 1 ? 'odds1' : 'odds2';
       const liquidityKey = side.index === 1 ? 'liquidity1' : 'liquidity2';
-      const odds = Number(bookOdds?.[oddsKey]);
-      if (!bookOdds || !Number.isFinite(odds) || !side.id) continue;
+      const requestedSideOdds = bookOdds?.[oddsKey];
+      if (!bookOdds || !isValidOdds(requestedSideOdds) || !side.id) continue;
+      const odds = Number(requestedSideOdds);
+      const liquidityUsd = finiteQuoteValue(bookOdds?.[liquidityKey]);
       const selection = side.label;
       const inheritedHistoryFields = [
         'lineHistory',
@@ -235,7 +244,7 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
         odds,
         currentOdds: odds,
         targetBookOdds: odds,
-        liquidityUsd: Number.isFinite(Number(bookOdds[liquidityKey])) ? Number(bookOdds[liquidityKey]) : null,
+        liquidityUsd,
         selections: { [key]: nested },
         defaultKey: key
       };
@@ -432,10 +441,20 @@ async function queryPlayDetailsResponse({
   }
   let response;
   try {
+    const propHistoryLookback =
+      String(league || '').toUpperCase() === 'NCAAF' && /^(player|pitcher)\b/i.test(String(market || '').trim())
+        ? Math.max(24, Number(args.lookbackHours) || 0)
+        : args.lookbackHours;
     response = await buildRankedScreenResponseShared({
       client,
       payloads: [currentPayload],
-      args: { ...args, compact: false, skipHistory: false, historySportsbooks: augmentedBooksExcluded },
+      args: {
+        ...args,
+        compact: false,
+        skipHistory: false,
+        historySportsbooks: augmentedBooksExcluded,
+        ...(propHistoryLookback !== undefined ? { lookbackHours: propHistoryLookback } : {})
+      },
       // Hydrate only the exact requested selection when this detail call is
       // bundled validation (quick_screen validateTop). The pre-hydration
       // filter must NOT apply to broad game-detail or mini-scan calls —
@@ -459,8 +478,8 @@ async function queryPlayDetailsResponse({
           ? Number(options.recentWindowHours)
           : Number.isFinite(Number(args.recentWindowHours))
             ? Number(args.recentWindowHours)
-            : Number.isFinite(Number(args.lookbackHours))
-              ? Number(args.lookbackHours)
+            : Number.isFinite(Number(propHistoryLookback))
+              ? Number(propHistoryLookback)
               : undefined;
         return rankLeagueScreenRows(hydratedRows, {
           league,

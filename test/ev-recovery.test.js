@@ -32,7 +32,7 @@ describe('bounded EV recovery helpers', () => {
         marketTypes: ['Main Lines'],
         minOdds: -9999,
         maxOdds: 9999,
-        minValue: 0,
+        minValue: -9999,
         maxHoursAway: 48,
         isLive: false
       }

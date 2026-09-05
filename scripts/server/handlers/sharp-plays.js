@@ -12,11 +12,12 @@
 
 const { runSharpPlays } = require('../../../lib/propprofessor-sharp-plays-service');
 const { runResearchOnTopRows } = require('../../../lib/propprofessor-research-runner');
+const { formatSharpPlaysMinimal, formatSharpPlaysStandard } = require('../../../lib/propprofessor-formatter');
 const {
-  formatSharpPlaysMinimal,
-  formatSharpPlaysStandard
-} = require('../../../lib/propprofessor-formatter');
-const { filterRowsByKaiCall, filterRowsByMinEV, filterRowsByMovement } = require('../../../lib/propprofessor-row-filter');
+  filterRowsByKaiCall,
+  filterRowsByMinEV,
+  filterRowsByMovement
+} = require('../../../lib/propprofessor-row-filter');
 const { sortRows } = require('../../../lib/propprofessor-sort-utils');
 
 function createSharpPlaysHandlers(client, ctx) {

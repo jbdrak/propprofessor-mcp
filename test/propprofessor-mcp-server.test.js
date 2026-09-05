@@ -937,7 +937,7 @@ describe('propprofessor MCP server stdio contract', () => {
           homeTeam: 'Ipswich',
           awayTeam: 'Liverpool',
           selections: {
-            '3.5': {
+            3.5: {
               selection1: 'Over 3.5',
               participant1: 'Over 3.5',
               selection1Id: 'Total_Goals:Over_3.5',
@@ -958,7 +958,7 @@ describe('propprofessor MCP server stdio contract', () => {
           homeTeam: 'Betis',
           awayTeam: 'Real Madrid',
           selections: {
-            '2.5': {
+            2.5: {
               selection1: 'Over 2.5',
               participant1: 'Over 2.5',
               selection1Id: 'Total_Goals:Over_2.5',

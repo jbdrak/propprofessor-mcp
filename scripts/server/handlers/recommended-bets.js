@@ -36,7 +36,11 @@ const { getConfidenceTierStable } = require('../../../lib/propprofessor-risk-sco
 const { runResearchOnTopRows } = require('../../../lib/propprofessor-research-runner');
 const { getGameContext } = require('../../../lib/propprofessor-game-context');
 const { formatRecommendedBetsMinimal, formatRecommendedBetsStandard } = require('../../../lib/propprofessor-formatter');
-const { filterRowsByKaiCall, filterRowsByMinEV, filterRowsByMovement } = require('../../../lib/propprofessor-row-filter');
+const {
+  filterRowsByKaiCall,
+  filterRowsByMinEV,
+  filterRowsByMovement
+} = require('../../../lib/propprofessor-row-filter');
 const { sortRows } = require('../../../lib/propprofessor-sort-utils');
 const { categorizeError } = require('../../../lib/propprofessor-mcp-stdio');
 const validationPipeline = require('../../../lib/propprofessor-validation-pipeline');
@@ -77,7 +81,10 @@ const { DEFAULT_LEAGUES: DEFAULT_LEAGUES_RB } = require('../../../lib/propprofes
 
 // ─── Phase: per-league/market screen fan-out + research + selection ──────────
 
-async function screenRecommendedLeagues(ctx, { leagues, resolvedMarketsByLeague, markets, limit, screenTimeoutMs, args }) {
+async function screenRecommendedLeagues(
+  ctx,
+  { leagues, resolvedMarketsByLeague, markets, limit, screenTimeoutMs, args }
+) {
   const allRecommended = [];
   await mapWithConcurrency(
     leagues,
@@ -107,8 +114,10 @@ async function screenRecommendedLeagues(ctx, { leagues, resolvedMarketsByLeague,
         });
 
         {
-          const kaiFiltered = args.kaiCall != null ? filterRowsByKaiCall(recommended, args.kaiCall) : recommended.slice();
-          const movementFiltered = args.movement != null ? filterRowsByMovement(kaiFiltered, args.movement) : kaiFiltered;
+          const kaiFiltered =
+            args.kaiCall != null ? filterRowsByKaiCall(recommended, args.kaiCall) : recommended.slice();
+          const movementFiltered =
+            args.movement != null ? filterRowsByMovement(kaiFiltered, args.movement) : kaiFiltered;
           const filtered = args.minEV != null ? filterRowsByMinEV(movementFiltered, args.minEV) : movementFiltered;
           const sorted = args.sortBy ? sortRows(filtered, { sortBy: args.sortBy, sortDir: args.sortDir }) : filtered;
           recommended.length = 0;
@@ -129,9 +138,7 @@ async function screenRecommendedLeagues(ctx, { leagues, resolvedMarketsByLeague,
             if (args.riskDowngrade === true) {
               const beforeCount = recommended.length;
               const highRiskPlayers = new Set(
-                research.results
-                  .filter((r) => r.riskFlag === 'high')
-                  .map((r) => String(r.player || '').toLowerCase())
+                research.results.filter((r) => r.riskFlag === 'high').map((r) => String(r.player || '').toLowerCase())
               );
               for (let i = recommended.length - 1; i >= 0; i -= 1) {
                 const player = String(recommended[i].selection || recommended[i].participant || '').toLowerCase();
@@ -230,14 +237,15 @@ async function validateRecommended(client, ctx, allRecommended, { args, validate
 
 // ─── Phase: post-validation filters + response assembly ───────────────────────
 
-function finalizeRecommended(allRecommended, { args, targetTiers, markets, allAliasesUsed, validateAllRB, validateTopRB }) {
+function finalizeRecommended(
+  allRecommended,
+  { args, targetTiers, markets, allAliasesUsed, validateAllRB, validateTopRB }
+) {
   // Re-apply targetTiers to the authoritative final tier so a TIER 4 validation
   // result can't leak through a TIER 1-only request.
   for (const entry of allRecommended) {
     if (!Array.isArray(entry.plays)) continue;
-    entry.plays = entry.plays.filter((play) =>
-      targetTiers.includes(play.finalConfidenceTier || play.confidenceTier)
-    );
+    entry.plays = entry.plays.filter((play) => targetTiers.includes(play.finalConfidenceTier || play.confidenceTier));
     entry.count = entry.plays.length;
   }
 
