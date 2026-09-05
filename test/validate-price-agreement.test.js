@@ -77,4 +77,35 @@ describe('validate price-agreement trust', () => {
     });
     assert.notEqual(result.verdict, 'BET');
   });
+
+  it('trusts NoVig percentage-string prices (96.1% vs 95.5% agree)', () => {
+    const result = buildValidationVerdict({
+      args: baseArgs({ screenOdds: '96.1%' }),
+      matchingRow: matchingRow({ odds: '95.5%' }),
+      matchedViaGameIdChange: false,
+      detailError: null,
+      fallbackNote: null,
+      gameId: 'NCAAF:GAME:Home:Away:123',
+      selection: 'Home',
+      research: null,
+      gameContext: null
+    });
+    assert.equal(result.verdict, 'BET');
+    assert.equal(result.consensusDrift, false);
+  });
+
+  it('still downgrades when percentage prices actually moved (96.1% vs 88%)', () => {
+    const result = buildValidationVerdict({
+      args: baseArgs({ screenOdds: '96.1%' }),
+      matchingRow: matchingRow({ odds: '88.0%' }),
+      matchedViaGameIdChange: false,
+      detailError: null,
+      fallbackNote: null,
+      gameId: 'NCAAF:GAME:Home:Away:123',
+      selection: 'Home',
+      research: null,
+      gameContext: null
+    });
+    assert.notEqual(result.verdict, 'BET');
+  });
 });

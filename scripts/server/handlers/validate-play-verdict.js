@@ -10,6 +10,23 @@ const STATUS_MESSAGES = {
   insufficient: 'not enough data to evaluate movement quality'
 };
 
+/**
+ * Price agreement between the scan snapshot and the validation re-fetch.
+ * Handles both American odds numbers (-110) and NoVig percentage strings
+ * ('96.1%') — Number('96.1%') is NaN, so percentages are parsed explicitly.
+ * Tolerance: 5 points American, 1.5 points percentage. Anything
+ * unparseable or mixed-format returns false (fail-safe: old behavior).
+ */
+function pricesAgree(screenRaw, currentRaw) {
+  const screenPct = typeof screenRaw === 'string' && screenRaw.trim().endsWith('%');
+  const currentPct = typeof currentRaw === 'string' && currentRaw.trim().endsWith('%');
+  if (screenPct !== currentPct) return false;
+  const screenNum = screenPct ? parseFloat(String(screenRaw)) : Number(screenRaw);
+  const currentNum = currentPct ? parseFloat(String(currentRaw)) : Number(currentRaw);
+  if (!Number.isFinite(screenNum) || !Number.isFinite(currentNum)) return false;
+  return Math.abs(screenNum - currentNum) <= (screenPct ? 1.5 : 5);
+}
+
 function resolveBaseVerdict({
   args,
   matchingRow,
@@ -23,17 +40,15 @@ function resolveBaseVerdict({
   const screenTier = args.screenTier || (matchingRow && matchingRow.screenTier);
   const screenKaiCall = args.screenKaiCall || (matchingRow && matchingRow.screenKaiCall);
   // Price agreement: when the re-fetch returns the same executable price the
-  // scan ranked (within a few cents), the re-fetch is confirming the screen
-  // snapshot, not new information. Suppress noise downgrades (consensus-drift,
-  // exec-quality flips, movement-label flips) that fire on comp-set jitter
-  // between two fetches seconds apart. Only material changes — line gone,
-  // big price move, game live — still downgrade.
-  const screenOdds = Number(args.screenOdds);
-  const currentOdds = Number(matchingRow && (matchingRow.odds ?? matchingRow.currentOdds));
-  const priceAgrees =
-    Number.isFinite(screenOdds) &&
-    Number.isFinite(currentOdds) &&
-    Math.abs(screenOdds - currentOdds) <= 5;
+  // scan ranked, the re-fetch is confirming the screen snapshot, not new
+  // information. Suppress noise downgrades (consensus-drift, exec-quality
+  // flips, movement-label flips) that fire on comp-set jitter between two
+  // fetches seconds apart. Only material changes — line gone, big price
+  // move, game live — still downgrade.
+  const priceAgrees = pricesAgree(
+    args.screenOdds,
+    matchingRow && (matchingRow.odds ?? matchingRow.currentOdds)
+  );
   let tier = screenTier || matchingRow?.confidenceTier || null;
   if (!tier) {
     const kaiCall = screenKaiCall || matchingRow?.kaiCall;
@@ -279,14 +294,10 @@ function buildValidationVerdict({
   // recomputed adverse/insufficient label is comp-set jitter between two
   // fetches, not new information. Keep the screen's supportive read.
   const screenDisposition = String(args.screenMovementDisposition || '');
-  const screenOddsForMove = Number(args.screenOdds);
-  const currentOddsForMove = Number(matchingRow && (matchingRow.odds ?? matchingRow.currentOdds));
   if (
     screenDisposition.startsWith('supportive') &&
     (disposition === 'adverse_recent' || disposition === 'adverse_full' || disposition === 'insufficient') &&
-    Number.isFinite(screenOddsForMove) &&
-    Number.isFinite(currentOddsForMove) &&
-    Math.abs(screenOddsForMove - currentOddsForMove) <= 5
+    pricesAgree(args.screenOdds, matchingRow && (matchingRow.odds ?? matchingRow.currentOdds))
   ) {
     reasons.push(`movement recomputed ${disposition} on re-fetch but price agrees with screen — kept screen ${screenDisposition}`);
     disposition = screenDisposition;
