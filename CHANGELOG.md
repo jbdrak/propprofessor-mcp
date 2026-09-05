@@ -1,3 +1,7 @@
+## 2.9.2
+
+- fix: bound aggregate per-pair hydration budget by the caller's limit. Mixed quick_screen scans (e.g. tennis/MLB/WNBA/NCAAF together with -n 5) never emitted JSON: the allocator share (133 games/pair for 9 pairs) flooded the serial odds-history gate and every pair blew PAIR_TIMEOUT_MS. Effective per-pair budget is now min(allocator share, limit-derived need); EV-first cap threaded per-pair the same way. Live: 150s+ timeout with 1000+ aborts and no JSON becomes ~33s, 0 aborts, honest output. Regressions: aggregate-pair-budget-limit, ev-first-aggregate-budget.
+
 ## 2.9.1
 
 - Dependabot: fixed high-severity `adm-zip` transitive vulnerability via npm overrides pin (safe, no breaking changes).
