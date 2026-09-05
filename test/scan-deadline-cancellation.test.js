@@ -22,7 +22,7 @@ const history = {
   selectionId: 'Moneyline:Home',
   sportsbooks: ['Pinnacle']
 };
-function clientFor(t, fetchImpl) {
+function clientFor(t, fetchImpl, extraOptions = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pp-cancel-'));
   const authFile = path.join(dir, 'auth.json');
   fs.writeFileSync(
@@ -42,7 +42,8 @@ function clientFor(t, fetchImpl) {
     gotScrapingImpl: async () => ({
       statusCode: 200,
       body: JSON.stringify({ token: 'offline-token', exp: Math.floor(Date.now() / 1000) + 3600, perm: {} })
-    })
+    }),
+    ...extraOptions
   });
 }
 test('scoped requests work without AbortSignal.any on early Node 20', async (t) => {
@@ -99,12 +100,16 @@ test('aborted history waiter leaves the queue while a live request still holds i
   const started = deferred();
   const release = deferred();
   let starts = 0;
-  const client = clientFor(t, async () => {
-    starts += 1;
-    started.resolve();
-    await release.promise;
-    return ok();
-  });
+  const client = clientFor(
+    t,
+    async () => {
+      starts += 1;
+      started.resolve();
+      await release.promise;
+      return ok();
+    },
+    { oddsHistoryMaxConcurrency: 1 } // pin serial so a queued waiter actually queues
+  );
   t.after(() => release.resolve());
   const first = client.queryOddsHistory(history);
   await started.promise;

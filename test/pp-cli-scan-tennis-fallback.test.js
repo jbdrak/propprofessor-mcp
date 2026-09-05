@@ -977,4 +977,48 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
     const out = formatScan(results);
     assert.doesNotMatch(out, /vs open/);
   });
+
+  it('applies -t 1 to fallback plays (TIER 2 fallback rows filtered out)', async () => {
+    mockedFallbackPlays = [SAMPLE_TENNIS_PLAY, CONSIDER_TENNIS_PLAY];
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis', '-t', '1'], { t: '1' }, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis fallback group should be injected');
+    assert.equal(tennisGroup.plays.length, 1, 'only the TIER 1 fallback play survives -t 1');
+    assert.equal(tennisGroup.plays[0].selection, 'Djokovic N');
+    assert.equal(tennisGroup.plays[0].tier, 'TIER 1');
+  });
+
+  it('keeps all fallback tiers by default (no -t flag)', async () => {
+    mockedFallbackPlays = [SAMPLE_TENNIS_PLAY, CONSIDER_TENNIS_PLAY];
+    const res = {
+      data: {
+        results: [{ league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] }],
+        totalCount: 1
+      }
+    };
+    const handlers = { quick_screen: async () => res };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['pp', 'scan', 'mlb', 'tennis'], {}, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    const tennisGroup = res.data.results.find((r) => r.league === 'Tennis');
+    assert.ok(tennisGroup, 'Tennis fallback group should be injected');
+    assert.equal(tennisGroup.plays.length, 2, 'default keeps every tier');
+  });
 });

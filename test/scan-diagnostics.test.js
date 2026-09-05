@@ -3,7 +3,11 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { formatScanDiagnostics, normalizeWatchCandidates } = require('../lib/scan-diagnostics');
+const {
+  formatScanDiagnostics,
+  normalizeWatchCandidates,
+  summarizeUnresolvedCandidates
+} = require('../lib/scan-diagnostics');
 const { formatScan } = require('../bin/pp-cli');
 
 it('marks validation-skipped candidates as watch-only in machine-readable output', () => {
@@ -227,4 +231,28 @@ describe('formatScanDiagnostics', () => {
     );
     assert.ok(!lines.some((l) => /Unresolved/.test(l)), 'should not flag a complete-scan empty market as unresolved');
   });
+});
+
+it('passes small unresolved lists through untouched', () => {
+  const rows = [{ selection: 'A', validationFailureReason: 'x' }];
+  assert.equal(summarizeUnresolvedCandidates(rows), rows, 'small lists must keep their exact shape');
+});
+
+it('summarizes large unresolved lists to total + byReason + sample', () => {
+  const rows = Array.from({ length: 120 }, (_, i) => ({
+    selection: `row-${i}`,
+    validationFailureReason: i % 2 ? 'history not hydrated within bounded scan budget' : 'other'
+  }));
+  const out = summarizeUnresolvedCandidates(rows);
+  assert.equal(out.total, 120);
+  assert.equal(out.omitted, 70);
+  assert.deepEqual(out.byReason, {
+    'history not hydrated within bounded scan budget': 60,
+    other: 60
+  });
+  assert.equal(out.sample.length, 50);
+});
+
+it('returns [] for non-array unresolved input', () => {
+  assert.deepEqual(summarizeUnresolvedCandidates(null), []);
 });
