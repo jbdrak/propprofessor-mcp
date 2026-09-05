@@ -1751,6 +1751,14 @@ function printRankedLeague(league, responses) {
     const grp = groups.get(gid);
     const g = grp[0];
     const mkts = [...new Set(grp.map((r) => r.market || r.playType || '?'))];
+    // Kickoff context: CT wall time + relative label, unverified for tennis.
+    let kickoff = '';
+    if (g.startsIn === 'LIVE' || g.isLive) kickoff = '  ' + RED + 'LIVE' + R;
+    else if (g.startCT || g.startsIn) {
+      kickoff = '  [' + [g.startCT, g.startsIn].filter(Boolean).join(', ') + ']';
+      if (g.startsIn === 'started') kickoff = '  ' + RED + '[started]' + R;
+      if (g.startUnverified) kickoff += ' (time unverified)';
+    }
     console.log(
       '\n' +
         B +
@@ -1761,7 +1769,7 @@ function printRankedLeague(league, responses) {
         '  [' +
         mkts.join(',') +
         ']' +
-        (g.isLive ? '  ' + RED + 'LIVE' + R : '')
+        kickoff
     );
     for (const r of grp) {
       const mv = movementColor(r.movementDisposition || '');
