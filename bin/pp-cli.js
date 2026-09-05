@@ -191,6 +191,7 @@ Commands:
   player     Player context + injury/risk flags
   prices     Compare prices across books
   rank       Ranked plays for a league
+  card       Today's bet slip (BETs across all markets, kickoff-sorted)
   wallets    Top Polymarket wallets vs a book (bet/pass)
   fantasy    Fantasy optimizer props
   health     Auth + backend health check
@@ -1705,6 +1706,80 @@ function mergeRankedResponses(league, responses) {
   return { result, resultMeta };
 }
 
+/**
+ * pp card <league> — today's bet slip. Fans out screen_ranked across the
+ * league's markets, keeps kaiCall BET rows, drops already-started games,
+ * sorts by kickoff, and prints a numbered slip. Same-game multiples are
+ * shown together (not silently dropped) so overlap is visible.
+ */
+async function cmdCard(handlers, positional, flags) {
+  const league = positional[1] || flags.l || flags.league || 'NCAAF';
+  const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
+  const limit = parseInt(flags.n || flags.limit || 15);
+  const jsonOut = flags.j || flags.json || false;
+  const markets = getMarketsForSport(league, book);
+
+  console.error(`Building ${league} card on ${book} (${markets.join(', ')})...`);
+  const card = [];
+  let considerCount = 0;
+  let startedCount = 0;
+  for (const market of markets) {
+    const res = await handlers.screen_ranked({
+      league,
+      market,
+      books: [book],
+      limit,
+      verbosity: 'standard',
+      includeResearch: false,
+      preHistoryShortlist: true
+    });
+    const rows = res?.result || res?.data || res?.rows || [];
+    for (const r of rows) {
+      if (!r || typeof r !== 'object') continue;
+      if (r.kaiCall === 'CONSIDER' || r.confidenceTier === 'TIER 2') considerCount += 1;
+      if (r.kaiCall !== 'BET') continue;
+      if (r.startsIn === 'started') {
+        startedCount += 1;
+        continue;
+      }
+      card.push(r);
+    }
+  }
+  // Soonest kickoff first; rows without a parseable start go last.
+  card.sort((a, b) => {
+    const ta = Date.parse(a.start);
+    const tb = Date.parse(b.start);
+    if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb;
+    if (Number.isFinite(ta)) return -1;
+    if (Number.isFinite(tb)) return 1;
+    return 0;
+  });
+  const gameCounts = new Map();
+  for (const r of card) gameCounts.set(r.gameId || r.game, (gameCounts.get(r.gameId || r.game) || 0) + 1);
+
+  if (jsonOut) {
+    console.log(JSON.stringify({ league, book, card, considerCount, startedDropped: startedCount }, null, 2));
+    return;
+  }
+  if (!card.length) {
+    console.log(`No BETs on today's ${league} card (${considerCount} CONSIDERs, ${startedCount} already started).`);
+    return;
+  }
+  console.log(B + `${league} card` + R + ` — ${card.length} BET${card.length === 1 ? '' : 's'} on ${book}`);
+  card.forEach((r, idx) => {
+    const oddsStr = r.odds > 0 ? '+' + r.odds : String(r.odds);
+    const when = r.startsIn === 'LIVE' || r.isLive ? RED + 'LIVE' + R : [r.startCT, r.startsIn].filter(Boolean).join(', ');
+    const liq = r.liquidityFlag === 'thin' ? ' ' + RED + '[thin liq]' + R : '';
+    const sameGame = (gameCounts.get(r.gameId || r.game) || 0) > 1 ? '  (same game as below)' : '';
+    console.log(
+      `  ${idx + 1}. ${r.selection} @ ${oddsStr}  [${r.market}]  (${when})${liq}${sameGame}\n` +
+      `     ${r.game || ''}  |  mv ${r.movementDisposition || '?'}  |  books ${r.consensusBookCount ?? '?'}`
+    );
+  });
+  if (considerCount) console.error(`${considerCount} CONSIDERs left off — use pp rank to see them.`);
+  if (startedCount) console.error(`${startedCount} BETs already started, dropped.`);
+}
+
 /** Render the grouped, per-game rank view for a single or merged response. */
 function printRankedRows(league, res) {
   printRankedLeague(league, [res]);
@@ -2219,6 +2294,9 @@ async function main() {
     case 'rank':
       await cmdRank(handlers, positional, flags);
       break;
+    case 'card':
+      await cmdCard(handlers, positional, flags);
+      break;
     case 'wallets':
       await cmdWallets(handlers, positional, flags);
       break;
@@ -2249,6 +2327,7 @@ module.exports = {
   main,
   formatError,
   cmdRank,
+  cmdCard,
   parseArgs,
   cmdScan,
   cmdGame,
