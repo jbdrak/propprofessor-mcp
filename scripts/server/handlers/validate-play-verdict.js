@@ -22,6 +22,18 @@ function resolveBaseVerdict({
   const reasons = [];
   const screenTier = args.screenTier || (matchingRow && matchingRow.screenTier);
   const screenKaiCall = args.screenKaiCall || (matchingRow && matchingRow.screenKaiCall);
+  // Price agreement: when the re-fetch returns the same executable price the
+  // scan ranked (within a few cents), the re-fetch is confirming the screen
+  // snapshot, not new information. Suppress noise downgrades (consensus-drift,
+  // exec-quality flips, movement-label flips) that fire on comp-set jitter
+  // between two fetches seconds apart. Only material changes — line gone,
+  // big price move, game live — still downgrade.
+  const screenOdds = Number(args.screenOdds);
+  const currentOdds = Number(matchingRow && (matchingRow.odds ?? matchingRow.currentOdds));
+  const priceAgrees =
+    Number.isFinite(screenOdds) &&
+    Number.isFinite(currentOdds) &&
+    Math.abs(screenOdds - currentOdds) <= 5;
   let tier = screenTier || matchingRow?.confidenceTier || null;
   if (!tier) {
     const kaiCall = screenKaiCall || matchingRow?.kaiCall;
@@ -32,7 +44,7 @@ function resolveBaseVerdict({
 
   let consensusDrift = false;
   let driftReason = null;
-  if (matchingRow) {
+  if (matchingRow && !priceAgrees) {
     const screenCbk = Number(args.screenConsensusBookCount);
     const screenExec = String(args.screenExecutionQuality || '');
     const currentCbk = Number(matchingRow.consensusBookCount || 0);
@@ -94,9 +106,11 @@ function resolveBaseVerdict({
     }
 
     const exec = String(matchingRow.executionQuality || '');
-    if (exec === 'bad') {
+    if (exec === 'bad' && !priceAgrees) {
       verdict = 'PASS';
       reasons.push('execution quality is "bad" on the requested book');
+    } else if (exec === 'bad' && priceAgrees) {
+      reasons.push('execution quality flipped "bad" on re-fetch but price agrees with screen — treated as comp-set noise');
     } else if (exec === 'playable') {
       reasons.push('execution quality is "playable" (within 10¢ of best)');
     } else if (exec === 'best') {
@@ -260,7 +274,23 @@ function buildValidationVerdict({
   if (rowForDisposition && !rowForDisposition.sharpBookMovementConfirmed && args.screenSharpBookConfirmed) {
     rowForDisposition.sharpBookMovementConfirmed = true;
   }
-  const disposition = rowForDisposition ? computeMovementDisposition(rowForDisposition) : 'insufficient';
+  let disposition = rowForDisposition ? computeMovementDisposition(rowForDisposition) : 'insufficient';
+  // Price-agreement trust: the re-fetch confirmed the screen price, so a
+  // recomputed adverse/insufficient label is comp-set jitter between two
+  // fetches, not new information. Keep the screen's supportive read.
+  const screenDisposition = String(args.screenMovementDisposition || '');
+  const screenOddsForMove = Number(args.screenOdds);
+  const currentOddsForMove = Number(matchingRow && (matchingRow.odds ?? matchingRow.currentOdds));
+  if (
+    screenDisposition.startsWith('supportive') &&
+    (disposition === 'adverse_recent' || disposition === 'adverse_full' || disposition === 'insufficient') &&
+    Number.isFinite(screenOddsForMove) &&
+    Number.isFinite(currentOddsForMove) &&
+    Math.abs(screenOddsForMove - currentOddsForMove) <= 5
+  ) {
+    reasons.push(`movement recomputed ${disposition} on re-fetch but price agrees with screen — kept screen ${screenDisposition}`);
+    disposition = screenDisposition;
+  }
   if ((disposition === 'adverse_recent' || disposition === 'adverse_full') && tier !== 'TIER 4') {
     tier = 'TIER 3';
     reasons.push(`movement ${disposition} — tier downgraded from screen snapshot`);

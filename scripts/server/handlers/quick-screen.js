@@ -484,6 +484,7 @@ function buildQuickScreenValidationArgs(candidate, entry, args) {
     screenMovementDisposition: candidate.movementDisposition || undefined,
     screenTier: candidate.confidenceTier,
     screenKaiCall: candidate.kaiCall,
+    screenOdds: candidate.odds ?? candidate.currentOdds ?? undefined,
     screenConsensusBookCount: candidate.consensusBookCount,
     screenExecutionQuality: candidate.executionQuality,
     screenConsensusEdge: candidate.edge,
