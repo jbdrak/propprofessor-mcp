@@ -1340,7 +1340,19 @@ async function cmdGame(handlers, positional, flags) {
   const args = { league, market, gameIds: [gameId], books: [book] };
   if (selection) args.selection = selection;
   if (playId.includes('::')) args.playId = playId;
-  const res = await handlers.get_play_details(args);
+  // Heartbeat: single-game hydration can take a minute on line markets.
+  // Print elapsed time every 30s so a slow call never looks dead.
+  const startedAt = Date.now();
+  const heartbeat = setInterval(() => {
+    console.error(`... still fetching ${gameId} (${Math.round((Date.now() - startedAt) / 1000)}s, hydrating history) ...`);
+  }, 30000);
+  if (heartbeat && typeof heartbeat.unref === 'function') heartbeat.unref();
+  let res;
+  try {
+    res = await handlers.get_play_details(args);
+  } finally {
+    clearInterval(heartbeat);
+  }
   const rows = res.result || res.data || [];
   if (/^tennis$/i.test(String(league)) && rows.length) {
     await correctTennisTimes(rows);
