@@ -1778,8 +1778,11 @@ function printRankedLeague(league, responses) {
       let line = '  ' + (r.selection || r.participant || '?') + ' @ ' + oddsStr + '  ' + tier + '  |  mv ' + mv;
       const extra = [];
       if (r.consensusBookCount) extra.push('books ' + r.consensusBookCount);
-      if (Number.isFinite(Number(r.liquidityUsd)) && Number(r.liquidityUsd) > 0)
-        extra.push('liq $' + Math.round(Number(r.liquidityUsd)).toLocaleString('en-US'));
+      if (Number.isFinite(Number(r.liquidityUsd)) && Number(r.liquidityUsd) > 0) {
+        const liqLabel = 'liq $' + Math.round(Number(r.liquidityUsd)).toLocaleString('en-US');
+        // Thin books (<$100) may not fill a $50 ticket cleanly — red flag.
+        extra.push(r.liquidityFlag === 'thin' ? RED + liqLabel + ' THIN' + R : liqLabel);
+      }
       if (r.recentClvPct != null)
         extra.push('CLV ' + (Number(r.recentClvPct) >= 0 ? '+' : '') + Number(r.recentClvPct).toFixed(1) + '%');
       if (extra.length) line += '   ' + '[' + extra.join(' | ') + ']';
