@@ -10,16 +10,16 @@ const assert = require('node:assert/strict');
  * using the standard screen-payload fixtures.
  */
 
-const { rankLeagueScreenRows, applyLiquidityGuard } = require('../lib/screen-ranker');
+const { rankLeagueScreenRows, applyConsensusFloorGuard } = require('../lib/screen-ranker');
 const { NBA_MONEYLINE_PAYLOAD } = require('./fixtures/screen-payloads');
 
-describe('applyLiquidityGuard', () => {
+describe('applyConsensusFloorGuard', () => {
   it('leaves Tier 2+ plays untouched', () => {
     const rows = rankLeagueScreenRows(NBA_MONEYLINE_PAYLOAD, { league: 'NBA', market: 'Moneyline' });
     for (const row of rows) {
       if (row.confidenceTier === 'TIER 1') continue;
-      assert.equal(row.liquidityFloorApplied, undefined, `non-Tier1 row '${row.selection}' got flagged`);
-      assert.equal(row.liquidityExempted, undefined, `non-Tier1 row '${row.selection}' got exempted`);
+      assert.equal(row.consensusFloorApplied, undefined, `non-Tier1 row '${row.selection}' got flagged`);
+      assert.equal(row.consensusExempted, undefined, `non-Tier1 row '${row.selection}' got exempted`);
     }
   });
 
@@ -35,10 +35,10 @@ describe('applyLiquidityGuard', () => {
       selection: 'Test Team',
       game: 'Test vs Fake'
     };
-    applyLiquidityGuard([fakeRow]);
+    applyConsensusFloorGuard([fakeRow]);
     assert.equal(fakeRow.confidenceTier, 'TIER 3', 'should be downgraded to TIER 3');
     assert.equal(fakeRow.kaiCall, 'CONSIDER', 'kaiCall should be CONSIDER');
-    assert.equal(fakeRow.liquidityFloorApplied, true, 'should have liquidityFloorApplied flag');
+    assert.equal(fakeRow.consensusFloorApplied, true, 'should have consensusFloorApplied flag');
   });
 
   it('Tier 1 with 0 books gets downgraded', () => {
@@ -52,7 +52,7 @@ describe('applyLiquidityGuard', () => {
       selection: 'Test Team',
       game: 'Test vs Fake'
     };
-    applyLiquidityGuard([fakeRow]);
+    applyConsensusFloorGuard([fakeRow]);
     assert.equal(fakeRow.confidenceTier, 'TIER 3', '0-book Tier 1 should be downgraded');
   });
 
@@ -67,9 +67,9 @@ describe('applyLiquidityGuard', () => {
       selection: 'Test Team',
       game: 'Test vs Fake'
     };
-    applyLiquidityGuard([fakeRow]);
+    applyConsensusFloorGuard([fakeRow]);
     assert.equal(fakeRow.confidenceTier, 'TIER 1', '2-book Tier 1 should stay');
-    assert.equal(fakeRow.liquidityFloorApplied, undefined, 'should not be flagged as floor');
+    assert.equal(fakeRow.consensusFloorApplied, undefined, 'should not be flagged as floor');
   });
 
   it('Tier 1 with 1 book but high edge + clean movement is exempted, not downgraded', () => {
@@ -83,10 +83,10 @@ describe('applyLiquidityGuard', () => {
       selection: 'Test Team',
       game: 'Test vs Fake'
     };
-    applyLiquidityGuard([fakeRow]);
+    applyConsensusFloorGuard([fakeRow]);
     assert.equal(fakeRow.confidenceTier, 'TIER 1', 'high-edge single-book Tier 1 should stay TIER 1');
-    assert.equal(fakeRow.liquidityExempted, true, 'should be marked as exempted');
-    assert.equal(fakeRow.liquidityFloorApplied, undefined, 'should not be flagged as floor');
+    assert.equal(fakeRow.consensusExempted, true, 'should be marked as exempted');
+    assert.equal(fakeRow.consensusFloorApplied, undefined, 'should not be flagged as floor');
   });
 
   it('Tier 1 with 1 book, high edge but bouncy movement is NOT exempted', () => {
@@ -100,18 +100,18 @@ describe('applyLiquidityGuard', () => {
       selection: 'Test Team',
       game: 'Test vs Fake'
     };
-    applyLiquidityGuard([fakeRow]);
+    applyConsensusFloorGuard([fakeRow]);
     assert.equal(fakeRow.confidenceTier, 'TIER 3', 'bouncy + single-book should be downgraded');
-    assert.equal(fakeRow.liquidityFloorApplied, true, 'should be flagged as floor');
+    assert.equal(fakeRow.consensusFloorApplied, true, 'should be flagged as floor');
   });
 
   it('handles empty array gracefully', () => {
-    assert.doesNotThrow(() => applyLiquidityGuard([]));
+    assert.doesNotThrow(() => applyConsensusFloorGuard([]));
   });
 
   it('handles non-array gracefully', () => {
-    assert.doesNotThrow(() => applyLiquidityGuard(null));
-    assert.doesNotThrow(() => applyLiquidityGuard(undefined));
+    assert.doesNotThrow(() => applyConsensusFloorGuard(null));
+    assert.doesNotThrow(() => applyConsensusFloorGuard(undefined));
   });
 });
 
