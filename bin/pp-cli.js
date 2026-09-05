@@ -19,7 +19,9 @@ const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/li
 const { promoteCards } = require(PROJECT + '/lib/record-card');
 const { enrichScanPolyWallets } = require(PROJECT + '/lib/propprofessor-poly-wallets');
 const { analyzeWalletPlays } = require(PROJECT + '/lib/propprofessor-wallet-plays');
-const { formatScanDiagnostics, normalizeWatchCandidates } = require(PROJECT + '/lib/scan-diagnostics');
+const { formatScanDiagnostics, normalizeWatchCandidates, summarizeUnresolvedCandidates } = require(
+  PROJECT + '/lib/scan-diagnostics'
+);
 const { getMarketsForSport } = require(PROJECT + '/lib/propprofessor-market-registry');
 const { getSoccerEventIdentity } = require(PROJECT + '/lib/soccer-event-identity');
 const { correctTennisTimes } = require(PROJECT + '/lib/propprofessor-tennis');
@@ -878,7 +880,8 @@ async function applyTennisScanFallback({
   marketList,
   cardWindow,
   onlyBets,
-  resolvedMovement
+  resolvedMovement,
+  targetTiers
 }) {
   // Tennis fallback: if tennis was among requested leagues but returned 0
   // plays, try direct screen query.  Works for mixed-league scans too.
@@ -935,8 +938,13 @@ async function applyTennisScanFallback({
           });
           const movementMatches = (play) =>
             !resolvedMovement || resolvedMovement.includes(play.movementDisposition || play.movement);
+          // Honor the caller's tier filter (-t): without this the fallback
+          // injects TIER 2/3 plays into a `-t 1` scan. Plays with no tier
+          // field are kept (fail open on missing metadata, not on tier).
+          const tierMatches = (play) =>
+            !Array.isArray(targetTiers) || targetTiers.length === 0 || !play.tier || targetTiers.includes(play.tier);
           const filteredPlays = normalizedFallbackPlays.filter(
-            (play) => movementMatches(play) && (!onlyBets || play.verdict === 'BET')
+            (play) => movementMatches(play) && tierMatches(play) && (!onlyBets || play.verdict === 'BET')
           );
           if (filteredPlays.length) {
             const filtered = resultsArr.filter((r) => !isTennisLeague(r.league));
@@ -1074,7 +1082,10 @@ function renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, 
       results,
       ...(scanHealth ? { scanHealth } : {}),
       ...(watchCandidates ? { watchCandidates } : {}),
-      ...(unresolvedCandidates ? { unresolvedCandidates } : {}),
+      // Unresolved rows are full row objects; broad scans leave tens of
+      // thousands unhydrated. Summarize past the sample cap instead of
+      // shipping megabytes of identical failure reasons.
+      ...(unresolvedCandidates ? { unresolvedCandidates: summarizeUnresolvedCandidates(unresolvedCandidates) } : {}),
       ...(emptySlate && emptySlate.length ? { emptySlate } : {}),
       ...(tennisFallbackApplied ? { tennisFallbackApplied } : {})
     };
@@ -1251,7 +1262,8 @@ async function cmdScan(handlers, positional, flags, client) {
       marketList,
       cardWindow,
       onlyBets,
-      resolvedMovement
+      resolvedMovement,
+      targetTiers
     });
 
     // Polymarket wallet overlay (top traders by P&L). Pure enrichment —
