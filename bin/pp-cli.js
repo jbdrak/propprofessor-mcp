@@ -1242,8 +1242,8 @@ async function cmdScan(handlers, positional, flags, client) {
           : ncaafOnly
             ? 80
             : onlyBets
-            ? Math.min(limit, 24)
-            : Math.min(limit, 50),
+              ? Math.min(limit, 24)
+              : Math.min(limit, 50),
       lite: true,
       verbosity: 'bets',
       validate: validateAll ? true : undefined,

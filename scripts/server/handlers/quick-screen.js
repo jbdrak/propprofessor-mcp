@@ -151,7 +151,11 @@ async function runQuickScreenFanout(
 // Active-pair probe (bounded, no-history): find which league×market pairs
 // actually have current rows so the hydrated fan-out only consumes odds-history
 // budget on live pairs.
-async function probeActivePairs(ctx, leagueMarketPairs, { targetBooks, scanLimit, lookbackHours, emptySlate, cardWindow }) {
+async function probeActivePairs(
+  ctx,
+  leagueMarketPairs,
+  { targetBooks, scanLimit, lookbackHours, emptySlate, cardWindow }
+) {
   const activeLeagueMarketPairs = [];
   await mapWithConcurrency(
     leagueMarketPairs,
@@ -217,7 +221,7 @@ async function runOneHydratedPair(
     allCandidates,
     unresolvedCandidates,
     emptySlate,
-    cardWindow,
+    cardWindow
   }
 ) {
   try {
