@@ -1137,11 +1137,15 @@ async function cmdScan(handlers, positional, flags, client) {
   }
 
   const markets = flags.m || flags.market || undefined;
-  const marketList = markets ? (Array.isArray(markets) ? markets : markets.split(',')) : undefined;
+  let marketList = markets ? (Array.isArray(markets) ? markets : markets.split(',')) : undefined;
   const includeProps = flags.props || flags['include-props'] || false;
   const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const tier = flags.t || flags.tier || undefined;
   const onlyBets = flags.B || flags['only-bets'] || false;
+  if (onlyBets && leagues.length === 1 && String(leagues[0]).toUpperCase() === 'NCAAF' && !marketList) {
+    marketList = ['Moneyline'];
+    console.error('[ncaaf] strict BET scan defaults to Moneyline; use -m for another market');
+  }
   const sortBy = flags.sort || 'start';
   const sortDir = flags.asc ? 'asc' : 'desc';
 
@@ -1222,6 +1226,13 @@ async function cmdScan(handlers, positional, flags, client) {
       sortDir: resolvedSortDir,
       limit,
       cardWindow: cardWindow || undefined,
+      scanLimit:
+        Number.isFinite(Number(flags['scan-limit'] || flags.scanLimit)) &&
+        Number(flags['scan-limit'] || flags.scanLimit) > 0
+          ? Number(flags['scan-limit'] || flags.scanLimit)
+          : onlyBets
+            ? Math.min(limit, 24)
+            : Math.min(limit, 50),
       lite: true,
       verbosity: 'bets',
       validate: validateAll ? true : undefined,
@@ -1586,6 +1597,7 @@ async function cmdRank(handlers, positional, flags) {
   const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const limit = parseInt(flags.n || flags.limit || 20);
   const jsonOut = flags.j || flags.json || false;
+  const isPlayerPropRank = /^(player|pitcher)\b/i.test(String(market || '').trim());
 
   console.error('Ranking ' + league + ' on ' + book + '...');
 
@@ -1603,7 +1615,10 @@ async function cmdRank(handlers, positional, flags) {
         books: [book],
         limit,
         verbosity: jsonOut ? 'full' : 'standard',
-        includeResearch: false
+        includeResearch: false,
+        evFirst: isPlayerPropRank ? false : undefined,
+        preHistoryShortlist: true,
+        ...(isPlayerPropRank ? { preHistoryGameBudget: 6, preHistoryRowBudget: 60 } : {})
       });
       responses.push(res);
     }
@@ -1623,7 +1638,10 @@ async function cmdRank(handlers, positional, flags) {
     books: [book],
     limit,
     verbosity: jsonOut ? 'full' : 'standard',
-    includeResearch: false
+    includeResearch: false,
+    evFirst: isPlayerPropRank ? false : undefined,
+    preHistoryShortlist: true,
+    ...(isPlayerPropRank ? { preHistoryGameBudget: 6, preHistoryRowBudget: 60 } : {})
   });
 
   if (jsonOut) {

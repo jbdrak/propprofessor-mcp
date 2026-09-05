@@ -56,14 +56,17 @@ async function runEvFirst(client, args, league, market, requestedBooks) {
   if (
     args.evFirst === false ||
     args.skipHistory === true ||
-    (typeof client.queryPositiveEV !== 'function' && typeof client.querySportsbook !== 'function')
+    (typeof client.querySportsbook !== 'function' && typeof client.queryPositiveEV !== 'function')
   )
     return null;
   try {
+    // queryPositiveEV hardcodes minEV=0. The EV screen is not a positive-EV
+    // screen: negative-EV rows still need history/CLV validation. Prefer the
+    // sportsbook feed, whose minValue filter can include the full board.
     const query =
-      typeof client.queryPositiveEV === 'function'
-        ? client.queryPositiveEV.bind(client)
-        : client.querySportsbook.bind(client);
+      typeof client.querySportsbook === 'function'
+        ? client.querySportsbook.bind(client)
+        : client.queryPositiveEV.bind(client);
     const raw = await query(
       buildEvRecoveryRequest({ league, market, books: ALL_SCREEN_BOOKS, maxHoursAway: args.maxHoursAway ?? 48 })
     );
@@ -137,6 +140,7 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
         maxAgeMs: getMaxAgeMs(args),
         debug,
         requirePreferredBook: requestedBooks.length > 0 && !isPlayerPropMarket(market),
+        includeFallbackRows: isPlayerPropMarket(market),
         playableOnly: args.playableOnly === true
       })
   });

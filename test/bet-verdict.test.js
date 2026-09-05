@@ -65,6 +65,33 @@ test('applyValidatedFields keeps screen playable when validate bad has no drift'
   assert.equal(target.validatedReconcileOverridden, true);
 });
 
+test('applyValidatedFields does NOT backfill validated quote from stale screen line when line gone', () => {
+  // Regression: play===null (lookup_failed) means the screen line is gone or no
+  // longer priced. The `play || {}` fallback made `if (play)` truthy and copied
+  // the OLD screen odds/edge/clv into validatedOdds/validatedEdge/validatedClv,
+  // making a lost-line row look freshly validated. Lost lines must keep a null
+  // validated quote so lost-line diagnostics stay honest.
+  const target = {
+    displayTier: 'BET',
+    confidenceTier: 'TIER 1',
+    odds: -110,
+    edge: 4.2,
+    clv: 1.5
+  };
+  const validationResult = {
+    verdict: 'PASS',
+    verdictSummary: { displayTier: 'PASS' },
+    play: null, // lookup_failed
+    consensusDrift: true,
+    driftReason: 'line gone'
+  };
+  applyValidatedFields(target, validationResult);
+  assert.equal(target.validatedUnverified, true);
+  assert.equal(target.validatedOdds, undefined, 'lost line must not inherit stale screen odds');
+  assert.equal(target.validatedEdge, undefined, 'lost line must not inherit stale screen edge');
+  assert.equal(target.validatedClv, undefined, 'lost line must not inherit stale screen clv');
+});
+
 test('applyValidatedFields marks unverified + 0 book count when line gone', () => {
   const target = { displayTier: 'BET', confidenceTier: 'TIER 1' };
   const validationResult = {

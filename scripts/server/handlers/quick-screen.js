@@ -50,7 +50,11 @@ const {
   formatQuickScreenStandard,
   formatQuickScreenBets
 } = require('../../../lib/propprofessor-formatter');
-const { filterRowsByKaiCall, filterRowsByMinEV, filterRowsByMovement } = require('../../../lib/propprofessor-row-filter');
+const {
+  filterRowsByKaiCall,
+  filterRowsByMinEV,
+  filterRowsByMovement
+} = require('../../../lib/propprofessor-row-filter');
 const { sortRows } = require('../../../lib/propprofessor-sort-utils');
 const { getPickStats, getBacktestSummary } = require('../../../lib/propprofessor-picks');
 const { mapWithConcurrency } = require('../../../lib/propprofessor-shared-utils');
@@ -92,7 +96,10 @@ function resolveQuickScreenMarkets(leagues, markets, targetBooks, includeProps) 
 
 // ─── Phase: active-pair probe + hydrated fan-out ──────────────────────────────
 
-async function runQuickScreenFanout(ctx, { targetBooks, leagues, resolvedMarketsByLeague, scanLimit, lookbackHours, debug, maxPerMarket, limit, args }) {
+async function runQuickScreenFanout(
+  ctx,
+  { targetBooks, leagues, resolvedMarketsByLeague, scanLimit, lookbackHours, debug, maxPerMarket, limit, args }
+) {
   const allCandidates = [];
   const unresolvedCandidates = [];
   const emptySlate = []; // league+market pairs that returned zero candidates
@@ -104,7 +111,12 @@ async function runQuickScreenFanout(ctx, { targetBooks, leagues, resolvedMarkets
     }
   }
 
-  const activeLeagueMarketPairs = await probeActivePairs(ctx, leagueMarketPairs, { targetBooks, scanLimit, lookbackHours, emptySlate });
+  const activeLeagueMarketPairs = await probeActivePairs(ctx, leagueMarketPairs, {
+    targetBooks,
+    scanLimit,
+    lookbackHours,
+    emptySlate
+  });
   const activeAggregatePairCount = Math.max(1, activeLeagueMarketPairs.length);
 
   await mapWithConcurrency(
@@ -187,7 +199,22 @@ async function probeActivePairs(ctx, leagueMarketPairs, { targetBooks, scanLimit
 
 async function runOneHydratedPair(
   ctx,
-  { league, market, targetBooks, scanLimit, lookbackHours, debug, maxPerMarket, limit, args, leagueMarketPairs, activeAggregatePairCount, allCandidates, unresolvedCandidates, emptySlate }
+  {
+    league,
+    market,
+    targetBooks,
+    scanLimit,
+    lookbackHours,
+    debug,
+    maxPerMarket,
+    limit,
+    args,
+    leagueMarketPairs,
+    activeAggregatePairCount,
+    allCandidates,
+    unresolvedCandidates,
+    emptySlate
+  }
 ) {
   try {
     const spResult = await ctx.handlers.sharp_plays({
@@ -226,8 +253,8 @@ async function runOneHydratedPair(
     let totalsRecoveryApplied = false;
     const totalsScanTruncated = Boolean(
       spResult.resultMeta?.scanHealth?.truncated ||
-        (Array.isArray(spResult.resultMeta?.preHistoryShortlist) &&
-          spResult.resultMeta.preHistoryShortlist.some((entry) => entry.truncated))
+      (Array.isArray(spResult.resultMeta?.preHistoryShortlist) &&
+        spResult.resultMeta.preHistoryShortlist.some((entry) => entry.truncated))
     );
     if (
       !candidates.length &&
@@ -320,7 +347,10 @@ function applyQuickScreenCardWindow(allCandidates, emptySlate, cardWindow) {
     const nowMs = Date.now();
     for (const entry of allCandidates) {
       if (!entry.candidates || !entry.candidates.length) continue;
-      const pregameOnly = String(entry.league || '').trim().toUpperCase() !== 'TENNIS';
+      const pregameOnly =
+        String(entry.league || '')
+          .trim()
+          .toUpperCase() !== 'TENNIS';
       entry.candidates = entry.candidates.filter((row) => {
         const startMs = parseGameStartMs(row.start);
         if (!startMs) return true;
@@ -387,6 +417,29 @@ function applyQuickScreenCardWindow(allCandidates, emptySlate, cardWindow) {
 
 // Build the validate_play args for one quick_screen candidate (mirrors the
 // original inline buildArgs closure verbatim).
+function getValidationFailureReason(candidate) {
+  if (candidate.validationFailureReason) return candidate.validationFailureReason;
+  if (candidate.validatedUnverified) return 'validated line disappeared or is no longer priced';
+  if (candidate.validatedConsensusDrift) {
+    return `validated consensus drift${candidate.validatedDriftReason ? `: ${candidate.validatedDriftReason}` : ''}`;
+  }
+  const disposition = String(candidate.validatedMovementDisposition || '')
+    .trim()
+    .toLowerCase();
+  if (disposition === 'adverse_full' || disposition === 'adverse') return 'validated movement became adverse';
+  if (disposition === 'insufficient') return 'validated movement was insufficient';
+  if (candidate.validatedExecQuality === 'bad' && candidate.validatedReconcileOverridden !== true) {
+    return 'validated execution quality was bad';
+  }
+  if (candidate.validatedVerdict && candidate.validatedVerdict !== 'BET') {
+    return `validator verdict: ${candidate.validatedVerdict}`;
+  }
+  if (candidate.finalVerdict && candidate.finalVerdict !== 'BET') {
+    return `final verdict: ${candidate.finalVerdict}`;
+  }
+  return 'final verdict was downgraded';
+}
+
 function buildQuickScreenValidationArgs(candidate, entry, args) {
   return {
     league: entry.league,
@@ -431,12 +484,67 @@ function buildQuickScreenValidationArgs(candidate, entry, args) {
   };
 }
 
-async function runQuickScreenValidation(client, ctx, allCandidates, { args, validateAll, requestedValidateTop, leagues }) {
+function collectDowngradedWatchCandidates(allCandidates, watchCandidates) {
+  const watchKeys = new Set(
+    watchCandidates.map(
+      (candidate) => `${candidate.gameId || ''}::${candidate.selection || ''}::${candidate.market || ''}`
+    )
+  );
+  for (const entry of allCandidates) {
+    for (const candidate of entry.candidates || []) {
+      if (
+        candidate._screenWasBet !== true ||
+        candidate.validationSkipped === true ||
+        candidate.validationBudgetExhausted === true ||
+        candidate.validationWatchRecorded === true ||
+        candidate.finalVerdict === 'BET'
+      ) {
+        continue;
+      }
+      const key = `${candidate.gameId || ''}::${candidate.selection || ''}::${entry.market || ''}`;
+      if (watchKeys.has(key)) continue;
+      candidate.validationFailureReason = getValidationFailureReason(candidate);
+      candidate.official = false;
+      watchCandidates.push({
+        ...candidate,
+        market: entry.market,
+        originalVerdict: candidate._screenVerdict,
+        official: false
+      });
+      watchKeys.add(key);
+    }
+  }
+  for (const entry of allCandidates) {
+    for (const candidate of entry.candidates || []) {
+      delete candidate._screenWasBet;
+      delete candidate._screenVerdict;
+    }
+  }
+  for (const candidate of watchCandidates) {
+    delete candidate._screenWasBet;
+    delete candidate._screenVerdict;
+  }
+  return watchCandidates;
+}
+
+async function runQuickScreenValidation(
+  client,
+  ctx,
+  allCandidates,
+  { args, validateAll, requestedValidateTop, leagues }
+) {
   const watchCandidates = [];
   let validationEligibleCount = 0;
   let validationSelectedCount = 0;
   let validationPartial = false;
   let validationBudgetExhausted = false;
+
+  for (const entry of allCandidates) {
+    for (const candidate of entry.candidates || []) {
+      candidate._screenWasBet = candidate.kaiCall === 'BET';
+      candidate._screenVerdict = candidate.kaiCall;
+    }
+  }
 
   if (args.validate === false) {
     for (const entry of allCandidates) {
@@ -469,17 +577,28 @@ async function runQuickScreenValidation(client, ctx, allCandidates, { args, vali
       isEligible: (candidate) =>
         Boolean(
           candidate.gameId &&
-            candidate.selection &&
-            !candidate.altLineFiltered &&
-            (!args.onlyBets || candidate.kaiCall === 'BET')
+          candidate.selection &&
+          !candidate.altLineFiltered &&
+          (!args.onlyBets || candidate.kaiCall === 'BET')
         ),
       isBet: (candidate) => candidate.kaiCall === 'BET',
-      selectTargets: validationPipeline.selectTopGlobal,
-      onNotSelected: (candidate) => {
+      selectTargets: (selection) => {
+        const ncaafOnly = leagues.length === 1 && String(leagues[0] || '').toLowerCase() === 'ncaaf';
+        return ncaafOnly
+          ? validationPipeline.selectTopBalanced(selection)
+          : validationPipeline.selectTopGlobal(selection);
+      },
+      onNotSelected: (candidate, entry) => {
         candidate.validationBudgetSkipped = true;
         candidate.validationBudgetExhausted = false;
         candidate.validationFailureReason = 'validation not selected within validation budget';
-        watchCandidates.push({ ...candidate, official: false });
+        candidate.validationWatchRecorded = true;
+        watchCandidates.push({
+          ...candidate,
+          market: entry.market,
+          originalVerdict: candidate._screenVerdict,
+          official: false
+        });
       },
       applyValidated: (candidate, validation) => {
         applyValidatedFields(candidate, validation);
@@ -502,7 +621,13 @@ async function runQuickScreenValidation(client, ctx, allCandidates, { args, vali
       if (validationBudgetExhausted && candidate.kaiCall === 'BET' && !candidate._validated) {
         candidate.validationBudgetExhausted = true;
         candidate.validationFailureReason = 'shared odds-history budget exhausted before validation';
-        watchCandidates.push({ ...candidate, official: false });
+        candidate.validationWatchRecorded = true;
+        watchCandidates.push({
+          ...candidate,
+          market: entry.market,
+          originalVerdict: candidate._screenVerdict,
+          official: false
+        });
       }
       applyFinalVerdict(candidate);
     }
@@ -518,6 +643,8 @@ async function runQuickScreenValidation(client, ctx, allCandidates, { args, vali
     (sum, entry) => sum + (entry.candidates || []).filter((c) => c._validated).length,
     0
   );
+
+  collectDowngradedWatchCandidates(allCandidates, watchCandidates);
 
   return {
     watchCandidates,
@@ -659,7 +786,18 @@ function applyQuickScreenTopPick(allCandidates, topPick) {
 
 // ─── Phase: assemble + format + cache + log ───────────────────────────────────
 
-function buildScanHealth(allCandidates, client, { validationBudgetExhausted, validationPartial, validatedCount, requestedValidateTop, validationEligibleCount, validationSelectedCount }) {
+function buildScanHealth(
+  allCandidates,
+  client,
+  {
+    validationBudgetExhausted,
+    validationPartial,
+    validatedCount,
+    requestedValidateTop,
+    validationEligibleCount,
+    validationSelectedCount
+  }
+) {
   return {
     incomplete:
       validationBudgetExhausted ||
@@ -673,7 +811,9 @@ function buildScanHealth(allCandidates, client, { validationBudgetExhausted, val
       completedCount: validatedCount,
       remainingBeforeValidation:
         typeof client.oddsHistoryBudgetRemaining === 'function' ? client.oddsHistoryBudgetRemaining() : null,
-      ...(validationPartial ? { reason: 'validation budget selected fewer candidates than eligible BET candidates' } : {})
+      ...(validationPartial
+        ? { reason: 'validation budget selected fewer candidates than eligible BET candidates' }
+        : {})
     },
     truncated: allCandidates.some((entry) => entry.scanHealth?.truncated),
     preHistoryShortlist: allCandidates
@@ -738,7 +878,14 @@ function assembleQuickScreenResponse({
     emptySlate,
     ...(watchCandidates.length ? { watchCandidates } : {}),
     ...(unresolvedCandidates.length ? { unresolvedCandidates } : {}),
-    scanHealth: buildScanHealth(allCandidates, client, { validationBudgetExhausted, validationPartial, validatedCount, requestedValidateTop, validationEligibleCount, validationSelectedCount }),
+    scanHealth: buildScanHealth(allCandidates, client, {
+      validationBudgetExhausted,
+      validationPartial,
+      validatedCount,
+      requestedValidateTop,
+      validationEligibleCount,
+      validationSelectedCount
+    }),
     cardWindow: cardWindowFallthrough || cardWindow,
     ...(cardWindowFallthrough ? { cardWindowFallthrough: true } : {}),
     ...(nextDayMerged ? { nextDayMerged: true, nextDayDate: nextDayMerged } : {}),
@@ -750,16 +897,15 @@ function assembleQuickScreenResponse({
     research: researchResults,
     warnings,
     tierStats: buildTierStats(),
-    _meta:
-      validateAllActive
-        ? {
-            validation: {
-              requested: validateTop,
-              completedCount: validatedCount,
-              note: 'Validated rows have validatedTier, validatedConsensusBookCount, validatedMovementDisposition, validatedActionableSummary, and _validated=true'
-            }
+    _meta: validateAllActive
+      ? {
+          validation: {
+            requested: validateTop,
+            completedCount: validatedCount,
+            note: 'Validated rows have validatedTier, validatedConsensusBookCount, validatedMovementDisposition, validatedActionableSummary, and _validated=true'
           }
-        : undefined,
+        }
+      : undefined,
     workflow: `${bookList} target book(s). Playable price (not necessarily best). Sharp book movement cross-referenced. Player context research included.`,
     markets_alias_used: allAliasesUsed
   };
@@ -845,7 +991,9 @@ async function runQuickScreen(deps, args = {}) {
   const { cardWindowFallthrough, nextDayMerged } = applyQuickScreenCardWindow(
     allCandidates,
     emptySlate,
-    String(args.cardWindow || 'today').trim().toLowerCase()
+    String(args.cardWindow || 'today')
+      .trim()
+      .toLowerCase()
   );
 
   // Strip alternate-line candidates (resolveAlternateLines TIER 4 downgrades).
@@ -904,7 +1052,9 @@ async function runQuickScreen(deps, args = {}) {
     validationSelectedCount: validation.validationSelectedCount,
     validateTop: validation.validateTop,
     validatedCount: validation.validatedCount,
-    cardWindow: String(args.cardWindow || 'today').trim().toLowerCase(),
+    cardWindow: String(args.cardWindow || 'today')
+      .trim()
+      .toLowerCase(),
     cardWindowFallthrough,
     nextDayMerged,
     allAliasesUsed,
@@ -923,12 +1073,16 @@ function createQuickScreenHandlers(client, ctx, factoryDeps) {
   const { responseCache, responseCacheTtlMs, gameContextFn, maybeGc } = factoryDeps;
   return {
     async quick_screen(args = {}) {
-      return runQuickScreen(
-        { client, ctx, responseCache, responseCacheTtlMs, gameContextFn, maybeGc },
-        args
-      );
+      return runQuickScreen({ client, ctx, responseCache, responseCacheTtlMs, gameContextFn, maybeGc }, args);
     }
   };
 }
 
-module.exports = { createQuickScreenHandlers };
+module.exports = {
+  createQuickScreenHandlers,
+  // Exported for hermetic rejection-diagnostic tests (see
+  // test/quick-screen-rejection-diagnostics.test.js). These are pure over their
+  // inputs and owned by this module's reliability patch.
+  getValidationFailureReason,
+  collectDowngradedWatchCandidates
+};

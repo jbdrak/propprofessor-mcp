@@ -24,7 +24,7 @@ const touchdownPayload = {
       participant: 'Player One',
       defaultKey: '0.5',
       selections: {
-        '0.5': {
+        0.5: {
           selection1: 'Over',
           selection1Id: 'Player_Touchdowns:Player_One_0.5',
           selection2: 'Under',

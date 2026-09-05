@@ -28,7 +28,10 @@ function buildEvRecoveryRequest({ league, market, books, maxHoursAway = 48 } = {
     marketTypes: [marketType],
     minOdds: -9999,
     maxOdds: 9999,
-    minValue: 0,
+    // The EV screen includes slightly negative rows. History is needed to
+    // evaluate those rows; don't silently turn this recovery feed into a
+    // positive-EV-only query.
+    minValue: -9999,
     maxHoursAway,
     isLive: false
   };

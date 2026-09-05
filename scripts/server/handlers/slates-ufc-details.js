@@ -18,7 +18,11 @@
 
 const { ok } = require('../../../lib/response-envelope');
 const { clearTierCache } = require('../../../lib/propprofessor-risk-score');
-const { DEFAULT_LEAGUES, canonicalizeScreenArgs, mapWithConcurrency } = require('../../../lib/propprofessor-shared-utils');
+const {
+  DEFAULT_LEAGUES,
+  canonicalizeScreenArgs,
+  mapWithConcurrency
+} = require('../../../lib/propprofessor-shared-utils');
 const { getLimit } = require('../../../lib/propprofessor-mcp-ranked-screen');
 const { getMarketsForSport } = require('../../../lib/propprofessor-market-registry');
 const { resolveMarkets } = require('./handler-utils');

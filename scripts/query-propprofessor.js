@@ -451,92 +451,87 @@ function renderUfcCardOutput(result, logger = console) {
 }
 
 async function runInitCommand({ opts, client, logger }) {
+  const authPath = resolveAuthFile();
+  const authInfo = inspectAuthSetup();
+  const nodeVer = getNodeVersionStatus();
 
-    const authPath = resolveAuthFile();
-    const authInfo = inspectAuthSetup();
-    const nodeVer = getNodeVersionStatus();
+  if (!nodeVer.ok) {
+    logger.log(`✖ Node.js ${nodeVer.current} — need ${nodeVer.required}. Install a newer Node.js first.`);
+    process.exitCode = 1;
+    return;
+  }
+  logger.log(`✓ Node.js ${nodeVer.current} (${nodeVer.required})`);
 
-    if (!nodeVer.ok) {
-      logger.log(`✖ Node.js ${nodeVer.current} — need ${nodeVer.required}. Install a newer Node.js first.`);
+  if (!authInfo.ok) {
+    logger.log('→ No valid auth found. Opening browser for PropProfessor login...');
+    try {
+      const { loginCli } = require('./pp-login');
+      await loginCli({
+        authFile: opts.destination || DEFAULT_USER_AUTH_FILE,
+        timeoutMs: opts.timeout ? Number(opts.timeout) : undefined,
+        json: false,
+        logger
+      });
+      logger.log('✓ Auth saved');
+    } catch (err) {
+      logger.log(`✖ Login failed: ${err.message}`);
+      logger.log('  → Try: pp-query login');
       process.exitCode = 1;
       return;
     }
-    logger.log(`✓ Node.js ${nodeVer.current} (${nodeVer.required})`);
+  } else {
+    logger.log(`✓ Auth file found at ${authInfo.authFilePath || authPath}`);
+  }
 
-    if (!authInfo.ok) {
-      logger.log('→ No valid auth found. Opening browser for PropProfessor login...');
-      try {
-        const { loginCli } = require('./pp-login');
-        await loginCli({
-          authFile: opts.destination || DEFAULT_USER_AUTH_FILE,
-          timeoutMs: opts.timeout ? Number(opts.timeout) : undefined,
-          json: false,
-          logger
-        });
-        logger.log('✓ Auth saved');
-      } catch (err) {
-        logger.log(`✖ Login failed: ${err.message}`);
-        logger.log('  → Try: pp-query login');
-        process.exitCode = 1;
-        return;
-      }
-    } else {
-      logger.log(`✓ Auth file found at ${authInfo.authFilePath || authPath}`);
-    }
+  // Run doctor
+  logger.log('');
+  logger.log('Running doctor...');
+  let healthResult;
+  try {
+    healthResult = await client.healthStatus();
+  } catch (error) {
+    healthResult = { ok: false, error: String(error?.message || error) };
+  }
+  logger.log(JSON.stringify(buildDoctorReport(healthResult), null, 2));
 
-    // Run doctor
-    logger.log('');
-    logger.log('Running doctor...');
-    let healthResult;
-    try {
-      healthResult = await client.healthStatus();
-    } catch (error) {
-      healthResult = { ok: false, error: String(error?.message || error) };
-    }
-    logger.log(JSON.stringify(buildDoctorReport(healthResult), null, 2));
-
-    // Print MCP config
-    logger.log('');
-    logger.log('─── Ready-to-paste MCP Config ───');
-    logger.log('');
-    const scriptPath = path.resolve(__dirname, 'propprofessor-mcp-server.js');
-    const config = {
-      mcpServers: {
-        propprofessor: {
-          command: 'node',
-          args: [scriptPath],
-          env: {
-            PROPPROFESSOR_MCP_NDJSON: 'true',
-            AUTH_FILE: authInfo.authFilePath || path.join(os.homedir(), '.propprofessor', 'auth.json')
-          }
+  // Print MCP config
+  logger.log('');
+  logger.log('─── Ready-to-paste MCP Config ───');
+  logger.log('');
+  const scriptPath = path.resolve(__dirname, 'propprofessor-mcp-server.js');
+  const config = {
+    mcpServers: {
+      propprofessor: {
+        command: 'node',
+        args: [scriptPath],
+        env: {
+          PROPPROFESSOR_MCP_NDJSON: 'true',
+          AUTH_FILE: authInfo.authFilePath || path.join(os.homedir(), '.propprofessor', 'auth.json')
         }
       }
-    };
-    logger.log(JSON.stringify(config, null, 2));
-    logger.log('');
-    logger.log("Copy the above into your client's MCP config, then restart.");
-    return;
-
+    }
+  };
+  logger.log(JSON.stringify(config, null, 2));
+  logger.log('');
+  logger.log("Copy the above into your client's MCP config, then restart.");
+  return;
 }
 
 async function runOpinionCommand({ opts, client, logger }) {
-
-    const rows = extractRows(await client.querySportsbook());
-    const query = {
-      player: opts.player,
-      market: opts.market,
-      line: opts.line !== undefined ? Number(opts.line) : undefined,
-      side: opts.side
-    };
-    const result = analyzePlayerPropBet(query, rows);
-    emitJson(logger, result);
-    return;
-
+  const rows = extractRows(await client.querySportsbook());
+  const query = {
+    player: opts.player,
+    market: opts.market,
+    line: opts.line !== undefined ? Number(opts.line) : undefined,
+    side: opts.side
+  };
+  const result = analyzePlayerPropBet(query, rows);
+  emitJson(logger, result);
+  return;
 }
 
 async function runMiscCommands({ command, opts, client, logger }) {
   if (command === 'ufc-card') {
-
     const handlers = createMcpHandlers({ client });
     const result = await handlers.ufc_card({
       book: opts.book || opts.targetBook,
@@ -557,28 +552,22 @@ async function runMiscCommands({ command, opts, client, logger }) {
       renderUfcCardOutput(result, logger);
     }
     return true;
-
   }
 
   if (command === 'presets') {
-
     const leagues = ['NBA', 'WNBA', 'MLB', 'NFL', 'NHL', 'UFC', 'SOCCER', 'TENNIS', 'NCAAB', 'NCAAF'];
     const presets = leagues.map((league) => getLeagueRankingPreset(league));
     emitJson(logger, { command, presets });
     return true;
-
   }
 
   if (command === 'health') {
-
     const result = await client.healthStatus();
     emitJson(logger, { command, ...result });
     return true;
-
   }
 
   if (command === 'doctor') {
-
     let healthResult;
     try {
       healthResult = await client.healthStatus();
@@ -590,11 +579,9 @@ async function runMiscCommands({ command, opts, client, logger }) {
     }
     emitJson(logger, buildDoctorReport(healthResult));
     return true;
-
   }
 
   if (command === 'install-auth') {
-
     if (!opts.source) {
       throw new Error(`install-auth requires --source. Example: pp-query install-auth --source /path/to/auth.json`);
     }
@@ -604,11 +591,9 @@ async function runMiscCommands({ command, opts, client, logger }) {
     });
     emitJson(logger, buildInstallAuthReport(installResult));
     return true;
-
   }
 
   if (command === 'login') {
-
     const { loginCli } = require('./pp-login');
     await loginCli({
       authFile: opts.destination || DEFAULT_USER_AUTH_FILE,
@@ -617,241 +602,232 @@ async function runMiscCommands({ command, opts, client, logger }) {
       logger
     });
     return true;
-
   }
 
   if (command === 'exe') {
-
     // Launch the tier-ranked plays display
     const { execSync } = require('child_process');
     const scriptPath = require('path').join(__dirname, 'prop-professor.exe.js');
     execSync(`node "${scriptPath}"`, { stdio: 'inherit' });
     return true;
-
   }
 
   return false;
 }
 
 async function runSharpPlaysCommand({ opts, client, logger, lookbackHours, debug }) {
-
-    const targetBook = opts.book || opts.targetBook || opts.books?.split(',')?.[0] || 'NoVigApp';
-    const leagues = opts.leagues
-      ? String(opts.leagues)
+  const targetBook = opts.book || opts.targetBook || opts.books?.split(',')?.[0] || 'NoVigApp';
+  const leagues = opts.leagues
+    ? String(opts.leagues)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : opts.league
+      ? [opts.league]
+      : Array.from(DEFAULT_LEAGUES);
+  const markets = resolveSharpPlaysMarkets({
+    leagues,
+    book: targetBook,
+    markets: opts.markets
+      ? String(opts.markets)
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean)
-      : opts.league
-        ? [opts.league]
-        : Array.from(DEFAULT_LEAGUES);
-    const markets = resolveSharpPlaysMarkets({
-      leagues,
-      book: targetBook,
-      markets: opts.markets
-        ? String(opts.markets)
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : undefined,
-      market: opts.market
-    });
-    const { createMcpHandlers } = require('./propprofessor-mcp-server');
-    const handlers = createMcpHandlers({ client });
-    const result = await handlers.sharp_plays({
-      book: targetBook,
-      leagues,
-      markets,
-      limit: opts.limit ? Number(opts.limit) : 10,
-      scanLimit: opts.scanLimit ? Number(opts.scanLimit) : undefined,
-      minOdds: opts.minOdds !== undefined ? Number(opts.minOdds) : undefined,
-      maxOdds: opts.maxOdds !== undefined ? Number(opts.maxOdds) : undefined,
-      minConsensusBookCount: opts.minConsensusBookCount !== undefined ? Number(opts.minConsensusBookCount) : undefined,
-      includePasses: Boolean(opts.includePasses),
-      strict: opts.strict !== undefined ? opts.strict : !opts.broad,
-      allowRecentOnly: Boolean(opts.allowRecentOnly),
-      maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : undefined,
-      lookbackHours,
-      debug,
-      is_live: Boolean(opts.live),
-      verbosity: opts.verbosity || 'standard'
-    });
-    emitJson(logger, result);
-    return;
-
+      : undefined,
+    market: opts.market
+  });
+  const { createMcpHandlers } = require('./propprofessor-mcp-server');
+  const handlers = createMcpHandlers({ client });
+  const result = await handlers.sharp_plays({
+    book: targetBook,
+    leagues,
+    markets,
+    limit: opts.limit ? Number(opts.limit) : 10,
+    scanLimit: opts.scanLimit ? Number(opts.scanLimit) : undefined,
+    minOdds: opts.minOdds !== undefined ? Number(opts.minOdds) : undefined,
+    maxOdds: opts.maxOdds !== undefined ? Number(opts.maxOdds) : undefined,
+    minConsensusBookCount: opts.minConsensusBookCount !== undefined ? Number(opts.minConsensusBookCount) : undefined,
+    includePasses: Boolean(opts.includePasses),
+    strict: opts.strict !== undefined ? opts.strict : !opts.broad,
+    allowRecentOnly: Boolean(opts.allowRecentOnly),
+    maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : undefined,
+    lookbackHours,
+    debug,
+    is_live: Boolean(opts.live),
+    verbosity: opts.verbosity || 'standard'
+  });
+  emitJson(logger, result);
+  return;
 }
 
 async function runTennisCommand({ opts, payloads, client, logger, lookbackHours, debug, command, payload }) {
-
-    // --book (singular) sets the focus/preferred book; --books (plural) sets
-    // the full list. --book wins when both are provided. The full list defaults
-    // to the standard sharp set so consensus comparison still has data; the
-    // focus book defaults to NoVigApp (the most common user request for tennis).
-    const focusBookName = opts.book ? String(opts.book).trim() : null;
-    const tennisBooks = opts.books
-      ? String(opts.books)
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : focusBookName
-        ? [focusBookName, 'Pinnacle', 'Polymarket', 'Kalshi', 'BetOnline', 'Circa']
-        : ['NoVigApp', 'Pinnacle', 'Polymarket', 'Kalshi', 'BetOnline', 'Circa'];
-    const preferredBookName = focusBookName || tennisBooks[0];
-    const result = await buildRankedScreenResponse({
-      client,
-      payloads: Array.isArray(payloads) && payloads.length ? payloads : [payload],
-      args: {
-        books: tennisBooks,
-        historySportsbooks: tennisBooks,
+  // --book (singular) sets the focus/preferred book; --books (plural) sets
+  // the full list. --book wins when both are provided. The full list defaults
+  // to the standard sharp set so consensus comparison still has data; the
+  // focus book defaults to NoVigApp (the most common user request for tennis).
+  const focusBookName = opts.book ? String(opts.book).trim() : null;
+  const tennisBooks = opts.books
+    ? String(opts.books)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : focusBookName
+      ? [focusBookName, 'Pinnacle', 'Polymarket', 'Kalshi', 'BetOnline', 'Circa']
+      : ['NoVigApp', 'Pinnacle', 'Polymarket', 'Kalshi', 'BetOnline', 'Circa'];
+  const preferredBookName = focusBookName || tennisBooks[0];
+  const result = await buildRankedScreenResponse({
+    client,
+    payloads: Array.isArray(payloads) && payloads.length ? payloads : [payload],
+    args: {
+      books: tennisBooks,
+      historySportsbooks: tennisBooks,
+      limit: opts.limit ? Number(opts.limit) : 12,
+      includeAll: true,
+      maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : null,
+      lookbackHours,
+      debug
+    },
+    league: 'Tennis',
+    focusBook: preferredBookName,
+    rankRows: (hydratedRows, { debug: rankedDebug } = {}) =>
+      rankTennisScreenRows(hydratedRows, {
         limit: opts.limit ? Number(opts.limit) : 12,
         includeAll: true,
         maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : null,
-        lookbackHours,
-        debug
-      },
-      league: 'Tennis',
-      focusBook: preferredBookName,
-      rankRows: (hydratedRows, { debug: rankedDebug } = {}) =>
-        rankTennisScreenRows(hydratedRows, {
-          limit: opts.limit ? Number(opts.limit) : 12,
-          includeAll: true,
-          maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : null,
-          preferredBook: preferredBookName,
-          debug: rankedDebug
-        }),
-      resultMeta: {
-        command,
-        notes: {
-          consensusEdgeSource: 'row.value/row.ev/row.edge if exposed by PP',
-          clvProxy: 'open odds vs current odds when history fields are present',
-          timeInterpretation: `start values without an explicit timezone are treated as UTC, displayed in ${getLocalTimezone()}`
-        }
-      }
-    });
-    // Correct tennis match times via SportScore before localizing
-    if (result?.result) {
-      // Preserve the non-enumerable focusBookMissingRows before replacing
-      // result.result with the corrected array (which loses the property).
-      const fallbackRows = result.result.focusBookMissingRows;
-      result.result = await correctTennisTimes(result.result);
-      if (fallbackRows) {
-        Object.defineProperty(result.result, 'focusBookMissingRows', {
-          value: fallbackRows,
-          enumerable: false,
-          writable: false,
-          configurable: false
-        });
+        preferredBook: preferredBookName,
+        debug: rankedDebug
+      }),
+    resultMeta: {
+      command,
+      notes: {
+        consensusEdgeSource: 'row.value/row.ev/row.edge if exposed by PP',
+        clvProxy: 'open odds vs current odds when history fields are present',
+        timeInterpretation: `start values without an explicit timezone are treated as UTC, displayed in ${getLocalTimezone()}`
       }
     }
-    const normalized = normalizeScreenRowTimes(result.result);
-    // After normalizeScreenRowTimes (which returns a new array), re-attach
-    // the non-enumerable focusBookMissingRows if the original result had them.
-    if (result.result.focusBookMissingRows) {
-      Object.defineProperty(normalized, 'focusBookMissingRows', {
-        value: result.result.focusBookMissingRows,
+  });
+  // Correct tennis match times via SportScore before localizing
+  if (result?.result) {
+    // Preserve the non-enumerable focusBookMissingRows before replacing
+    // result.result with the corrected array (which loses the property).
+    const fallbackRows = result.result.focusBookMissingRows;
+    result.result = await correctTennisTimes(result.result);
+    if (fallbackRows) {
+      Object.defineProperty(result.result, 'focusBookMissingRows', {
+        value: fallbackRows,
         enumerable: false,
         writable: false,
         configurable: false
       });
     }
-    // Preserve focusBookMissingRows across the filter/slice. normalizeScreenRowTimes
-    // returns a new array; `filter` below also returns a new array. Hold it
-    // on the outer response object so it's always reachable.
-    const fallbackRows = result.focusBookMissingRows || result.result.focusBookMissingRows || null;
-    // --hide-passes: drop kaiCall=PASS rows. The ranker still ranks them
-    // (so PASS rows are surfaced at lower positions in the slate), but the
-    // default response can drown the user in noise on a wide slate — 42 of
-    // the 100 rows in the last live tennis query were TIER 4 PASS.
-    if (opts.hidePasses) {
-      const hiddenPassesCount = normalized.filter((row) => row.kaiCall === 'PASS').length;
-      result.result = normalized.filter((row) => row.kaiCall !== 'PASS');
-      result.count = result.result.length;
-      result.resultMeta = result.resultMeta || {};
-      result.resultMeta.hiddenPassesCount = hiddenPassesCount;
-    } else {
-      result.result = normalized;
-      result.count = normalized.length;
-    }
-    // --focus-book-only: drop focusBookMissingRows from the response. By
-    // default the ranker surfaces these as a separate top-level field so
-    // users can see "what did the ranker find that I can't execute on my
-    // focus book?" — the flag is for users who want a pure focus-book
-    // response (e.g. "all TIER 1 bets on NoVigApp today" returns exactly
-    // the 2 rows executable on NoVigApp, not 3 with one fallback).
-    if (opts.focusBookOnly) {
-      const fallbackCount = (fallbackRows || []).length;
-      result.resultMeta = result.resultMeta || {};
-      result.resultMeta.hiddenFallbackRowsCount = fallbackCount;
-    } else {
-      result.focusBookMissingRows = fallbackRows || [];
-    }
-    result.notes = {
-      ...(result.notes || {}),
-      movementAvailable: normalized.some((row) => row.lineHistoryUsable || row.clvProxyPct !== null),
-      consensusEdgeSource: 'row.value/row.ev/row.edge if exposed by PP',
-      clvProxy: 'open odds vs current odds when history fields are present',
-      timeInterpretation: `start values without an explicit timezone are treated as UTC, displayed in ${getLocalTimezone()}`
-    };
-    result.sample = normalized;
-    emitJson(logger, result);
-    return;
-
+  }
+  const normalized = normalizeScreenRowTimes(result.result);
+  // After normalizeScreenRowTimes (which returns a new array), re-attach
+  // the non-enumerable focusBookMissingRows if the original result had them.
+  if (result.result.focusBookMissingRows) {
+    Object.defineProperty(normalized, 'focusBookMissingRows', {
+      value: result.result.focusBookMissingRows,
+      enumerable: false,
+      writable: false,
+      configurable: false
+    });
+  }
+  // Preserve focusBookMissingRows across the filter/slice. normalizeScreenRowTimes
+  // returns a new array; `filter` below also returns a new array. Hold it
+  // on the outer response object so it's always reachable.
+  const fallbackRows = result.focusBookMissingRows || result.result.focusBookMissingRows || null;
+  // --hide-passes: drop kaiCall=PASS rows. The ranker still ranks them
+  // (so PASS rows are surfaced at lower positions in the slate), but the
+  // default response can drown the user in noise on a wide slate — 42 of
+  // the 100 rows in the last live tennis query were TIER 4 PASS.
+  if (opts.hidePasses) {
+    const hiddenPassesCount = normalized.filter((row) => row.kaiCall === 'PASS').length;
+    result.result = normalized.filter((row) => row.kaiCall !== 'PASS');
+    result.count = result.result.length;
+    result.resultMeta = result.resultMeta || {};
+    result.resultMeta.hiddenPassesCount = hiddenPassesCount;
+  } else {
+    result.result = normalized;
+    result.count = normalized.length;
+  }
+  // --focus-book-only: drop focusBookMissingRows from the response. By
+  // default the ranker surfaces these as a separate top-level field so
+  // users can see "what did the ranker find that I can't execute on my
+  // focus book?" — the flag is for users who want a pure focus-book
+  // response (e.g. "all TIER 1 bets on NoVigApp today" returns exactly
+  // the 2 rows executable on NoVigApp, not 3 with one fallback).
+  if (opts.focusBookOnly) {
+    const fallbackCount = (fallbackRows || []).length;
+    result.resultMeta = result.resultMeta || {};
+    result.resultMeta.hiddenFallbackRowsCount = fallbackCount;
+  } else {
+    result.focusBookMissingRows = fallbackRows || [];
+  }
+  result.notes = {
+    ...(result.notes || {}),
+    movementAvailable: normalized.some((row) => row.lineHistoryUsable || row.clvProxyPct !== null),
+    consensusEdgeSource: 'row.value/row.ev/row.edge if exposed by PP',
+    clvProxy: 'open odds vs current odds when history fields are present',
+    timeInterpretation: `start values without an explicit timezone are treated as UTC, displayed in ${getLocalTimezone()}`
+  };
+  result.sample = normalized;
+  emitJson(logger, result);
+  return;
 }
 
 async function runScreenCommand({ opts, client, logger, lookbackHours, debug, command, payload, screenCommand }) {
-
-    const screenBooks = opts.books
-      ? String(opts.books)
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : ['NoVigApp', 'Polymarket', 'Kalshi', 'BetOnline', 'Circa'];
-    const result = await buildRankedScreenResponse({
-      client,
-      payloads: [filterPayloadByLeagueName(payload, screenCommand.leagueName)],
-      args: {
-        books: screenBooks,
-        historySportsbooks: screenBooks,
+  const screenBooks = opts.books
+    ? String(opts.books)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : ['NoVigApp', 'Polymarket', 'Kalshi', 'BetOnline', 'Circa'];
+  const result = await buildRankedScreenResponse({
+    client,
+    payloads: [filterPayloadByLeagueName(payload, screenCommand.leagueName)],
+    args: {
+      books: screenBooks,
+      historySportsbooks: screenBooks,
+      limit: opts.limit ? Number(opts.limit) : 12,
+      includeAll: true,
+      maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : null,
+      lookbackHours,
+      debug
+    },
+    league: screenCommand.league,
+    focusBook: screenBooks[0] || 'NoVigApp',
+    rankRows: (hydratedRows, { debug: rankedDebug } = {}) =>
+      rankLeagueScreenRows(hydratedRows, {
+        league: screenCommand.league,
+        market: opts.market || 'Moneyline',
         limit: opts.limit ? Number(opts.limit) : 12,
         includeAll: true,
         maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : null,
-        lookbackHours,
-        debug
-      },
-      league: screenCommand.league,
-      focusBook: screenBooks[0] || 'NoVigApp',
-      rankRows: (hydratedRows, { debug: rankedDebug } = {}) =>
-        rankLeagueScreenRows(hydratedRows, {
-          league: screenCommand.league,
-          market: opts.market || 'Moneyline',
-          limit: opts.limit ? Number(opts.limit) : 12,
-          includeAll: true,
-          maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : null,
-          books: screenBooks,
-          debug: rankedDebug
-        }),
-      resultMeta: {
-        command,
-        notes: {
-          consensusEdgeSource: 'row.value/row.ev/row.edge if exposed by PP',
-          clvProxy: 'open odds vs current odds when history fields are present',
-          timeInterpretation: `start values without an explicit timezone are treated as UTC, displayed in ${getLocalTimezone()}`
-        }
+        books: screenBooks,
+        debug: rankedDebug
+      }),
+    resultMeta: {
+      command,
+      notes: {
+        consensusEdgeSource: 'row.value/row.ev/row.edge if exposed by PP',
+        clvProxy: 'open odds vs current odds when history fields are present',
+        timeInterpretation: `start values without an explicit timezone are treated as UTC, displayed in ${getLocalTimezone()}`
       }
-    });
-    const normalized = normalizeScreenRowTimes(result.result);
-    result.result = normalized;
-    result.count = normalized.length;
-    result.sample = normalized;
-    result.notes = {
-      ...(result.notes || {}),
-      movementAvailable: normalized.some((row) => row.lineHistoryUsable || row.clvProxyPct !== null),
-      consensusEdgeSource: 'row.value/row.ev/row.edge if exposed by PP',
-      clvProxy: 'open odds vs current odds when history fields are present',
-      timeInterpretation: `start values without an explicit timezone are treated as UTC, displayed in ${getLocalTimezone()}`
-    };
-    emitJson(logger, result);
-    return;
-
+    }
+  });
+  const normalized = normalizeScreenRowTimes(result.result);
+  result.result = normalized;
+  result.count = normalized.length;
+  result.sample = normalized;
+  result.notes = {
+    ...(result.notes || {}),
+    movementAvailable: normalized.some((row) => row.lineHistoryUsable || row.clvProxyPct !== null),
+    consensusEdgeSource: 'row.value/row.ev/row.edge if exposed by PP',
+    clvProxy: 'open odds vs current odds when history fields are present',
+    timeInterpretation: `start values without an explicit timezone are treated as UTC, displayed in ${getLocalTimezone()}`
+  };
+  emitJson(logger, result);
+  return;
 }
 
 async function main({ argv = process.argv, client = createPropProfessorClient(), logger = console } = {}) {
@@ -880,10 +856,11 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
     return;
   }
 
-  if (command === 'init')   if (command === 'init') {
-    await runInitCommand({ opts, client, logger });
-    return;
-  }
+  if (command === 'init')
+    if (command === 'init') {
+      await runInitCommand({ opts, client, logger });
+      return;
+    }
 
   if (command === 'setup') {
     const CONFIG_DIR = path.join(os.homedir(), '.propprofessor');
@@ -903,10 +880,11 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
     return;
   }
 
-  if (command === 'opinion')   if (command === 'opinion') {
-    await runOpinionCommand({ opts, client, logger });
-    return;
-  }
+  if (command === 'opinion')
+    if (command === 'opinion') {
+      await runOpinionCommand({ opts, client, logger });
+      return;
+    }
 
   if (await runMiscCommands({ command, opts, client, logger })) {
     return;
@@ -952,19 +930,22 @@ async function main({ argv = process.argv, client = createPropProfessorClient(),
   const rows = extractRows(payload);
   const lookbackHours = getOddsHistoryLookbackHours(opts.lookbackHours);
   const debug = getDebugFlag(opts.debug, true);
-  if (command === 'sharp-plays')   if (command === 'sharp-plays') {
-    await runSharpPlaysCommand({ opts, client, logger, lookbackHours, debug });
-    return;
-  }
-  if (command === 'tennis')   if (command === 'tennis') {
-    await runTennisCommand({ opts, payloads, client, logger, lookbackHours, debug, command, payload });
-    return;
-  }
+  if (command === 'sharp-plays')
+    if (command === 'sharp-plays') {
+      await runSharpPlaysCommand({ opts, client, logger, lookbackHours, debug });
+      return;
+    }
+  if (command === 'tennis')
+    if (command === 'tennis') {
+      await runTennisCommand({ opts, payloads, client, logger, lookbackHours, debug, command, payload });
+      return;
+    }
 
-  if (screenCommand.command === 'screen')   if (screenCommand.command === 'screen') {
-    await runScreenCommand({ opts, client, logger, lookbackHours, debug, command, payload, screenCommand });
-    return;
-  }
+  if (screenCommand.command === 'screen')
+    if (screenCommand.command === 'screen') {
+      await runScreenCommand({ opts, client, logger, lookbackHours, debug, command, payload, screenCommand });
+      return;
+    }
 
   const filtered = rows.filter((row) => {
     const text = JSON.stringify(row).toLowerCase();
