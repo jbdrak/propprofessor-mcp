@@ -293,6 +293,7 @@ function buildValidationResponse(context) {
     detailResult,
     consensusDrift,
     driftReason,
+    confirmation,
     matchingRow,
     research,
     skipResearch,
@@ -318,6 +319,7 @@ function buildValidationResponse(context) {
     screenFreshness: detailResult?.freshness || null,
     consensusDrift,
     driftReason,
+    confirmation: confirmation || null,
     play: buildValidationPlay({ matchingRow, market, gameId, league, selection }),
     research: buildValidationResearch({ research, skipResearch, researchError }),
     gameContext: buildValidationGameContext({ gameContext, isMlb, skipGameContext, gameContextError })
@@ -399,8 +401,17 @@ function createValidatePlayHandlers(client, ctx) {
       research,
       gameContext
     });
-    const { verdict, tier, lookupStatus, reasonType, reasons, verdictSummary, consensusDrift, driftReason } =
-      verdictResult;
+    const {
+      verdict,
+      tier,
+      lookupStatus,
+      reasonType,
+      reasons,
+      verdictSummary,
+      consensusDrift,
+      driftReason,
+      confirmation
+    } = verdictResult;
 
     return buildValidationResponse({
       league,
@@ -418,6 +429,7 @@ function createValidatePlayHandlers(client, ctx) {
       detailResult,
       consensusDrift,
       driftReason,
+      confirmation,
       matchingRow,
       research,
       skipResearch,

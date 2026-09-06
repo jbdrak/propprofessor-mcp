@@ -38,7 +38,7 @@ test('TIER_RANK orders confidence tiers 1..4 ascending', () => {
 // applyValidatedFields
 // ---------------------------------------------------------------------------
 
-test('applyValidatedFields keeps screen playable when validate bad has no drift', () => {
+test('applyValidatedFields passes validator exec quality through verbatim (no reconciliation)', () => {
   const target = {
     executionQuality: 'playable',
     movementDisposition: 'supportive_clean',
@@ -61,8 +61,8 @@ test('applyValidatedFields keeps screen playable when validate bad has no drift'
     driftReason: null
   };
   applyValidatedFields(target, validationResult);
-  assert.equal(target.validatedExecQuality, 'playable', 'screen playable must survive a non-drift validate bad');
-  assert.equal(target.validatedReconcileOverridden, true);
+  assert.equal(target.validatedExecQuality, 'bad', 'Phase 3A: validator output passes through verbatim');
+  assert.equal(target.validatedReconcileOverridden, false);
 });
 
 test('applyValidatedFields does NOT backfill validated quote from stale screen line when line gone', () => {
@@ -256,7 +256,7 @@ test('applyFinalVerdict downgrades BET to CONSIDER on consensus drift', () => {
   assert.ok(cand.finalWarnings.includes('consensus-drift'));
 });
 
-test('applyValidatedFields drops an unreconciled adverse movement risk flag when screen movement is preserved', () => {
+test('applyValidatedFields passes validator movement and risk flags through verbatim (no reconciliation)', () => {
   const target = {
     movementDisposition: 'supportive_clean',
     executionQuality: 'playable',
@@ -269,19 +269,19 @@ test('applyValidatedFields drops an unreconciled adverse movement risk flag when
       displayTier: 'BET',
       movementDisposition: 'adverse_full',
       executionQuality: 'playable',
-      riskFlags: ['movement adverse'],
       actionableSummary: 'fixture',
       consensusSupport: 'fixture'
     },
     play: { executionQuality: 'playable' },
     verdictSummary: {
       movementDisposition: 'adverse_full',
-      executionQuality: 'playable'
+      executionQuality: 'playable',
+      riskFlags: ['movement adverse']
     },
     consensusDrift: false
   });
-  assert.equal(target.validatedMovementDisposition, 'supportive_clean');
-  assert.deepEqual(target.validatedRiskFlags, []);
+  assert.equal(target.validatedMovementDisposition, 'adverse_full', 'Phase 3A: validator movement passes through verbatim');
+  assert.deepEqual(target.validatedRiskFlags, ['movement adverse'], 'Phase 3A: validator risk flags pass through verbatim');
 });
 
 test('applyFinalVerdict downgrades BET to PASS on insufficient movement disposition', () => {
@@ -458,6 +458,78 @@ test('flagContradictoryPlays downgrades stronger side only when weaker is fully 
   flagContradictoryPlays(plays);
   // Both supportive => both downgraded (noise).
   assert.equal(plays[0].finalVerdict, 'CONSIDER', 'stronger side also downgraded when both supportive');
+  assert.equal(plays[1].finalVerdict, 'CONSIDER');
+});
+
+test('flagContradictoryPlays ignores an opposing side that validation already passed', () => {
+  const plays = [
+    {
+      gameId: 'G1',
+      market: 'Total Points',
+      selection: 'Over 53.5',
+      movementDisposition: 'supportive_clean',
+      edge: 3,
+      finalVerdict: 'BET',
+      kaiCall: 'BET',
+      finalConfidenceTier: 'TIER 1',
+      confidenceTier: 'TIER 1',
+      displayTier: 'BET'
+    },
+    {
+      gameId: 'G1',
+      market: 'Total Points',
+      selection: 'Under 53.5',
+      movementDisposition: 'supportive_bouncy',
+      edge: 1,
+      finalVerdict: 'PASS',
+      kaiCall: 'PASS',
+      finalConfidenceTier: 'TIER 4',
+      confidenceTier: 'TIER 4',
+      displayTier: 'PASS'
+    }
+  ];
+
+  flagContradictoryPlays(plays);
+
+  assert.equal(plays[0].finalVerdict, 'BET');
+  assert.equal(plays[0].finalConfidenceTier, 'TIER 1');
+  assert.deepEqual(plays[0].finalWarnings, undefined);
+  assert.equal(plays[1].finalVerdict, 'PASS');
+});
+
+test('flagContradictoryPlays ignores an opposing side validation only considers', () => {
+  const plays = [
+    {
+      gameId: 'G1',
+      market: 'Total Points',
+      selection: 'Over 53.5',
+      movementDisposition: 'supportive_bouncy',
+      edge: 2.5,
+      finalVerdict: 'BET',
+      kaiCall: 'BET',
+      finalConfidenceTier: 'TIER 1',
+      confidenceTier: 'TIER 1',
+      displayTier: 'BET'
+    },
+    {
+      gameId: 'G1',
+      market: 'Total Points',
+      selection: 'Under 53.5',
+      movementDisposition: 'supportive_clean',
+      edge: 0.9,
+      finalVerdict: 'CONSIDER',
+      kaiCall: 'CONSIDER',
+      finalConfidenceTier: 'TIER 2',
+      confidenceTier: 'TIER 2',
+      displayTier: 'CONSIDER'
+    }
+  ];
+
+  flagContradictoryPlays(plays);
+
+  assert.equal(plays[0].finalVerdict, 'BET');
+  assert.equal(plays[0].finalConfidenceTier, 'TIER 1');
+  assert.deepEqual(plays[0].finalWarnings, undefined);
   assert.equal(plays[1].finalVerdict, 'CONSIDER');
 });
 

@@ -436,7 +436,7 @@ function getValidationFailureReason(candidate) {
     .toLowerCase();
   if (disposition === 'adverse_full' || disposition === 'adverse') return 'validated movement became adverse';
   if (disposition === 'insufficient') return 'validated movement was insufficient';
-  if (candidate.validatedExecQuality === 'bad' && candidate.validatedReconcileOverridden !== true) {
+  if (candidate.validatedExecQuality === 'bad') {
     return 'validated execution quality was bad';
   }
   if (candidate.validatedVerdict && candidate.validatedVerdict !== 'BET') {
@@ -602,12 +602,21 @@ async function runQuickScreenValidation(
         candidate.validationBudgetExhausted = false;
         candidate.validationFailureReason = 'validation not selected within validation budget';
         candidate.validationWatchRecorded = true;
-        watchCandidates.push({
-          ...candidate,
-          market: entry.market,
-          originalVerdict: candidate._screenVerdict,
-          official: false
-        });
+        // Screen-BET budget-skipped candidates need applyFinalVerdict so they
+        // have finalVerdict/finalConfidenceTier for the onlyBets filter.
+        // Without this, they silently vanish (finalVerdict=undefined fails
+        // the filter) instead of flowing through as actionable plays.
+        if (candidate._screenWasBet === true) {
+          applyFinalVerdict(candidate);
+          promoteFinalVerdictToDisplay(candidate);
+        } else {
+          watchCandidates.push({
+            ...candidate,
+            market: entry.market,
+            originalVerdict: candidate._screenVerdict,
+            official: false
+          });
+        }
       },
       applyValidated: (candidate, validation) => {
         applyValidatedFields(candidate, validation);
@@ -705,7 +714,7 @@ function applyQuickScreenFilters(allCandidates, emptySlate, args) {
   }
 
   if (args.onlyBets) {
-    const floor = ['TIER 1', 'TIER 2', 'TIER 3'].indexOf(args.minFinalTier || 'TIER 1');
+    const floor = ['TIER 1', 'TIER 2', 'TIER 3'].indexOf(args.minFinalTier || 'TIER 2');
     for (const entry of allCandidates) {
       if (!entry.candidates || !entry.candidates.length) continue;
       entry.candidates = entry.candidates.filter((c) => {
@@ -714,10 +723,9 @@ function applyQuickScreenFilters(allCandidates, emptySlate, args) {
         );
         return (
           c.finalVerdict === 'BET' &&
-          c._validated === true &&
+          (c._validated === true || c.validationBudgetSkipped === true) &&
           c.validationSkipped !== true &&
           !c.validationBudgetExhausted &&
-          !c.validationBudgetSkipped &&
           tierIdx <= floor
         );
       });

@@ -550,12 +550,10 @@ describe('quick_screen aggregate odds-history budget', () => {
         response.scanHealth.validation.reason,
         'validation budget selected fewer candidates than eligible BET candidates'
       );
-      assert.equal(response.results[0].candidates.length, 1);
+      assert.equal(response.results[0].candidates.length, 2);
       assert.equal(response.results[0].candidates[0].gameId, `${league}-best`);
-      assert.equal(response.watchCandidates.length, 1);
-      assert.equal(response.watchCandidates[0].gameId, `${league}-watch`);
-      assert.equal(response.watchCandidates[0].official, false);
-      assert.equal(response.watchCandidates[0].validationBudgetExhausted, false);
+      assert.equal(response.results[0].candidates[1].gameId, `${league}-watch`);
+      assert.equal((response.watchCandidates || []).length, 0);
     }
   });
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const { computeMovementDisposition } = require('../../../lib/propprofessor-movement-disposition');
+const { confirmExecution } = require('../../../lib/execution-confirmation');
 
 const STATUS_MESSAGES = {
   supportive_clean: 'all signals aligned — green movement, supportive direction, clean path',
@@ -10,210 +10,10 @@ const STATUS_MESSAGES = {
   insufficient: 'not enough data to evaluate movement quality'
 };
 
-/**
- * Parse an odds value that may be American (-110) or a NoVig percentage
- * string ('96.1%'). Returns { value, isPct } or null when unparseable.
- */
-function parseOdds(raw) {
-  if (typeof raw === 'string' && raw.trim().endsWith('%')) {
-    const value = parseFloat(raw);
-    return Number.isFinite(value) ? { value, isPct: true } : null;
-  }
-  const value = Number(raw);
-  return Number.isFinite(value) ? { value, isPct: false } : null;
-}
-
-/**
- * Price agreement between the scan snapshot and the validation re-fetch.
- * Tolerance: 5 points American, 1.5 points percentage. Anything
- * unparseable or mixed-format returns false (fail-safe).
- */
-function pricesAgree(screenRaw, currentRaw) {
-  const screen = parseOdds(screenRaw);
-  const current = parseOdds(currentRaw);
-  if (!screen || !current || screen.isPct !== current.isPct) return false;
-  return Math.abs(screen.value - current.value) <= (screen.isPct ? 1.5 : 5);
-}
-
-/**
- * Material price move between scan snapshot and re-fetch: 30+ points
- * American, 5+ points percentage. Unparseable or mixed-format returns
- * false (fail-safe: no downgrade on what we can't measure).
- */
-function priceMovedBig(screenRaw, currentRaw) {
-  const screen = parseOdds(screenRaw);
-  const current = parseOdds(currentRaw);
-  if (!screen || !current || screen.isPct !== current.isPct) return false;
-  return Math.abs(screen.value - current.value) > (screen.isPct ? 5 : 30);
-}
-
-function resolveBaseVerdict({
-  args,
-  matchingRow,
-  matchedViaGameIdChange,
-  detailError,
-  fallbackNote,
-  gameId,
-  selection
-}) {
-  const reasons = [];
-  const screenTier = args.screenTier || (matchingRow && matchingRow.screenTier);
-  const screenKaiCall = args.screenKaiCall || (matchingRow && matchingRow.screenKaiCall);
-  // Scan-sourced validation (quick_screen) trusts the screen snapshot: the
-  // re-fetch confirms the line is still there, it doesn't re-grade it.
-  // Novig is a fast peer-to-peer market — comp-set jitter between two
-  // fetches seconds apart is noise, not signal. Only material changes
-  // downgrade: line gone (lookup_failed below), or a big price move.
-  // Direct validate_play calls (no screen snapshot) keep the legacy strict
-  // behavior: drift, exec-quality, and tier checks all apply.
-  const scanSourced = args.screenKaiCall != null;
-  const currentOddsRaw = matchingRow && (matchingRow.odds ?? matchingRow.currentOdds);
-  const priceAgrees = pricesAgree(args.screenOdds, currentOddsRaw);
-  const bigMove =
-    scanSourced && Boolean(matchingRow) && priceMovedBig(args.screenOdds, currentOddsRaw);
-  let tier = screenTier || matchingRow?.confidenceTier || null;
-  if (!tier) {
-    const kaiCall = screenKaiCall || matchingRow?.kaiCall;
-    if (kaiCall === 'BET') tier = 'TIER 1';
-    else if (kaiCall === 'CONSIDER') tier = 'TIER 2';
-    else tier = 'TIER 4';
-  }
-
-  let consensusDrift = false;
-  let driftReason = null;
-  if (bigMove) {
-    consensusDrift = true;
-    driftReason = `price moved ${args.screenOdds} → ${currentOddsRaw}`;
-  } else if (matchingRow && !priceAgrees && !scanSourced) {
-    const screenCbk = Number(args.screenConsensusBookCount);
-    const screenExec = String(args.screenExecutionQuality || '');
-    const currentCbk = Number(matchingRow.consensusBookCount || 0);
-    const currentExec = String(matchingRow.executionQuality || '');
-
-    if (Number.isFinite(screenCbk) && screenCbk > 0) {
-      const absDrop = screenCbk - currentCbk;
-      const pctDrop = screenCbk > 0 ? absDrop / screenCbk : 0;
-      if (absDrop >= 4 && pctDrop > 0.25) {
-        consensusDrift = true;
-        driftReason = `consensus collapsed (${screenCbk} → ${currentCbk} books)`;
-      }
-    }
-    if (
-      !consensusDrift &&
-      screenExec &&
-      screenExec !== 'unknown' &&
-      screenExec !== currentExec &&
-      currentExec === 'bad'
-    ) {
-      consensusDrift = true;
-      driftReason = 'execution quality changed';
-    }
-  }
-
-  let lookupStatus = 'resolved';
-  let reasonType = 'signal';
-  let verdict;
-  if (matchingRow) {
-    if (matchedViaGameIdChange) {
-      lookupStatus = 'gameId_changed';
-      reasonType = 'gameId_changed';
-      reasons.push(`gameId changed (${gameId} → ${matchingRow.gameId}); matched by league/market/selection/date`);
-    }
-    // The screen ranker is the authoritative tier→call source. Its kaiCall
-    // already encodes grade+risk semantics (TIER 2 green/yellow plays are
-    // BET-able; TIER 3 is speculative). Validation must NOT silently demote
-    // a screen BET to CONSIDER just because the re-fetch re-derived a lower
-    // confidence tier — that was demoting every TIER 2 BET (5-book consensus,
-    // supportive movement) into a CONSIDER and starving the card. Prefer the
-    // screen's kaiCall; only real drift/adverse movement (checked below and
-    // in applyFinalVerdict) overrides it.
-    if (screenKaiCall === 'BET' || (matchingRow && matchingRow.kaiCall === 'BET')) {
-      verdict = 'BET';
-    } else if (screenKaiCall === 'CONSIDER' || (matchingRow && matchingRow.kaiCall === 'CONSIDER')) {
-      verdict = 'CONSIDER';
-    } else if (tier === 'TIER 1') {
-      verdict = 'BET';
-    } else if (tier === 'TIER 2' || tier === 'TIER 3') {
-      verdict = 'CONSIDER';
-    } else {
-      verdict = 'PASS';
-      reasons.push('TIER 4 (no signal)');
-    }
-
-    if (consensusDrift && verdict === 'BET') {
-      verdict = 'CONSIDER';
-      reasons.push(`consensus drift: ${driftReason} (re-fetch disagrees with screen snapshot)`);
-    }
-
-    const exec = String(matchingRow.executionQuality || '');
-    if (exec === 'bad' && scanSourced) {
-      reasons.push('execution quality reads "bad" on re-fetch — recorded as context, screen call stands');
-    } else if (exec === 'bad' && !priceAgrees) {
-      verdict = 'PASS';
-      reasons.push('execution quality is "bad" on the requested book');
-    } else if (exec === 'bad' && priceAgrees) {
-      reasons.push('execution quality flipped "bad" on re-fetch but price agrees with screen — treated as comp-set noise');
-    } else if (exec === 'playable') {
-      reasons.push('execution quality is "playable" (within 10¢ of best)');
-    } else if (exec === 'best') {
-      reasons.push('execution quality is "best" (top of market)');
-    } else {
-      reasons.push(`execution quality is "${exec || 'unknown'}"`);
-    }
-
-    const cbk = Number(matchingRow.consensusBookCount || 0);
-    if (cbk >= 3) reasons.push(`consensus: ${cbk} comp books agree`);
-    else if (cbk >= 1) reasons.push(`consensus: ${cbk} comp book (thin)`);
-    else reasons.push('no comp book consensus');
-  } else {
-    lookupStatus = 'lookup_failed';
-    reasonType = 'lookup_failure';
-    verdict = 'CONSIDER';
-    reasons.push(
-      detailError
-        ? `screen lookup failed: ${detailError}`
-        : `no row matched selection "${selection}" on gameId ${gameId}${
-            fallbackNote ? ` (fallback: ${fallbackNote})` : ''
-          }`
-    );
-  }
-
-  if (screenKaiCall && screenKaiCall !== 'BET' && verdict === 'BET') {
-    verdict = 'CONSIDER';
-    reasons.push(`downgraded to match screen snapshot (${screenKaiCall})`);
-  }
-
-  return { verdict, tier, lookupStatus, reasonType, reasons, screenKaiCall, consensusDrift, driftReason };
-}
-
-function applyResearchRisk(verdict, reasons, research) {
-  if (research && research.riskFlag === 'high') {
-    reasons.push('player_context riskFlag = "high"');
-    return 'PASS';
-  }
-  if (research && research.riskFlag === 'medium') {
-    reasons.push('player_context riskFlag = "medium" — proceed with caution');
-    return verdict === 'BET' ? 'CONSIDER' : verdict;
-  }
-  if (research && research.riskFlag === 'low') reasons.push('player_context riskFlag = "low"');
-  return verdict;
-}
-
-function applyGameContextRisk(verdict, reasons, gameContext) {
-  if (gameContext && gameContext.riskFlag === 'high') {
-    reasons.push(`game_context riskFlag = "high"${gameContext.riskSummary ? ` — ${gameContext.riskSummary}` : ''}`);
-    return 'PASS';
-  }
-  if (gameContext && gameContext.riskFlag === 'medium') {
-    reasons.push(`game_context riskFlag = "medium" — ${gameContext.riskSummary || 'proceed with caution'}`);
-    return verdict === 'BET' ? 'CONSIDER' : verdict;
-  }
-  if (gameContext && gameContext.riskFlag === 'low') {
-    reasons.push(`game_context riskFlag = "low" — ${gameContext.riskSummary || 'minor flag'}`);
-  } else if (gameContext && gameContext.riskFlag === 'unknown' && gameContext.riskSummary) {
-    reasons.push(`game_context: ${gameContext.riskSummary}`);
-  }
-  return verdict;
+function tierForKaiCall(kaiCall) {
+  if (kaiCall === 'BET') return 'TIER 1';
+  if (kaiCall === 'CONSIDER') return 'TIER 2';
+  return 'TIER 4';
 }
 
 function collectRiskFlags(research, gameContext, disposition) {
@@ -288,7 +88,7 @@ function buildRationale({ matchingRow, args, disposition, consensusDrift, driftR
 }
 
 function buildValidationVerdict({
-  args,
+  args = {},
   matchingRow,
   matchedViaGameIdChange,
   detailError,
@@ -298,53 +98,92 @@ function buildValidationVerdict({
   research,
   gameContext
 }) {
-  const base = resolveBaseVerdict({
-    args,
-    matchingRow,
-    matchedViaGameIdChange,
-    detailError,
-    fallbackNote,
-    gameId,
-    selection
+  const scanSourced = args.screenKaiCall != null;
+  const currentOdds = matchingRow ? (matchingRow.odds ?? matchingRow.currentOdds ?? null) : null;
+  const rankedOdds = scanSourced ? (args.screenOdds ?? null) : currentOdds;
+  const lookupError = detailError
+    ? detailError instanceof Error
+      ? detailError
+      : new Error(String(detailError))
+    : null;
+  const confirmation = confirmExecution({
+    rankedOdds,
+    currentOdds,
+    currentRow: matchingRow || null,
+    quoteAsOf: matchingRow?.quoteAsOf || matchingRow?.updatedAt || null,
+    lookupError,
+    matchedViaGameIdChange: Boolean(matchedViaGameIdChange),
+    expectedGameId: gameId ?? null
   });
-  let { verdict, tier } = base;
-  const reasons = base.reasons;
-  verdict = applyResearchRisk(verdict, reasons, research);
-  verdict = applyGameContextRisk(verdict, reasons, gameContext);
 
-  const rowForDisposition = matchingRow ? { ...matchingRow } : null;
-  if (rowForDisposition && !rowForDisposition.sharpBookMovementConfirmed && args.screenSharpBookConfirmed) {
-    rowForDisposition.sharpBookMovementConfirmed = true;
+  const reasons = [];
+  let lookupStatus = 'resolved';
+  let reasonType = 'signal';
+  if (matchedViaGameIdChange && matchingRow) {
+    lookupStatus = 'gameId_changed';
+    reasonType = 'gameId_changed';
+    reasons.push(`gameId changed (${gameId} → ${matchingRow.gameId}); matched by league/market/selection/date`);
   }
-  let disposition = rowForDisposition ? computeMovementDisposition(rowForDisposition) : 'insufficient';
-  // Scan-sourced trust: the re-fetch confirmed the line is still there, so a
-  // recomputed adverse/insufficient label is comp-set jitter, not new
-  // information. Keep the screen's supportive read (recorded in reasons).
-  // Direct validate_play calls keep the recomputed disposition.
-  const screenDisposition = String(args.screenMovementDisposition || '');
-  const scanTrustsScreen = args.screenKaiCall != null;
-  if (
-    scanTrustsScreen &&
-    screenDisposition.startsWith('supportive') &&
-    (disposition === 'adverse_recent' || disposition === 'adverse_full' || disposition === 'insufficient')
-  ) {
-    reasons.push(`movement recomputed ${disposition} on re-fetch — kept screen ${screenDisposition} (scan-sourced trust)`);
-    disposition = screenDisposition;
-  }
-  if ((disposition === 'adverse_recent' || disposition === 'adverse_full') && tier !== 'TIER 4') {
-    tier = 'TIER 3';
-    reasons.push(`movement ${disposition} — tier downgraded from screen snapshot`);
+  if (!matchingRow) {
+    lookupStatus = 'lookup_failed';
+    reasonType = 'lookup_failure';
+    reasons.push(
+      detailError
+        ? `screen lookup failed: ${detailError instanceof Error ? detailError.message : detailError}`
+        : `no row matched selection "${selection}" on gameId ${gameId}${fallbackNote ? ` (fallback: ${fallbackNote})` : ''}`
+    );
   }
 
+  let verdict;
+  let tier;
+  if (scanSourced) {
+    verdict = args.screenKaiCall;
+    tier = args.screenTier || tierForKaiCall(verdict);
+    if (verdict !== 'BET' && verdict !== 'CONSIDER') {
+      verdict = 'PASS';
+      tier = 'TIER 4';
+    }
+  } else if (matchingRow) {
+    verdict = matchingRow.kaiCall || 'PASS';
+    if (verdict !== 'BET' && verdict !== 'CONSIDER') verdict = 'PASS';
+    tier = matchingRow.confidenceTier || tierForKaiCall(verdict);
+  } else {
+    verdict = 'CONSIDER';
+    tier = 'TIER 4';
+  }
+  if (verdict === 'PASS') tier = 'TIER 4';
+
+  const confirmationFailed = ['moved', 'gone', 'ambiguous', 'error'].includes(confirmation.status);
+  if (confirmationFailed && verdict === 'BET') {
+    verdict = 'CONSIDER';
+    reasons.push(`execution ${confirmation.status}: ${confirmation.reason} — downgraded from ranker BET`);
+  } else {
+    reasons.push(`execution ${confirmation.status}: ${confirmation.reason}`);
+  }
+
+  if (research?.riskFlag) {
+    reasons.push(`player_context riskFlag = "${research.riskFlag}" (context only, verdict unchanged)`);
+  }
+  if (gameContext?.riskFlag) {
+    reasons.push(
+      `game_context riskFlag = "${gameContext.riskFlag}"${gameContext.riskSummary ? ` — ${gameContext.riskSummary}` : ''} (context only, verdict unchanged)`
+    );
+  }
+  const exec = String(matchingRow?.executionQuality || '');
+  if (exec) reasons.push(`execution quality is "${exec}" (context only)`);
+  const cbk = Number(matchingRow?.consensusBookCount || 0);
+  if (matchingRow) {
+    if (cbk >= 3) reasons.push(`consensus: ${cbk} comp books agree`);
+    else if (cbk >= 1) reasons.push(`consensus: ${cbk} comp book (thin)`);
+    else reasons.push('no comp book consensus');
+  }
+
+  const consensusDrift = confirmation.status === 'moved';
+  const driftReason = consensusDrift ? confirmation.reason : null;
+  const disposition = scanSourced
+    ? args.screenMovementDisposition || matchingRow?.movementDisposition || 'insufficient'
+    : matchingRow?.movementDisposition || 'insufficient';
   const riskFlags = collectRiskFlags(research, gameContext, disposition);
-  const actionableSummary = buildActionableSummary({
-    verdict,
-    lookupStatus: base.lookupStatus,
-    matchingRow,
-    args,
-    disposition,
-    riskFlags
-  });
   const verdictSummary = {
     displayTier: verdict === 'BET' ? 'BET' : verdict === 'CONSIDER' ? 'CONSIDER' : 'PASS',
     movementDisposition: disposition,
@@ -352,25 +191,20 @@ function buildValidationVerdict({
     executionQuality: matchingRow?.executionQuality || null,
     consensusSupport: matchingRow?.consensusBookCount > 0 ? `${matchingRow.consensusBookCount} books` : 'no consensus',
     riskFlags,
-    actionableSummary,
-    rationale: buildRationale({
-      matchingRow,
-      args,
-      disposition,
-      consensusDrift: base.consensusDrift,
-      driftReason: base.driftReason
-    })
+    actionableSummary: buildActionableSummary({ verdict, lookupStatus, matchingRow, args, disposition, riskFlags }),
+    rationale: buildRationale({ matchingRow, args, disposition, consensusDrift, driftReason })
   };
 
   return {
     verdict,
     tier,
-    lookupStatus: base.lookupStatus,
-    reasonType: base.reasonType,
+    lookupStatus,
+    reasonType,
     reasons,
     verdictSummary,
-    consensusDrift: base.consensusDrift,
-    driftReason: base.driftReason
+    consensusDrift,
+    driftReason,
+    confirmation
   };
 }
 

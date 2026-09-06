@@ -192,25 +192,23 @@ function makeAdverseHandlers() {
   return handlers;
 }
 
-describe('validate_play downgrades tier on adverse movement (Task 3.2)', () => {
-  it('adverse movement downgrades a TIER 2 screen snapshot to TIER 3 (PASS→CONSIDER)', async () => {
+describe('validate_play keeps the screen snapshot authoritative', () => {
+  it('does not re-grade a TIER 2 screen snapshot from re-fetched movement', async () => {
     const handlers = makeAdverseHandlers();
     const result = await handlers.validate_play({
       league: 'NBA',
       gameId: 'nba-adverse-tier-downgrade',
       selection: 'Lakers',
       skipResearch: true,
-      screenTier: 'TIER 2'
+      screenTier: 'TIER 2',
+      screenKaiCall: 'CONSIDER',
+      screenMovementDisposition: 'supportive_clean',
+      screenOdds: -150
     });
     assert.equal(result.ok, true);
-    assert.equal(result.tier, 'TIER 3', 'adverse movement should downgrade Tiers 1/2 to TIER 3');
-    assert.equal(result.verdict, 'CONSIDER', 'adverse movement should not be BET');
-    assert.equal(
-      result.verdictSummary?.movementDisposition === 'adverse_recent' ||
-        result.verdictSummary?.movementDisposition === 'adverse_full',
-      true,
-      'movement disposition should be adverse'
-    );
+    assert.equal(result.tier, 'TIER 2');
+    assert.equal(result.verdict, 'CONSIDER');
+    assert.equal(result.verdictSummary?.movementDisposition, 'supportive_clean');
   });
 
   it('adverse movement with no screen snapshot stays at the ranker tier (TIER 4 / PASS)', async () => {

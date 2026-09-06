@@ -89,11 +89,11 @@ describe('validate_play handler', () => {
     assert.equal(result.ok, true);
     assert.equal(researchCalled, false, 'player_context should not be called when skipResearch=true');
     assert.equal(result.research.skipped, true);
-    // Verdict is at least PASS or CONSIDER or BET
-    assert.ok(['PASS', 'CONSIDER', 'BET'].includes(result.verdict));
+    assert.equal(result.confirmation.status, 'confirmed');
+    assert.equal(result.verdict, result.play.kaiCall, 'direct validation must preserve the current ranked row call');
   });
 
-  it('downgrades verdict to PASS when riskFlag is "high"', async () => {
+  it('keeps high research risk as context without changing a confirmed ranker BET', async () => {
     const handlers = createMcpHandlers({ client: makeClient() });
     handlers.player_context = async () => ({
       riskFlag: 'high',
@@ -106,20 +106,21 @@ describe('validate_play handler', () => {
       league: 'NBA',
       gameId: 'NBA:game-1',
       selection: 'Lakers',
-      book: 'NoVigApp'
+      book: 'NoVigApp',
+      screenKaiCall: 'BET',
+      screenTier: 'TIER 1',
+      screenOdds: -118,
+      screenMovementDisposition: 'supportive_clean'
     });
     assert.equal(result.ok, true);
-    // The verdict should be downgraded to PASS when riskFlag is high,
-    // even if the underlying row is otherwise BET/CONSIDER.
-    assert.equal(result.verdict, 'PASS', 'verdict should be PASS when riskFlag=high');
-    assert.ok(
-      result.reasons.some((r) => /high/.test(r)),
-      'should mention high risk in reasons'
-    );
+    assert.equal(result.verdict, 'BET');
+    assert.equal(result.tier, 'TIER 1');
+    assert.equal(result.confirmation.status, 'confirmed');
+    assert.ok(result.reasons.some((r) => /high/.test(r)));
     assert.equal(result.research.riskFlag, 'high');
   });
 
-  it('downgrades BET to CONSIDER when riskFlag is "medium"', async () => {
+  it('keeps medium research risk as context without changing a confirmed ranker BET', async () => {
     const handlers = createMcpHandlers({ client: makeClient() });
     handlers.player_context = async () => ({
       riskFlag: 'medium',
@@ -131,14 +132,17 @@ describe('validate_play handler', () => {
     const result = await handlers.validate_play({
       league: 'NBA',
       gameId: 'NBA:game-1',
-      selection: 'Lakers'
+      selection: 'Lakers',
+      screenKaiCall: 'BET',
+      screenTier: 'TIER 1',
+      screenOdds: -118,
+      screenMovementDisposition: 'supportive_clean'
     });
     assert.equal(result.ok, true);
-    // Verdict can be at most CONSIDER when riskFlag=medium.
-    assert.ok(['PASS', 'CONSIDER'].includes(result.verdict), 'verdict should be PASS or CONSIDER');
-    if (result.verdict === 'CONSIDER') {
-      assert.ok(result.reasons.some((r) => /medium/.test(r)));
-    }
+    assert.equal(result.verdict, 'BET');
+    assert.equal(result.tier, 'TIER 1');
+    assert.equal(result.confirmation.status, 'confirmed');
+    assert.ok(result.reasons.some((r) => /medium/.test(r)));
   });
 
   it('returns degraded lookup metadata when no row matches the selection', async () => {
@@ -215,7 +219,7 @@ describe('validate_play handler', () => {
     assert.equal(result.lookupStatus, 'resolved');
   });
 
-  it('detects consensus drift when screen snapshot differs from re-fetched row', async () => {
+  it('does not treat comparison-book count changes as executable price drift', async () => {
     const handlers = createMcpHandlers({ client: makeClient() });
     handlers.player_context = async () => ({ riskFlag: 'low', tweets: [], news: [] });
     const result = await handlers.validate_play({
@@ -227,10 +231,8 @@ describe('validate_play handler', () => {
     });
 
     assert.equal(result.ok, true);
-    // The test client returns consensusBookCount=2 and executionQuality varies,
-    // so passing screenConsensusBookCount=5 should trigger drift
-    assert.equal(result.consensusDrift, true);
-    assert.equal(typeof result.driftReason, 'string');
+    assert.equal(result.consensusDrift, false);
+    assert.equal(result.driftReason, null);
   });
 
   it('returns no drift when screen snapshot matches re-fetched row', async () => {

@@ -78,7 +78,7 @@ describe('validate scan-sourced trust (fast Novig market)', () => {
     assert.equal(result.verdictSummary.movementDisposition, 'supportive_clean');
   });
 
-  it('direct validate_play (no screen snapshot) keeps legacy strict behavior', () => {
+  it('direct validate_play uses the current row call without manufacturing a BET from tier', () => {
     const args = baseArgs();
     delete args.screenKaiCall;
     delete args.screenTier;
@@ -86,8 +86,57 @@ describe('validate scan-sourced trust (fast Novig market)', () => {
     delete args.screenMovementDisposition;
     delete args.screenConsensusBookCount;
     delete args.screenExecutionQuality;
-    const result = runVerdict(args, matchingRow());
-    assert.notEqual(result.verdict, 'BET');
+
+    const bet = runVerdict(
+      args,
+      matchingRow({ kaiCall: 'BET', confidenceTier: 'TIER 1', executionQuality: 'bad', consensusBookCount: 1 })
+    );
+    assert.equal(bet.verdict, 'BET');
+    assert.equal(bet.tier, 'TIER 1');
+
+    const noCall = runVerdict(
+      args,
+      matchingRow({ kaiCall: undefined, confidenceTier: 'TIER 1', executionQuality: 'best' })
+    );
+    assert.equal(noCall.verdict, 'PASS');
+    assert.equal(noCall.tier, 'TIER 4');
+  });
+
+  it('treats research and game context as enrichment without changing the ranker verdict', () => {
+    const result = buildValidationVerdict({
+      args: baseArgs(),
+      matchingRow: matchingRow({ kaiCall: 'BET', confidenceTier: 'TIER 2' }),
+      matchedViaGameIdChange: false,
+      detailError: null,
+      fallbackNote: null,
+      gameId: 'NCAAF:GAME:Home:Away:123',
+      selection: 'Home',
+      research: { riskFlag: 'high' },
+      gameContext: { riskFlag: 'high', riskSummary: 'storm' }
+    });
+
+    assert.equal(result.verdict, 'BET');
+    assert.equal(result.tier, 'TIER 2');
+  });
+
+  it('never promotes a screen CONSIDER, PASS, or WATCH from a stronger re-fetch row', () => {
+    const currentBet = matchingRow({
+      kaiCall: 'BET',
+      confidenceTier: 'TIER 1',
+      quoteAsOf: '2026-09-06T12:00:00.000Z'
+    });
+    const consider = runVerdict(baseArgs({ screenKaiCall: 'CONSIDER', screenTier: 'TIER 2' }), currentBet);
+    assert.equal(consider.verdict, 'CONSIDER');
+    assert.equal(consider.tier, 'TIER 2');
+
+    const pass = runVerdict(baseArgs({ screenKaiCall: 'PASS', screenTier: 'TIER 4' }), currentBet);
+    assert.equal(pass.verdict, 'PASS');
+    assert.equal(pass.tier, 'TIER 4');
+
+    const watch = runVerdict(baseArgs({ screenKaiCall: 'WATCH', screenTier: 'TIER 2' }), currentBet);
+    assert.equal(watch.verdict, 'PASS');
+    assert.equal(watch.tier, 'TIER 4');
+    assert.equal(watch.confirmation.quoteAsOf, '2026-09-06T12:00:00.000Z');
   });
 
   it('line gone (lookup_failed) still fails closed', () => {

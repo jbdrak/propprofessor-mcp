@@ -3,7 +3,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
-const { reconcileValidateOverride } = require('../lib/validate-reconcile');
 
 const fiveBookOdds = {
   NoVigApp: { odds1: 150, odds2: -178 },
@@ -123,6 +122,7 @@ describe('validate_play scan-sourced trust (regression: 5 books on screen → th
       skipResearch: true,
       screenTier: 'TIER 1',
       screenKaiCall: 'BET',
+      screenOdds: 150,
       screenConsensusBookCount: 5,
       screenExecutionQuality: 'best'
     });
@@ -130,32 +130,6 @@ describe('validate_play scan-sourced trust (regression: 5 books on screen → th
     assert.equal(result.ok, true);
     assert.equal(result.consensusDrift, false);
     assert.equal(result.verdict, 'BET');
-  });
-});
-
-describe('reconcileValidateOverride movement drift', () => {
-  it('does not preserve supportive screen movement when consensus drifted', () => {
-    const result = reconcileValidateOverride({
-      screenExec: 'playable',
-      screenDisposition: 'supportive_clean',
-      validateExec: 'playable',
-      validateDisposition: 'insufficient',
-      consensusDrift: true
-    });
-    assert.equal(result.movementDisposition, 'insufficient');
-    assert.equal(result.overridden, false);
-  });
-
-  it('preserves supportive screen movement without consensus drift', () => {
-    const result = reconcileValidateOverride({
-      screenExec: 'playable',
-      screenDisposition: 'supportive_clean',
-      validateExec: 'playable',
-      validateDisposition: 'insufficient',
-      consensusDrift: false
-    });
-    assert.equal(result.movementDisposition, 'supportive_clean');
-    assert.equal(result.overridden, true);
   });
 });
 
