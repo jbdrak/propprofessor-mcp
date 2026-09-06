@@ -41,11 +41,7 @@ describe('rankScreenRows alternate-line drop', () => {
     );
 
     assert.ok(Array.isArray(ranked), 'expected an array');
-    assert.equal(
-      ranked.filter((r) => r.altLineFiltered).length,
-      0,
-      'no alt-line rows should survive in output'
-    );
+    assert.equal(ranked.filter((r) => r.altLineFiltered).length, 0, 'no alt-line rows should survive in output');
     assert.ok(
       ranked.some((r) => String(r.selection || '').includes('26.5')),
       'main line Villanova -26.5 should survive'

@@ -74,11 +74,10 @@ describe('pp card', () => {
     };
     console.error = () => {};
     try {
-      await cmdCard(
-        { screen_ranked: async () => ({ result: [betRow()] }) },
-        ['card', 'NCAAF'],
-        { book: 'NoVigApp', json: true }
-      );
+      await cmdCard({ screen_ranked: async () => ({ result: [betRow()] }) }, ['card', 'NCAAF'], {
+        book: 'NoVigApp',
+        json: true
+      });
     } finally {
       console.log = originalLog;
       console.error = originalError;

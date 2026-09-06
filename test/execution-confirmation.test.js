@@ -67,7 +67,10 @@ test('fails closed for missing and malformed quote values', () => {
 });
 
 test('status precedence is skipped over error over ambiguity over gone', () => {
-  assert.equal(confirm({ skipped: true, lookupError: new Error('timeout'), ambiguous: true, currentRow: null }).status, 'skipped');
+  assert.equal(
+    confirm({ skipped: true, lookupError: new Error('timeout'), ambiguous: true, currentRow: null }).status,
+    'skipped'
+  );
   assert.equal(confirm({ lookupError: new Error('timeout'), ambiguous: true, currentRow: null }).status, 'error');
   assert.equal(confirm({ ambiguous: true, currentRow: null }).status, 'ambiguous');
   assert.equal(confirm({ currentRow: null }).status, 'gone');

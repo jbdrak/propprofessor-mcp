@@ -1345,7 +1345,9 @@ async function cmdGame(handlers, positional, flags) {
   // Print elapsed time every 30s so a slow call never looks dead.
   const startedAt = Date.now();
   const heartbeat = setInterval(() => {
-    console.error(`... still fetching ${gameId} (${Math.round((Date.now() - startedAt) / 1000)}s, hydrating history) ...`);
+    console.error(
+      `... still fetching ${gameId} (${Math.round((Date.now() - startedAt) / 1000)}s, hydrating history) ...`
+    );
   }, 30000);
   if (heartbeat && typeof heartbeat.unref === 'function') heartbeat.unref();
   let res;
@@ -1768,12 +1770,13 @@ async function cmdCard(handlers, positional, flags) {
   console.log(B + `${league} card` + R + ` — ${card.length} BET${card.length === 1 ? '' : 's'} on ${book}`);
   card.forEach((r, idx) => {
     const oddsStr = r.odds > 0 ? '+' + r.odds : String(r.odds);
-    const when = r.startsIn === 'LIVE' || r.isLive ? RED + 'LIVE' + R : [r.startCT, r.startsIn].filter(Boolean).join(', ');
+    const when =
+      r.startsIn === 'LIVE' || r.isLive ? RED + 'LIVE' + R : [r.startCT, r.startsIn].filter(Boolean).join(', ');
     const liq = r.liquidityFlag === 'thin' ? ' ' + RED + '[thin liq]' + R : '';
     const sameGame = (gameCounts.get(r.gameId || r.game) || 0) > 1 ? '  (same game as below)' : '';
     console.log(
       `  ${idx + 1}. ${r.selection} @ ${oddsStr}  [${r.market}]  (${when})${liq}${sameGame}\n` +
-      `     ${r.game || ''}  |  mv ${r.movementDisposition || '?'}  |  books ${r.consensusBookCount ?? '?'}`
+        `     ${r.game || ''}  |  mv ${r.movementDisposition || '?'}  |  books ${r.consensusBookCount ?? '?'}`
     );
   });
   if (considerCount) console.error(`${considerCount} CONSIDERs left off — use pp rank to see them.`);
@@ -1835,16 +1838,7 @@ function printRankedLeague(league, responses) {
       if (g.startUnverified) kickoff += ' (time unverified)';
     }
     console.log(
-      '\n' +
-        B +
-        (g.awayTeam || '?') +
-        ' @ ' +
-        (g.homeTeam || '?') +
-        R +
-        '  [' +
-        mkts.join(',') +
-        ']' +
-        kickoff
+      '\n' + B + (g.awayTeam || '?') + ' @ ' + (g.homeTeam || '?') + R + '  [' + mkts.join(',') + ']' + kickoff
     );
     for (const r of grp) {
       const mv = movementColor(r.movementDisposition || '');

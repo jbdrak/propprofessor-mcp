@@ -50,10 +50,7 @@ describe('validate scan-sourced trust (fast Novig market)', () => {
   });
 
   it('trusts NoVig percentage-string prices (96.1% vs 95.5%)', () => {
-    const result = runVerdict(
-      baseArgs({ screenOdds: '96.1%' }),
-      matchingRow({ odds: '95.5%' })
-    );
+    const result = runVerdict(baseArgs({ screenOdds: '96.1%' }), matchingRow({ odds: '95.5%' }));
     assert.equal(result.verdict, 'BET');
     assert.equal(result.consensusDrift, false);
   });
@@ -65,10 +62,7 @@ describe('validate scan-sourced trust (fast Novig market)', () => {
   });
 
   it('downgrades to CONSIDER on a material percentage move (96.1% → 88%)', () => {
-    const result = runVerdict(
-      baseArgs({ screenOdds: '96.1%' }),
-      matchingRow({ odds: '88.0%' })
-    );
+    const result = runVerdict(baseArgs({ screenOdds: '96.1%' }), matchingRow({ odds: '88.0%' }));
     assert.equal(result.verdict, 'CONSIDER');
     assert.equal(result.consensusDrift, true);
   });

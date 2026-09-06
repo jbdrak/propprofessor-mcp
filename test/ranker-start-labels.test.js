@@ -18,10 +18,7 @@ describe('describeStartTime', () => {
     assert.equal(describeStartTime('2026-09-05T23:00:00Z', { nowMs: NOW }).startsIn, 'in 3h');
     assert.equal(describeStartTime('2026-09-06T20:00:00Z', { nowMs: NOW }).startsIn, 'in 1d');
     assert.equal(describeStartTime('2026-09-05T19:00:00Z', { nowMs: NOW }).startsIn, 'started');
-    assert.equal(
-      describeStartTime('2026-09-05T19:00:00Z', { isLive: true, nowMs: NOW }).startsIn,
-      'LIVE'
-    );
+    assert.equal(describeStartTime('2026-09-05T19:00:00Z', { isLive: true, nowMs: NOW }).startsIn, 'LIVE');
   });
 
   it('flags tennis times unverified and handles garbage input', () => {

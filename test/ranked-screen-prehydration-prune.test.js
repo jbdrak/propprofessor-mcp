@@ -64,11 +64,7 @@ describe('buildRankedScreenResponse — pre-hydration alt-line prune', () => {
       `no history query for alt lines, got: ${historySelectionIds.join(', ')}`
     );
     assert.equal(result.resultMeta.preHydrationAltPruned, 2, 'expected 2 pruned alt rows');
-    assert.equal(
-      result.result.filter((r) => r.altLineFiltered).length,
-      0,
-      'no alt-line rows should survive in output'
-    );
+    assert.equal(result.result.filter((r) => r.altLineFiltered).length, 0, 'no alt-line rows should survive in output');
   });
 });
 

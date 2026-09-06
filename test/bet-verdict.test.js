@@ -280,8 +280,16 @@ test('applyValidatedFields passes validator movement and risk flags through verb
     },
     consensusDrift: false
   });
-  assert.equal(target.validatedMovementDisposition, 'adverse_full', 'Phase 3A: validator movement passes through verbatim');
-  assert.deepEqual(target.validatedRiskFlags, ['movement adverse'], 'Phase 3A: validator risk flags pass through verbatim');
+  assert.equal(
+    target.validatedMovementDisposition,
+    'adverse_full',
+    'Phase 3A: validator movement passes through verbatim'
+  );
+  assert.deepEqual(
+    target.validatedRiskFlags,
+    ['movement adverse'],
+    'Phase 3A: validator risk flags pass through verbatim'
+  );
 });
 
 test('applyFinalVerdict downgrades BET to PASS on insufficient movement disposition', () => {

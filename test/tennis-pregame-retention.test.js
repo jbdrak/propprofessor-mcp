@@ -10,7 +10,14 @@ const { rankTennisScreenRows } = require('../lib/screen-tennis');
 // A future regression that adds a start-time / card-window filter to the tennis
 // path would silently drop live pregame matches; these tests catch it.
 
-function tennisCandidate({ start, odds, consensusBookCount = 6, selection = 'Faria +2.5', gameId = 'Tennis:PREMATCH:Darderi:Faria:1784914200', game = 'Darderi vs Faria' } = {}) {
+function tennisCandidate({
+  start,
+  odds,
+  consensusBookCount = 6,
+  selection = 'Faria +2.5',
+  gameId = 'Tennis:PREMATCH:Darderi:Faria:1784914200',
+  game = 'Darderi vs Faria'
+} = {}) {
   return {
     league: 'Tennis',
     gameId,

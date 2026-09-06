@@ -458,9 +458,7 @@ async function queryPlayDetailsResponse({
         // rows that can never surface. Off here. 90s hydration deadline —
         // game detail must never hang (see pre-hydration prune + deadline).
         enableHistoryLineFallback: false,
-        historyDeadlineMs: Number.isFinite(Number(args.historyDeadlineMs))
-          ? Number(args.historyDeadlineMs)
-          : 90000,
+        historyDeadlineMs: Number.isFinite(Number(args.historyDeadlineMs)) ? Number(args.historyDeadlineMs) : 90000,
         ...(propHistoryLookback !== undefined ? { lookbackHours: propHistoryLookback } : {})
       },
       // Hydrate only the exact requested selection when this detail call is
