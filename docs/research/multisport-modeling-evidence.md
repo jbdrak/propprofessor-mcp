@@ -4,6 +4,8 @@ Updated: 2026-09-06
 
 This document records research inputs for PropProfessor's multi-sport evaluation work. These sources inform fields, gates, and evaluation design. They do **not** prove that a particular strategy is profitable.
 
+A separately cited 2026 evidence addendum covers verified basketball, football, and NHL findings: [`cross-sport-evidence-2026-09.md`](./cross-sport-evidence-2026-09.md).
+
 ## Cross-sport evaluation
 
 ### Calibration beats raw accuracy

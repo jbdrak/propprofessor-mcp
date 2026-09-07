@@ -6,10 +6,10 @@ const { createMockClient } = require('./fixtures/mock-client');
 
 // Raw screen-API shape (game_data + selections), like the real backend.
 // Models a WNBA total with strong consensus so it ranks TIER 1 + BET.
-const NOW = Date.now();
-// Keep the mock event ahead of the real clock. The card-window filter owns the
-// America/Chicago conversion, so the fixture should provide an instant rather
-// than pretending the machine itself is configured for Central Time.
+const NOW = Date.parse('2026-07-12T17:00:00.000Z');
+// Keep the fixture on a fixed local calendar date and freeze the clock during
+// the handler call. The card-window filter uses Date.now() and America/Chicago;
+// a live clock makes this test fail after the fixture's local day rolls over.
 const FUTURE_START = new Date(NOW + 60 * 60 * 1000);
 const WNBA_TOTAL_PAYLOAD = {
   game_data: [
@@ -50,11 +50,18 @@ test('today() slate rows expose gameId for validate_play chaining', async () => 
   const handlers = createMcpHandlers({ client });
   // Pass targetTiers that include what the mock data actually grades to (TIER 3+4).
   // The test is about gameId passthrough, not tier filtering.
-  const result = await handlers.today({
-    leagues: ['WNBA'],
-    book: 'NoVigApp',
-    targetTiers: ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4']
-  });
+  const realDateNow = Date.now;
+  Date.now = () => NOW;
+  let result;
+  try {
+    result = await handlers.today({
+      leagues: ['WNBA'],
+      book: 'NoVigApp',
+      targetTiers: ['TIER 1', 'TIER 2', 'TIER 3', 'TIER 4']
+    });
+  } finally {
+    Date.now = realDateNow;
+  }
   assert.ok(result.ok, 'today() returns ok');
   assert.ok(Array.isArray(result.slate), 'slate is an array');
   assert.ok(result.slate.length > 0, 'slate has at least one row');
