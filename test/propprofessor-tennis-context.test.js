@@ -1,6 +1,6 @@
 'use strict';
 
-const { describe, it, before, after, beforeEach } = require('node:test');
+const { describe, it, before, after, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const cp = require('child_process');
 
@@ -45,6 +45,23 @@ function clearModuleCache() {
       delete require.cache[key];
     }
   }
+}
+
+// Install a stub `exports` object for an already-resolvable module path.
+// Returns a restore function. Used to hermetically mock lib/flashscore-times.js
+// and lib/propprofessor-tennis.js before loading the context module under test.
+function stubModuleExports(resolvedPath, exportsObj) {
+  const prev = require.cache[resolvedPath];
+  require.cache[resolvedPath] = {
+    id: resolvedPath,
+    filename: resolvedPath,
+    loaded: true,
+    exports: exportsObj
+  };
+  return () => {
+    if (prev) require.cache[resolvedPath] = prev;
+    else delete require.cache[resolvedPath];
+  };
 }
 
 before(() => {
@@ -728,5 +745,361 @@ describe('weekly-schedule-2026 helpers', () => {
   it('listTourneysForWeek returns [] for a date outside the schedule', () => {
     const sched = require('../lib/tennis-schedule-data/weekly-schedule-2026');
     assert.deepEqual(sched.listTourneysForWeek('2027-01-15T00:00:00.000Z'), []);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// September 2026 coverage (regression: static schedule ended 2026-08-10,
+// so September matchups resolved to surface=unknown, level=null)
+// ---------------------------------------------------------------------------
+
+describe('september-2026 schedule coverage (regression)', () => {
+  beforeEach(() => clearModuleCache());
+
+  it("getWeekForDate('2026-09-07T12:00:00.000Z') returns the 2026-09-07 week", () => {
+    const sched = require('../lib/tennis-schedule-data/weekly-schedule-2026');
+    const w = sched.getWeekForDate('2026-09-07T12:00:00.000Z');
+    assert.ok(w, 'expected a week entry for 2026-09-07');
+    assert.equal(w.start, '2026-09-07');
+  });
+
+  it('September week includes the 2026 US Open as Hardcourt Grand Slam', () => {
+    const sched = require('../lib/tennis-schedule-data/weekly-schedule-2026');
+    const tourneys = sched.listTourneysForWeek('2026-09-07T12:00:00.000Z');
+    const usOpen = tourneys.filter((t) => t.slug === 'us-open');
+    assert.ok(usOpen.length >= 1, 'expected a US Open entry for the September week');
+    for (const t of usOpen) {
+      assert.equal(t.surface, 'Hardcourt');
+      assert.equal(t.level, 'Grand Slam');
+    }
+  });
+
+  it('US Open window week 2026-08-31 resolves', () => {
+    const sched = require('../lib/tennis-schedule-data/weekly-schedule-2026');
+    const w = sched.getWeekForDate('2026-08-31T12:00:00.000Z');
+    assert.ok(w, 'expected a week entry for 2026-08-31');
+    const slugs = sched.listTourneysForWeek('2026-08-31T12:00:00.000Z').map((t) => t.slug);
+    assert.ok(slugs.includes('us-open'), 'expected us-open in the 2026-08-31 week');
+  });
+
+  it('September week includes the verified Antalya WTA 125 clay event', () => {
+    const sched = require('../lib/tennis-schedule-data/weekly-schedule-2026');
+    const tourneys = sched.listTourneysForWeek('2026-09-07T12:00:00.000Z');
+    const antalya = tourneys.find((t) => t.slug === 'antalya');
+    assert.ok(antalya, 'expected a verified Antalya entry for the September week');
+    assert.equal(antalya.surface, 'Clay');
+    assert.equal(antalya.level, 'WTA 125');
+  });
+
+  it('resolves Bronzetti vs Romero Gormaz (2026-09-07) to Antalya via the verified player list', () => {
+    const { resolveTournamentFromMatchup } = require('../lib/propprofessor-tennis-context');
+    const r = resolveTournamentFromMatchup('Bronzetti vs Romero Gormaz', '2026-09-07T10:00:00.000Z');
+    assert.ok(r, 'expected Antalya resolution for the verified WTA 125 entrant');
+    assert.equal(r.slug, 'antalya');
+    assert.equal(r.surface, 'Clay');
+    assert.equal(r.level, 'WTA 125');
+  });
+
+  it('September week includes the verified Barranquilla WTA 125 hard event', () => {
+    const sched = require('../lib/tennis-schedule-data/weekly-schedule-2026');
+    const tourneys = sched.listTourneysForWeek('2026-09-07T12:00:00.000Z');
+    const barranquilla = tourneys.find((t) => t.slug === 'barranquilla');
+    assert.ok(barranquilla, 'expected a verified Barranquilla entry for the September week');
+    assert.equal(barranquilla.surface, 'Hardcourt');
+    assert.equal(barranquilla.level, 'WTA 125');
+  });
+
+  it('resolves Lepchenko vs Scott (2026-09-07) to Barranquilla, not US Open', () => {
+    const { resolveTournamentFromMatchup } = require('../lib/propprofessor-tennis-context');
+    const r = resolveTournamentFromMatchup('Lepchenko vs Scott', '2026-09-07T15:00:00.000Z');
+    assert.ok(r, 'expected Barranquilla resolution for the verified WTA 125 entrants');
+    assert.equal(r.slug, 'barranquilla');
+    assert.equal(r.surface, 'Hardcourt');
+    assert.equal(r.level, 'WTA 125');
+    assert.equal(r.tour, 'wta');
+  });
+
+  it('returns null for an unknown-player matchup on an uncovered date', () => {
+    const { resolveTournamentFromMatchup } = require('../lib/propprofessor-tennis-context');
+    const r = resolveTournamentFromMatchup('Unknownplayer1 vs Unknownplayer2', '2026-09-14T10:00:00.000Z');
+    assert.equal(r, null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Flashscore exact-match fallback (regression: events outside the static
+// schedule stayed unknown even when fresh exact Flashscore metadata exists)
+// Shapes mirror real lib/tennis-schedule-data/flashscore-cache.json entries.
+// ---------------------------------------------------------------------------
+
+describe('guessSurfaceFromFlashscoreMatch', () => {
+  beforeEach(() => clearModuleCache());
+
+  it('prefers explicit match.surface', () => {
+    const { guessSurfaceFromFlashscoreMatch } = require('../lib/propprofessor-tennis-context');
+    assert.equal(guessSurfaceFromFlashscoreMatch({ surface: 'Clay', tournament: 'Cassis (France)' }), 'Clay');
+  });
+
+  it('maps the US Open tournament name to Hardcourt', () => {
+    const { guessSurfaceFromFlashscoreMatch } = require('../lib/propprofessor-tennis-context');
+    assert.equal(guessSurfaceFromFlashscoreMatch({ surface: '', tournament: 'US Open (USA)' }), 'Hardcourt');
+  });
+
+  it('maps the verified Antalya event to Clay', () => {
+    const { guessSurfaceFromFlashscoreMatch } = require('../lib/propprofessor-tennis-context');
+    assert.equal(guessSurfaceFromFlashscoreMatch({ surface: '', tournament: 'ATIK Antalya Open' }), 'Clay');
+  });
+
+  it('returns null for an unmapped tournament without explicit surface', () => {
+    const { guessSurfaceFromFlashscoreMatch } = require('../lib/propprofessor-tennis-context');
+    assert.equal(guessSurfaceFromFlashscoreMatch({ surface: '', tournament: 'Cassis (France)' }), null);
+    assert.equal(guessSurfaceFromFlashscoreMatch(null), null);
+    assert.equal(guessSurfaceFromFlashscoreMatch({}), null);
+  });
+});
+
+describe('guessLevelFromFlashscoreMatch', () => {
+  beforeEach(() => clearModuleCache());
+
+  it('resolves Grand Slam from the tournament name for generic tour categories', () => {
+    const { guessLevelFromFlashscoreMatch } = require('../lib/propprofessor-tennis-context');
+    assert.equal(
+      guessLevelFromFlashscoreMatch({ tournament: 'US Open (USA)', category: 'WTA - SINGLES' }),
+      'Grand Slam'
+    );
+    assert.equal(
+      guessLevelFromFlashscoreMatch({ tournament: 'US Open (USA)', category: 'ATP - SINGLES' }),
+      'Grand Slam'
+    );
+  });
+
+  it('prefers an explicit Challenger category over the generic name fallback', () => {
+    const { guessLevelFromFlashscoreMatch } = require('../lib/propprofessor-tennis-context');
+    assert.equal(
+      guessLevelFromFlashscoreMatch({ tournament: 'Antalya 4 (Turkey)', category: 'CHALLENGER WOMEN - SINGLES' }),
+      'Challenger'
+    );
+  });
+
+  it('maps ITF categories to ITF Futures', () => {
+    const { guessLevelFromFlashscoreMatch } = require('../lib/propprofessor-tennis-context');
+    assert.equal(
+      guessLevelFromFlashscoreMatch({ tournament: 'M15 Haren (Netherlands)', category: 'ITF MEN - SINGLES' }),
+      'ITF Futures'
+    );
+  });
+
+  it('does not invent a level from a generic ATP/WTA category alone', () => {
+    const { guessLevelFromFlashscoreMatch } = require('../lib/propprofessor-tennis-context');
+    assert.equal(guessLevelFromFlashscoreMatch({ tournament: 'Unknown Event 2026', category: 'ATP - SINGLES' }), null);
+    assert.equal(guessLevelFromFlashscoreMatch(null), null);
+    assert.equal(guessLevelFromFlashscoreMatch({}), null);
+  });
+});
+
+describe('getTennisContext — flashscore exact-match fallback', () => {
+  const FLASHSCORE_PATH = require.resolve('../lib/flashscore-times');
+  const TENNIS_PATH = require.resolve('../lib/propprofessor-tennis');
+  let restoreEspn;
+
+  beforeEach(() => {
+    clearModuleCache();
+    restoreEspn = stubModuleExports(TENNIS_PATH, {
+      fetchEspnMatches: async () => [],
+      findEspnMatch: () => null
+    });
+  });
+
+  afterEach(() => {
+    restoreEspn();
+    restoreEspn = null;
+  });
+
+  function freshCacheInfo(date) {
+    return { date, source: 'flashscore', fresh: true, stale: false };
+  }
+
+  it('resolves fresh exact metadata on an uncovered date', async () => {
+    mockCurlSuccess(EMPTY_RSS);
+    const restore = stubModuleExports(FLASHSCORE_PATH, {
+      lookupMatchTime: () => ({
+        time: '10:00',
+        date: '2026-09-14',
+        tournament: 'US Open (USA)',
+        category: 'ATP - SINGLES',
+        surface: ''
+      }),
+      getCacheInfo: () => freshCacheInfo('2026-09-14')
+    });
+    try {
+      clearModuleCache();
+      const { getTennisContext } = require('../lib/propprofessor-tennis-context');
+      const result = await getTennisContext({
+        player1: 'Cerundolo',
+        player2: 'Blockx',
+        tournament: 'Cerundolo vs Blockx',
+        start: '2026-09-14T10:00:00.000Z'
+      });
+      assert.equal(result.surface, 'Hardcourt');
+      assert.equal(result.level, 'Grand Slam');
+      assert.equal(result.riskFlag, 'clean');
+      assert.equal(result.signals.resolvedFromMatchup, true);
+      assert.equal(result.tournament, 'US Open (USA)');
+      assert.equal(result.tour, 'atp');
+    } finally {
+      restore();
+    }
+  });
+
+  it('stays fail-closed when the Flashscore cache is stale', async () => {
+    mockCurlSuccess(EMPTY_RSS);
+    const restore = stubModuleExports(FLASHSCORE_PATH, {
+      lookupMatchTime: () => ({
+        time: '10:00',
+        date: '2026-09-14',
+        tournament: 'US Open (USA)',
+        category: 'ATP - SINGLES',
+        surface: ''
+      }),
+      getCacheInfo: () => ({ date: '2026-09-06', source: 'flashscore', fresh: false, stale: true })
+    });
+    try {
+      clearModuleCache();
+      const { getTennisContext } = require('../lib/propprofessor-tennis-context');
+      const result = await getTennisContext({
+        player1: 'Cerundolo',
+        player2: 'Blockx',
+        tournament: 'Cerundolo vs Blockx',
+        start: '2026-09-14T10:00:00.000Z'
+      });
+      assert.equal(result.surface, 'unknown');
+      assert.equal(result.level, null);
+      assert.equal(result.riskFlag, 'unknown');
+      assert.equal(result.signals.resolvedFromMatchup, false);
+    } finally {
+      restore();
+    }
+  });
+
+  it('stays fail-closed on a mismatched-date cache result', async () => {
+    mockCurlSuccess(EMPTY_RSS);
+    const restore = stubModuleExports(FLASHSCORE_PATH, {
+      lookupMatchTime: () => ({
+        time: '10:00',
+        date: '2026-09-06',
+        tournament: 'US Open (USA)',
+        category: 'ATP - SINGLES',
+        surface: ''
+      }),
+      getCacheInfo: () => freshCacheInfo('2026-09-14')
+    });
+    try {
+      clearModuleCache();
+      const { getTennisContext } = require('../lib/propprofessor-tennis-context');
+      const result = await getTennisContext({
+        player1: 'Cerundolo',
+        player2: 'Blockx',
+        tournament: 'Cerundolo vs Blockx',
+        start: '2026-09-14T10:00:00.000Z'
+      });
+      assert.equal(result.surface, 'unknown');
+      assert.equal(result.signals.resolvedFromMatchup, false);
+    } finally {
+      restore();
+    }
+  });
+
+  it('stays fail-closed on incomplete cache metadata', async () => {
+    mockCurlSuccess(EMPTY_RSS);
+    const restore = stubModuleExports(FLASHSCORE_PATH, {
+      lookupMatchTime: () => ({ time: '10:00', date: '2026-09-14', tournament: '', category: '', surface: '' }),
+      getCacheInfo: () => freshCacheInfo('2026-09-14')
+    });
+    try {
+      clearModuleCache();
+      const { getTennisContext } = require('../lib/propprofessor-tennis-context');
+      const result = await getTennisContext({
+        player1: 'Cerundolo',
+        player2: 'Blockx',
+        tournament: 'Cerundolo vs Blockx',
+        start: '2026-09-14T10:00:00.000Z'
+      });
+      assert.equal(result.surface, 'unknown');
+      assert.equal(result.level, null);
+      assert.equal(result.signals.resolvedFromMatchup, false);
+    } finally {
+      restore();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ESPN fallback seam (regression: venue court text was fed to the
+// tournament-name guessers; event/tournament metadata must be used instead)
+// ---------------------------------------------------------------------------
+
+describe('getTennisContext — ESPN event-metadata fallback', () => {
+  beforeEach(() => clearModuleCache());
+
+  const TENNIS_PATH = require.resolve('../lib/propprofessor-tennis');
+
+  it('resolves surface/level from event text when the venue is an opaque court name', async () => {
+    mockCurlSuccess(EMPTY_RSS);
+    const espnMatch = {
+      player1: 'Osaka',
+      player2: 'Rybakina',
+      start: '2026-09-14T10:00:00.000Z',
+      status: 'Scheduled',
+      venue: 'Court 5',
+      event: 'US Open',
+      tournament: 'US Open'
+    };
+    const restore = stubModuleExports(TENNIS_PATH, {
+      fetchEspnMatches: async () => [espnMatch],
+      findEspnMatch: () => ({ ...espnMatch, confidence: 1 })
+    });
+    try {
+      clearModuleCache();
+      const { getTennisContext } = require('../lib/propprofessor-tennis-context');
+      const result = await getTennisContext({
+        player1: 'Osaka',
+        player2: 'Rybakina',
+        tournament: 'Osaka vs Rybakina',
+        start: '2026-09-14T10:00:00.000Z'
+      });
+      assert.equal(result.surface, 'Hardcourt');
+      assert.equal(result.level, 'Grand Slam');
+    } finally {
+      restore();
+    }
+  });
+
+  it('stays unknown when ESPN has only an opaque venue and no event text', async () => {
+    mockCurlSuccess(EMPTY_RSS);
+    const espnMatch = {
+      player1: 'Osaka',
+      player2: 'Rybakina',
+      start: '2026-09-14T10:00:00.000Z',
+      status: 'Scheduled',
+      venue: 'Court 5'
+    };
+    const restore = stubModuleExports(TENNIS_PATH, {
+      fetchEspnMatches: async () => [espnMatch],
+      findEspnMatch: () => ({ ...espnMatch, confidence: 1 })
+    });
+    try {
+      clearModuleCache();
+      const { getTennisContext } = require('../lib/propprofessor-tennis-context');
+      const result = await getTennisContext({
+        player1: 'Osaka',
+        player2: 'Rybakina',
+        tournament: 'Osaka vs Rybakina',
+        start: '2026-09-14T10:00:00.000Z'
+      });
+      assert.equal(result.surface, 'unknown');
+      assert.equal(result.level, null);
+    } finally {
+      restore();
+    }
   });
 });
