@@ -8,10 +8,13 @@ const { createMockClient } = require('./fixtures/mock-client');
 function makeClient({
   detailRows: _detailRows = [],
   research: _research = null,
-  detailError: _detailError = null
+  detailError: _detailError = null,
+  onBestCompsQuery = null
 } = {}) {
   return {
-    queryScreenOddsBestComps: async () => ({
+    queryScreenOddsBestComps: async (args) => {
+      if (typeof onBestCompsQuery === 'function') onBestCompsQuery(args);
+      return {
       game_data: [
         {
           gameId: 'NBA:game-1',
@@ -37,7 +40,8 @@ function makeClient({
           defaultKey: 'a'
         }
       ]
-    }),
+      };
+    },
     queryOddsHistory: async () => ({
       NoVigApp: [
         { odds: -118, start_ts: 1 },
@@ -91,6 +95,25 @@ describe('validate_play handler', () => {
     assert.equal(result.research.skipped, true);
     assert.equal(result.confirmation.status, 'confirmed');
     assert.equal(result.verdict, result.play.kaiCall, 'direct validation must preserve the current ranked row call');
+  });
+
+  it('propagates the singular execution book into the exact lookup book set', async () => {
+    let bestCompsArgs = null;
+    const handlers = createMcpHandlers({
+      client: makeClient({ onBestCompsQuery: (args) => { bestCompsArgs = args; } })
+    });
+    handlers.player_context = async () => ({ riskFlag: 'low', tweets: [], news: [] });
+    const result = await handlers.validate_play({
+      league: 'NBA',
+      gameId: 'NBA:game-1',
+      selection: 'Lakers',
+      book: 'NoVigApp',
+      skipResearch: true
+    });
+    assert.equal(result.ok, true);
+    assert.ok(bestCompsArgs, 'exact lookup should query the screen');
+    assert.ok(bestCompsArgs.books.includes('NoVigApp'));
+    assert.equal(result.executionBook, 'NoVigApp');
   });
 
   it('keeps high research risk as context without changing a confirmed ranker BET', async () => {

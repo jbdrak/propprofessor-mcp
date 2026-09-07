@@ -37,6 +37,9 @@ function buildActionableSummary({ verdict, lookupStatus, matchingRow, args, disp
   if (verdict !== 'CONSIDER') return 'PASS — one or more hard checks failed.';
 
   const cbk = Number(matchingRow?.consensusBookCount || 0);
+  if (disposition === 'insufficient') {
+    return `Comparable movement history is insufficient${cbk ? ` (${cbk} books visible)` : ''}. Treat this as unresolved, not as a directional signal.`;
+  }
   const edge = Number(matchingRow?.consensusEdge || args.screenConsensusEdge || 0);
   const clv = Number(matchingRow?.clvProxyPct || 0);
   const suffix = riskFlags.length > 0 ? ` — ${riskFlags.join(', ')}` : '';
@@ -180,9 +183,23 @@ function buildValidationVerdict({
 
   const consensusDrift = confirmation.status === 'moved';
   const driftReason = consensusDrift ? confirmation.reason : null;
-  const disposition = scanSourced
+  let disposition = scanSourced
     ? args.screenMovementDisposition || matchingRow?.movementDisposition || 'insufficient'
     : matchingRow?.movementDisposition || 'insufficient';
+  const fallbackAdverse =
+    !scanSourced &&
+    matchingRow &&
+    String(matchingRow.movementMode || '').toLowerCase() === 'mixed_books_fallback' &&
+    String(disposition).toLowerCase().startsWith('adverse') &&
+    !matchingRow.movementSourceBook;
+  if (fallbackAdverse) {
+    disposition = 'insufficient';
+    reasons.push('fallback history was not comparable enough to authorize an adverse movement flip');
+    if (verdict === 'BET' || (verdict === 'PASS' && matchingRow.kaiCall === 'PASS')) {
+      verdict = 'CONSIDER';
+      tier = 'TIER 2';
+    }
+  }
   const riskFlags = collectRiskFlags(research, gameContext, disposition);
   const verdictSummary = {
     displayTier: verdict === 'BET' ? 'BET' : verdict === 'CONSIDER' ? 'CONSIDER' : 'PASS',

@@ -8,9 +8,24 @@ const {
   resolveHistoryForEntity,
   getOddsHistoryStartTimestamp
 } = require('../lib/propprofessor-history');
+const { pickMovementSource } = require('../lib/propprofessor-sharp-history');
 const { getSharpBookComparisonSet } = require('../lib/propprofessor-sharp-books');
 
 describe('propprofessor history matching', () => {
+  it('does not treat a no-vig target book as same-book sharp movement', () => {
+    const result = pickMovementSource(
+      {
+        NoVigApp: [
+          { odds: 100, time: 1 },
+          { odds: 104, time: 2 }
+        ]
+      },
+      { preferredBook: 'NoVigApp', sharpBooks: ['Pinnacle', 'Circa'] }
+    );
+    assert.equal(result.movementMode, 'mixed_books_fallback');
+    assert.equal(result.movementSourceBook, null);
+  });
+
   it('reports gameId metadata when selection ids differ but game ids match', async () => {
     const result = await resolveHistoryForEntity({
       client: {},

@@ -151,7 +151,7 @@ describe('propprofessor sharp history helpers', () => {
     assert.equal(summary.movementSourceBook, 'Pinnacle');
   });
 
-  it('falls back to the named book history when no sharp book has history', () => {
+  it('keeps derived-book history as mixed fallback when no sharp book has history', () => {
     const summary = summarizeSharpMovement({
       lineHistory: [
         { book: 'OnyxOdds', odds: 110, time: 1 },
@@ -162,8 +162,8 @@ describe('propprofessor sharp history helpers', () => {
       options: { recentWindowHours: 6 }
     });
 
-    assert.equal(summary.movementMode, 'same_book');
-    assert.equal(summary.movementSourceBook, 'OnyxOdds');
+    assert.equal(summary.movementMode, 'mixed_books_fallback');
+    assert.equal(summary.movementSourceBook, null);
   });
 
   it('downgrades comparison movement when the named book has no history', () => {

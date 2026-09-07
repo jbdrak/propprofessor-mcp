@@ -578,8 +578,8 @@ describe('tennis screen ranking helpers', () => {
     assert.equal(typeof ranked[0].screenMarket, 'string');
     assert.equal(typeof ranked[0].scoreBreakdown.total, 'number');
     assert.equal(ranked[0].lineHistoryUsable, true);
-    assert.equal(ranked[0].movementMode, 'same_book');
-    assert.equal(ranked[0].movementSourceBook, 'NoVigApp');
+    assert.equal(ranked[0].movementMode, 'mixed_books_fallback');
+    assert.equal(ranked[0].movementSourceBook, null);
     assert.equal(typeof ranked[0].recentClvPct, 'number');
     assert.equal(typeof ranked[0].movementQualityScore, 'number');
   });
@@ -1367,7 +1367,8 @@ describe('tennis screen ranking helpers', () => {
 
     const row = ranked.find((r) => r.participant && r.participant.includes('Detroit Tigers'));
     assert.ok(row);
-    assert.equal(row.movementSourceBook, 'NoVigApp');
+    assert.equal(row.movementMode, 'mixed_books_fallback');
+    assert.equal(row.movementSourceBook, null);
     assert.equal(row.consensusBookCount, 2);
     assert.equal(row.executionQuality, 'best');
   });

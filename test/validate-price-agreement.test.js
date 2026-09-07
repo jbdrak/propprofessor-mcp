@@ -72,6 +72,38 @@ describe('validate scan-sourced trust (fast Novig market)', () => {
     assert.equal(result.verdictSummary.movementDisposition, 'supportive_clean');
   });
 
+  it('does not hard-flip a direct validation on fallback adverse history', () => {
+    const result = runVerdict(
+      {},
+      matchingRow({
+        kaiCall: 'BET',
+        confidenceTier: 'TIER 2',
+        movementDisposition: 'adverse_full',
+        movementMode: 'mixed_books_fallback',
+        movementSourceBook: null,
+        movementLabel: 'adverse',
+        clvProxyPct: -1.9
+      })
+    );
+    assert.equal(result.verdict, 'CONSIDER');
+    assert.equal(result.tier, 'TIER 2');
+    assert.equal(result.verdictSummary.movementDisposition, 'insufficient');
+    assert.match(result.verdictSummary.actionableSummary, /insufficient|unresolved/i);
+    assert.ok(result.reasons.some((reason) => /fallback history/i.test(reason)));
+
+    const alreadyPassed = runVerdict(
+      {},
+      matchingRow({
+        kaiCall: 'PASS',
+        confidenceTier: 'TIER 4',
+        movementDisposition: 'adverse_full',
+        movementMode: 'mixed_books_fallback',
+        movementSourceBook: null
+      })
+    );
+    assert.equal(alreadyPassed.verdict, 'CONSIDER');
+  });
+
   it('direct validate_play uses the current row call without manufacturing a BET from tier', () => {
     const args = baseArgs();
     delete args.screenKaiCall;
