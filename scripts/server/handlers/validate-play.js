@@ -176,15 +176,7 @@ async function resolveValidationRow(client, ctx, options) {
   return { matchingRow, matchedViaGameIdChange, fallbackNote };
 }
 
-function buildValidationPlay({
-  matchingRow,
-  market,
-  gameId,
-  league,
-  selection,
-  movementDisposition,
-  movementLabel
-}) {
+function buildValidationPlay({ matchingRow, market, gameId, league, selection, movementDisposition, movementLabel }) {
   return matchingRow
     ? {
         playId: matchingRow.playId || buildCanonicalPlayId(matchingRow),
@@ -358,7 +350,8 @@ function createValidatePlayHandlers(client, ctx) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'selection or playId is required' } };
     }
     const market = String(args.market || 'Moneyline').trim() || 'Moneyline';
-    const requestedBooks = Array.isArray(args.books) && args.books.length > 0 ? args.books : args.book ? [args.book] : args.books;
+    const requestedBooks =
+      Array.isArray(args.books) && args.books.length > 0 ? args.books : args.book ? [args.book] : args.books;
     const books = normalizeBookList(requestedBooks);
     const lookbackHours = Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : 6;
     const skipResearch = args.skipResearch === true;

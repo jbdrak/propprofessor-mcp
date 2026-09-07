@@ -15,31 +15,31 @@ function makeClient({
     queryScreenOddsBestComps: async (args) => {
       if (typeof onBestCompsQuery === 'function') onBestCompsQuery(args);
       return {
-      game_data: [
-        {
-          gameId: 'NBA:game-1',
-          league: 'NBA',
-          market: 'Moneyline',
-          updatedAt: new Date(Date.now() - 60 * 1000).toISOString(),
-          homeTeam: 'Lakers',
-          awayTeam: 'Warriors',
-          selections: {
-            a: {
-              selection1: 'Lakers',
-              participant1: 'Lakers',
-              selection1Id: 'Moneyline:Lakers',
-              selection2: 'Warriors',
-              participant2: 'Warriors',
-              selection2Id: 'Moneyline:Warriors',
-              odds: {
-                NoVigApp: { odds1: -118, odds2: 104 },
-                Pinnacle: { odds1: -120, odds2: 106 }
+        game_data: [
+          {
+            gameId: 'NBA:game-1',
+            league: 'NBA',
+            market: 'Moneyline',
+            updatedAt: new Date(Date.now() - 60 * 1000).toISOString(),
+            homeTeam: 'Lakers',
+            awayTeam: 'Warriors',
+            selections: {
+              a: {
+                selection1: 'Lakers',
+                participant1: 'Lakers',
+                selection1Id: 'Moneyline:Lakers',
+                selection2: 'Warriors',
+                participant2: 'Warriors',
+                selection2Id: 'Moneyline:Warriors',
+                odds: {
+                  NoVigApp: { odds1: -118, odds2: 104 },
+                  Pinnacle: { odds1: -120, odds2: 106 }
+                }
               }
-            }
-          },
-          defaultKey: 'a'
-        }
-      ]
+            },
+            defaultKey: 'a'
+          }
+        ]
       };
     },
     queryOddsHistory: async () => ({
@@ -100,7 +100,11 @@ describe('validate_play handler', () => {
   it('propagates the singular execution book into the exact lookup book set', async () => {
     let bestCompsArgs = null;
     const handlers = createMcpHandlers({
-      client: makeClient({ onBestCompsQuery: (args) => { bestCompsArgs = args; } })
+      client: makeClient({
+        onBestCompsQuery: (args) => {
+          bestCompsArgs = args;
+        }
+      })
     });
     handlers.player_context = async () => ({ riskFlag: 'low', tweets: [], news: [] });
     const result = await handlers.validate_play({
