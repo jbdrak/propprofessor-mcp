@@ -7,10 +7,10 @@ const { createMockClient } = require('./fixtures/mock-client');
 // Raw screen-API shape (game_data + selections), like the real backend.
 // Models a WNBA total with strong consensus so it ranks TIER 1 + BET.
 const NOW = Date.now();
-// Use a start time that resolves to today in America/Chicago timezone.
-// Must be within cardWindow='today' to pass the date filter.
-const TODAY_7PM_CT = new Date();
-TODAY_7PM_CT.setHours(19, 0, 0, 0); // 7:00 PM CT today
+// Keep the mock event ahead of the real clock. The card-window filter owns the
+// America/Chicago conversion, so the fixture should provide an instant rather
+// than pretending the machine itself is configured for Central Time.
+const FUTURE_START = new Date(NOW + 60 * 60 * 1000);
 const WNBA_TOTAL_PAYLOAD = {
   game_data: [
     {
@@ -20,8 +20,8 @@ const WNBA_TOTAL_PAYLOAD = {
       updatedAt: new Date(NOW - 30_000).toISOString(),
       homeTeam: 'Indiana Fever',
       awayTeam: 'Las Vegas Aces',
-      // Use a dynamic start time that's today at 7pm CT.
-      start: TODAY_7PM_CT.toISOString(),
+      // Use a dynamic future start time on today's local calendar date.
+      start: FUTURE_START.toISOString(),
       selections: {
         tp: {
           selection1: 'Over 178.5',
