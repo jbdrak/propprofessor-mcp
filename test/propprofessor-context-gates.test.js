@@ -94,6 +94,7 @@ describe('assessSportContext', () => {
       'MLS',
       'EPL',
       'La Liga',
+      'Serie A',
       'Bundesliga',
       'Ligue 1',
       'Liga MX',
@@ -115,6 +116,22 @@ describe('assessSportContext', () => {
       requiredFields: ['outcomeStructure', 'competitionScope'],
       missingFields: ['outcomeStructure', 'competitionScope']
     });
+  });
+
+  it('routes Serie A through the soccer gate, not LEAGUE_NOT_COVERED', () => {
+    const unresolved = assessSportContext({
+      league: 'Serie A',
+      market: 'Match Handicap',
+      sportContext: { outcomeStructure: 'two_way' }
+    });
+    assert.deepEqual(unresolved.reasonCodes, [
+      'SOCCER_THREE_WAY_STRUCTURE_MISSING',
+      'SOCCER_COMPETITION_SCOPE_MISSING'
+    ]);
+    assert.equal(
+      assessSportContext({ league: 'Serie A', market: 'Moneyline', sportContext: soccerContext }).status,
+      'resolved'
+    );
   });
 
   it('requires MLB pitcher, lineup, and weather context for totals', () => {
