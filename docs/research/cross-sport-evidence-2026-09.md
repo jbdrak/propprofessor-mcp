@@ -82,6 +82,12 @@ A related peer-reviewed coaching-transition paper is retained for follow-up only
 
 **Repo mapping:** Preserve transfer-adjusted returning production, position group, roster turnover, eligibility status, and kickoff-relative information age as separate fields. Widen uncertainty when continuity ignores incoming transfers or when eligibility, injuries, or depth-chart changes remain unresolved.[15][17]
 
+## MLB: opener-to-close timing must be measured
+
+Bouchard's MLB thesis analyzes more than 88,000 games from 1977-2018 and compares how forecast accuracy evolves as information enters the market.[18] Simon's Management Science study tests opening-to-closing line movement across four sportsbooks and several lead times for 3,681 MLB games.[19]
+
+**Repo mapping:** Store opener, decision price, close, sportsbook, and decision-to-first-pitch time separately. Evaluate MLB calibration and CLV by lead-time bucket rather than assuming that a later price is automatically better or that a movement label is a probability estimate.[18][19]
+
 ## Limits
 
 These sources motivate evaluation fields and context gates. They do not prove a positive expected value for a PropProfessor signal, a sportsbook, or a particular market. The repository should require chronological, segment-level validation before changing rank weights or sizing logic.
@@ -105,3 +111,5 @@ These sources motivate evaluation fields and context gates. They do not prove a 
 [15] https://blogs.iu.edu/iuindysii/2024/05/15/ncaa-transfer-portal-analysis
 [16] https://journals.ku.edu/jis/article/view/21131
 [17] https://www.cbssports.com/college-football/news/college-football-returning-snap-percentages-2026
+[18] https://dash.harvard.edu/server/api/core/bitstreams/24950429-b1b7-4372-a029-1b68de1872e3/content
+[19] https://econpapers.repec.org/RePEc:inm:ormnsc:v:70:y:2024:i:12:p:8583-8611
