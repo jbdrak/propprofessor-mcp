@@ -155,6 +155,16 @@ Keep Brier score, log loss, reliability bins, ROI, CLV, and drawdown together.
 Accuracy alone cannot distinguish a calibrated near-even model from an
 overconfident model that loses at bad prices.
 
+Use `assessSportContext({ league, market, sportContext })` from
+`lib/propprofessor-context-gates.js` as a pre-evaluation diagnostic. It fails
+closed on missing context for tennis format, soccer competition/draw structure,
+MLB pitcher/lineup/weather state, NHL goalies, football timing/line identity,
+basketball availability/rest/pace, and UFC replacement/weigh-in/weight-class/
+bout format. It reports `not_applicable` for uncovered leagues rather than
+inventing a pass. This helper is intentionally not wired into ranking yet; its
+first job is to make missing context visible without changing existing public
+play responses.
+
 ## Daily snapshot + outcome-resolution pipeline (real P&L over time)
 
 The hand-authored fixture validates the _engine_. To accrue _real_ metrics,

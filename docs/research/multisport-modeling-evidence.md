@@ -34,6 +34,15 @@ Walk-forward evaluation is safer than random train/test splits for markets whose
 
 **Repo mapping:** ledger evaluations need explicit decision timestamps, settlement timestamps, sample-size flags, drawdown, and segment-level reports.
 
+### Prediction-market prices are time-dependent
+
+A 2026 prediction-market study using 23 million moneyline trades reports that calibration changes by time-to-expiry, with sharper distortions near settlement, and that cross-game parlays can have a separate product-level markup. This is relevant to NoVig/exchange-style prices: evaluate them by time-to-expiry and product type instead of treating every displayed percentage as a static probability.
+
+- _Prices, Probabilities, and Parlays: Systematic Bias in Sports Prediction Markets_:
+  - https://arxiv.org/html/2607.14430v1
+
+**Repo mapping:** preserve decision-to-start/settlement timing and product type in evaluation rows. Do not pool near-expiry exchange quotes with earlier pregame quotes when measuring calibration or CLV.
+
 ## Tennis
 
 ### Format is a hard gate
