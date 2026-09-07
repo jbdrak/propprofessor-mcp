@@ -58,6 +58,8 @@ Karlis and Ntzoufras report that bivariate Poisson models improve fit and draw p
 
 Dixon-Coles' original score model was fitted to English league and cup data and explicitly motivated by possible betting-market inefficiencies.[31] The repo implication is not that the old sample creates an edge; it is that low-score dependence and draw calibration belong in the model contract.[31]
 
+A PLOS One study found expected goals outperformed raw goals and shots across almost all of its top-five-league evaluations, using rolling prior-match inputs.[35] Treat that as support for an xG strength feature, not as proof of positive ROI against closing lines.[35]
+
 Red-card studies treat dismissals as time-varying match-state shocks, with asymmetric effects on the two teams rather than a symmetric strength adjustment.[32][33]
 
 Preserve the card timestamp and market phase, and never leak a later card into a frozen pre-match feature snapshot.[32][33]
@@ -143,3 +145,4 @@ These sources motivate evaluation fields and context gates. They do not prove a 
 [31] https://www.jstor.org/stable/2986290
 [32] https://doi.org/10.1007/s10479-022-04733-0
 [33] http://hdl.handle.net/1871/12468
+[35] https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0282295

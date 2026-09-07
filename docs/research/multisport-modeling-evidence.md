@@ -129,6 +129,8 @@ Soccer requires three-way win/draw/loss treatment. Poisson/Dixon-Coles-style goa
 
 Dixon and Coles fit a parametric score model to English league and cup data from 1992-95, motivated in part by possible inefficiencies in the football betting market.[31] The practical repo rule is to preserve low-score dependence and validate win/draw/loss calibration separately from totals rather than using independent Poisson scores by default.[31]
 
+Titman, Gregory-Smith, and Paton report that expected goals outperformed raw goals and shots across nearly every evaluation in their top-five-league study, using rolling prior-match inputs.[35] The result supports xG as a strength feature, not as proof of betting ROI.
+
 Red-card research models the expulsion as a match-state change, not a generic team-strength penalty.[33] Later elite-soccer work studies red and yellow cards as time-varying performance shocks.[32] Apply asymmetric, timestamped live adjustments only after the event is confirmed; do not backfill a pre-match feature from a later card.[32][33]
 
 **Updated repo mapping:** keep competition, lineup, draw, card timestamp, score state, and market phase separate. A red card should invalidate or re-price the live state while leaving the original pre-match snapshot frozen.[32][33]
@@ -224,3 +226,4 @@ features.
 [31] https://www.jstor.org/stable/2986290
 [32] https://doi.org/10.1007/s10479-022-04733-0
 [33] http://hdl.handle.net/1871/12468
+[35] https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0282295
