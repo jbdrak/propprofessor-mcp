@@ -211,6 +211,12 @@ describe('buildEvaluationRows', () => {
     assert.equal(r.movementSourceBook, 'Pinnacle');
     assert.equal(r.correlationGroupId, 'game-1');
     assert.deepEqual(r.sportContext, { format: 'NBA', paceContext: 'normal' });
+    assert.deepEqual(r.sportContextAssessment, {
+      status: 'unresolved',
+      reasonCodes: ['NBA_AVAILABILITY_MISSING', 'NBA_REST_CONTEXT_MISSING', 'NBA_PACE_CONTEXT_MISSING'],
+      requiredFields: ['availabilityConfirmed', 'restConfirmed', 'paceContextConfirmed'],
+      missingFields: ['availabilityConfirmed', 'restConfirmed', 'paceContextConfirmed']
+    });
     assert.equal(r.signalQualityScore, 0.8);
     assert.equal(r.marketFairProbability, 0.5);
     assert.equal(r.modelWinProbability, 0.55);
