@@ -136,9 +136,24 @@ node scripts/backtest.js --metrics 2026-06-10-mlb-moneyline.resolved.json
 | `sharpe`      | Mean per-play return ÷ sample stdev (null if < 2 plays) |
 | `maxDrawdown` | Largest peak-to-trough drop in the cumulative P&L curve |
 
-> The PropProfessor API does **not** provide historical settled results, so
-> there is no bundled "profitable" history. Any published numbers must come
-> from snapshots you resolved yourself.
+> Profitability is **UNPROVEN** until the input contains real resolved outcomes.
+
+### Segmented evaluation and leakage checks
+
+Use `segmentEvaluationRows(rows, { dimensions, minSample })` from
+`lib/record-evaluation.js` to keep sports, markets, books, and price bands
+separate. The function reports wins, losses, pushes, decided hit rate, and an
+`insufficientSample` flag. Do not use a pooled all-sports hit rate to change
+ranking weights.
+
+Use `validateDecisionTimeIntegrity(row)` before scoring a row. It flags outcome,
+settlement, final-score, and payout fields leaked into the decision snapshot and
+flags decision timestamps that are not before settlement. Closing odds belong in
+an evaluation field, not in the model's decision-time feature set.
+
+Keep Brier score, log loss, reliability bins, ROI, CLV, and drawdown together.
+Accuracy alone cannot distinguish a calibrated near-even model from an
+overconfident model that loses at bad prices.
 
 ## Daily snapshot + outcome-resolution pipeline (real P&L over time)
 

@@ -6,6 +6,8 @@ const {
   joinSettledBets,
   deriveCalibration,
   buildEvaluationRows,
+  segmentEvaluationRows,
+  validateDecisionTimeIntegrity,
   DEFAULT_MIN_SAMPLE
 } = require('../lib/record-evaluation');
 
@@ -168,7 +170,16 @@ describe('buildEvaluationRows', () => {
             marketFairProbability: 0.5,
             modelWinProbability: 0.55,
             modelMarketEdgePct: 10,
-            capturedAt: '2026-01-01'
+            capturedAt: '2026-01-01',
+            decisionTimestamp: '2026-01-01T12:00:00.000Z',
+            book: 'NoVigApp',
+            line: -1.5,
+            closingOdds: -125,
+            movementGrade: 'green',
+            movementDisposition: 'supportive_clean',
+            movementSourceBook: 'Pinnacle',
+            correlationGroupId: 'game-1',
+            sportContext: { format: 'NBA', paceContext: 'normal' }
           },
           oddsAtDecision: -110,
           stake: 50,
@@ -193,6 +204,13 @@ describe('buildEvaluationRows', () => {
     assert.equal(r.betId, 'b1');
     assert.equal(r.league, 'NBA');
     assert.equal(r.market, 'ML');
+    assert.equal(r.book, 'NoVigApp');
+    assert.equal(r.line, -1.5);
+    assert.equal(r.closingOdds, -125);
+    assert.equal(r.movementDisposition, 'supportive_clean');
+    assert.equal(r.movementSourceBook, 'Pinnacle');
+    assert.equal(r.correlationGroupId, 'game-1');
+    assert.deepEqual(r.sportContext, { format: 'NBA', paceContext: 'normal' });
     assert.equal(r.signalQualityScore, 0.8);
     assert.equal(r.marketFairProbability, 0.5);
     assert.equal(r.modelWinProbability, 0.55);
@@ -253,5 +271,57 @@ describe('buildEvaluationRows', () => {
     };
     const r = buildEvaluationRows(ledger)[0];
     assert.equal(r.betId, 'alt-id');
+  });
+});
+
+describe('segmentEvaluationRows', () => {
+  it('keeps sport and market buckets separate and marks small samples', () => {
+    const rows = [
+      { league: 'MLB', market: 'Moneyline', outcome: 'win' },
+      { league: 'MLB', market: 'Moneyline', outcome: 'loss' },
+      { league: 'NBA', market: 'Total Points', outcome: 'win' },
+      { league: 'NBA', market: 'Total Points', outcome: 'push' }
+    ];
+    const result = segmentEvaluationRows(rows, { dimensions: ['league', 'market'], minSample: 2 });
+    assert.deepEqual(result.dimensions, ['league', 'market']);
+    assert.equal(result.segments['MLB|Moneyline'].wins, 1);
+    assert.equal(result.segments['MLB|Moneyline'].losses, 1);
+    assert.equal(result.segments['MLB|Moneyline'].hitRate, 0.5);
+    assert.equal(result.segments['NBA|Total Points'].pushes, 1);
+    assert.equal(result.segments['NBA|Total Points'].insufficientSample, true);
+  });
+
+  it('does not let missing dimensions collapse into the string undefined', () => {
+    const result = segmentEvaluationRows([{ outcome: 'win' }], { dimensions: ['league'] });
+    assert.ok(result.segments['?']);
+  });
+});
+
+describe('validateDecisionTimeIntegrity', () => {
+  it('passes a clean decision-time row', () => {
+    const result = validateDecisionTimeIntegrity({
+      decisionTimestamp: '2026-01-01T12:00:00.000Z',
+      settledAt: '2026-01-01T18:00:00.000Z',
+      featureSnapshot: { modelWinProbability: 0.55 }
+    });
+    assert.deepEqual(result, { ok: true, violations: [] });
+  });
+
+  it('flags settlement data leaked into the feature snapshot', () => {
+    const result = validateDecisionTimeIntegrity({
+      decisionTimestamp: '2026-01-01T12:00:00.000Z',
+      featureSnapshot: { outcome: 'win', finalScore: '7-6 6-4' }
+    });
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.violations, ['featureSnapshot.outcome', 'featureSnapshot.finalScore']);
+  });
+
+  it('flags a decision timestamp at or after settlement', () => {
+    const result = validateDecisionTimeIntegrity({
+      decisionTimestamp: '2026-01-01T18:00:00.000Z',
+      settledAt: '2026-01-01T18:00:00.000Z',
+      featureSnapshot: {}
+    });
+    assert.deepEqual(result.violations, ['decisionTimestamp_not_before_settledAt']);
   });
 });
