@@ -130,6 +130,71 @@ UFC models should be opponent-specific and sparse-data aware. Attack/defense ski
 
 **Repo mapping:** replacement and weight-cut context must be explicit. Do not treat a live model's in-round accuracy as evidence for pre-fight moneyline profitability.
 
+## Fresh evidence pass: soccer, NHL, UFC, and MLB
+
+The following sources were re-checked in a separate web-research pass. These
+are evaluation inputs, not claims of betting profitability.
+
+### Soccer / MLS
+
+- Karlis and Ntzoufras' bivariate-Poisson work shows that small dependence
+  between competing scores can materially change win/draw/loss probabilities;
+  independent Poisson models can understate common draw scores. Validate 1X2
+  calibration separately from totals calibration.
+  - https://doi.org/10.1111/1467-9884.00366
+- MLS publishes an official per-club Player Availability Report with
+  OUT/QUESTIONABLE designations. Snapshot it with competition scope and
+  confirmed squad information rather than treating a stale roster as current.
+  - https://www.mlssoccer.com/league-reports/player-availability-report/
+
+### NHL
+
+- MoneyPuck's pregame model separates goaltending from scoring-chance inputs
+  and reports goalie quality metrics such as GSAx/60 and save percentage. Keep
+  goalie confirmation as its own timestamped context field.
+- Its model also emphasizes shot quality and dependent rebound/flurry effects,
+  so raw shots or Corsi alone shouldn't stand in for chance quality.
+  - https://moneypuck.com/about.htm
+
+**Caveat:** the MoneyPuck page was extract-verified only in part; search-snippet
+figures about home ice and back-to-backs are intentionally not treated as
+verified repo rules.
+
+### UFC / MMA
+
+- Short-notice replacement win rates in the reviewed source cluster around
+  37-42%, but the samples are confounded by replacement quality, prior booking,
+  notice length, and price. Log those fields instead of treating replacement as
+  an automatic fade or upgrade.
+  - https://agentmma.com/mma-lab/ufc-short-notice-replacement-win-rate
+- FightTracker reports roughly 80% accuracy for a round-level, in-fight model,
+  which is not evidence for pre-fight moneyline precision. Keep live and
+  pre-fight evaluation separate and widen uncertainty for sparse pre-fight data.
+  - https://arxiv.org/pdf/2312.11067v1
+- Official weigh-in status, catchweight/division, and scheduled rounds change
+  the contract being modeled. Preserve those fields before final pricing.
+  - https://agentmma.com/mma-lab/ufc-weight-classes-explained
+
+**Caveat:** the replacement and weigh-in pages are secondary sources; the
+peer-reviewed FightTracker paper is the stronger modeling source.
+
+### MLB
+
+- FanGraphs distinguishes FIP from ERA and xFIP from FIP: xFIP regresses
+  home-run rate toward league-average HR/FB, while xFIP- is needed for
+  cross-park/league comparisons. Preserve FIP/xFIP/xFIP- as different fields.
+  - https://library.fangraphs.com/pitching/fip/
+  - https://library.fangraphs.com/pitching/xfip/
+- Baseball Savant's Statcast Park Factors use a 100 = average scale and control
+  for batter/pitcher handedness. Use the actual venue factor, not generic park
+  reputation.
+  - https://baseballsavant.mlb.com/leaderboard/statcast-park-factors
+
+**Caveat:** the cited pages support the metric definitions and park-factor
+methodology. Official probable-pitcher timing, bullpen workload, weather, and
+umpire effects still need separate timestamped sources before becoming model
+features.
+
 ## Use and caveats
 
 - Search snippets are discovery, not evidence; use the linked paper/page content before relying on a claim.
