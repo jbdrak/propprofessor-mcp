@@ -149,13 +149,11 @@ describe('assessSportContext', () => {
     });
   });
 
-  it('requires NFL and NCAAF timing and line identity', () => {
-    for (const league of ['NFL', 'NCAAF']) {
-      assert.equal(
-        assessSportContext({ league, market: 'Point Spread', sportContext: footballContext }).status,
-        'resolved'
-      );
-    }
+  it('requires NFL timing and line identity with unchanged three-field behavior', () => {
+    assert.equal(
+      assessSportContext({ league: 'NFL', market: 'Point Spread', sportContext: footballContext }).status,
+      'resolved'
+    );
 
     assert.deepEqual(
       assessSportContext({
@@ -170,6 +168,52 @@ describe('assessSportContext', () => {
         missingFields: ['inactiveNewsTimingConfirmed', 'lineIdentityConfirmed']
       }
     );
+  });
+
+  it('requires NCAAF transfer context in addition to timing and line identity', () => {
+    assert.deepEqual(assessSportContext({ league: 'NCAAF', market: 'Point Spread', sportContext: footballContext }), {
+      status: 'unresolved',
+      reasonCodes: ['NCAAF_TRANSFER_CONTEXT_MISSING'],
+      requiredFields: [
+        'kickoffTimingConfirmed',
+        'inactiveNewsTimingConfirmed',
+        'lineIdentityConfirmed',
+        'transferContextConfirmed'
+      ],
+      missingFields: ['transferContextConfirmed']
+    });
+  });
+
+  it('resolves NCAAF only when all four context fields are explicitly confirmed', () => {
+    assert.deepEqual(
+      assessSportContext({
+        league: 'NCAAF',
+        market: 'Point Spread',
+        sportContext: { ...footballContext, transferContextConfirmed: true }
+      }),
+      {
+        status: 'resolved',
+        reasonCodes: [],
+        requiredFields: [
+          'kickoffTimingConfirmed',
+          'inactiveNewsTimingConfirmed',
+          'lineIdentityConfirmed',
+          'transferContextConfirmed'
+        ],
+        missingFields: []
+      }
+    );
+  });
+
+  it('does not infer NCAAF transfer context from display-like strings', () => {
+    const unresolved = assessSportContext({
+      league: 'NCAAF',
+      market: 'Point Spread',
+      sportContext: { ...footballContext, transferContextConfirmed: 'confirmed' }
+    });
+    assert.equal(unresolved.status, 'unresolved');
+    assert.deepEqual(unresolved.missingFields, ['transferContextConfirmed']);
+    assert.deepEqual(unresolved.reasonCodes, ['NCAAF_TRANSFER_CONTEXT_MISSING']);
   });
 
   it('requires availability, rest, and pace context for basketball leagues', () => {
