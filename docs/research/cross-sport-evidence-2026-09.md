@@ -78,11 +78,9 @@ The Indiana University Sports Innovation Institute describes a tiered, pre/post-
 
 CBS's 2026 returning-snap dataset explicitly says its continuity metric is not position-weighted and does not account for incoming transfers.[17] That makes it a useful raw input, but not a sufficient preseason prior by itself.
 
-A study of the 2020-21 college-football point-spread market found inefficiency during pandemic-era availability and scheduling chaos, with information gaps around player availability.[18] That is a single disrupted season, so the safe repo rule is an availability-news hold and later backtest, not a permanent contrarian strategy.[18]
-
 A related peer-reviewed coaching-transition paper is retained for follow-up only; this pass did not extract its result details, so no coaching-change rule is based on it.[16]
 
-**Repo mapping:** Preserve transfer-adjusted returning production, position group, roster turnover, eligibility status, and kickoff-relative information age as separate fields. Widen uncertainty when continuity ignores incoming transfers or when eligibility, injuries, or depth-chart changes remain unresolved.[15][17][18]
+**Repo mapping:** Preserve transfer-adjusted returning production, position group, roster turnover, eligibility status, and kickoff-relative information age as separate fields. Widen uncertainty when continuity ignores incoming transfers or when eligibility, injuries, or depth-chart changes remain unresolved.[15][17]
 
 ## Limits
 
@@ -101,10 +99,9 @@ These sources motivate evaluation fields and context gates. They do not prove a 
 [9] https://pmc.ncbi.nlm.nih.gov/articles/PMC9266198
 [10] https://doi.org/10.1111/1467-9884.00366
 [11] https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4722358
-[12] https://scholarcommons.sc.edu/context/jiia/article/1304/viewcontent/NCAA_20Transfer_20Portal__20Examining_20Quarterback_Transfer_Outcomes_20in_College_20Football.pdf
+[12] https://scholarcommons.sc.edu/context/jiia/article/1304/viewcontent/NCAA_20Transfer_20Portal__Examining_20Quarterback_Transfer_Outcomes_20in_College_20Football.pdf
 [13] https://www.ncaa.org/eligibility-center/transfer-rules-and-eligibility
 [14] https://cfbfastr.sportsdataverse.org/reference/cfbd_recruiting_transfer_portal.html
 [15] https://blogs.iu.edu/iuindysii/2024/05/15/ncaa-transfer-portal-analysis
 [16] https://journals.ku.edu/jis/article/view/21131
 [17] https://www.cbssports.com/college-football/news/college-football-returning-snap-percentages-2026
-[18] https://ideas.repec.org/a/ebl/ecbull/eb-22-00065.html
