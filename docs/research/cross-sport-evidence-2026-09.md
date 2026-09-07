@@ -28,6 +28,10 @@ Macdonald's NHL expected-goals paper notes that low scoring makes goals noisy, c
 
 **Repo mapping:** Keep goalie identity/quality separate from skater chance generation, and don't treat raw goals or shot volume as interchangeable with expected chance quality.[4] Any future NHL feature should retain the training window and regularization/provenance metadata so sparse samples aren't mistaken for stable skill.[4]
 
+A skill-adjusted NHL expected-goals paper reports better performance than a baseline when shooter and goaltender skill are modeled, while finding that the skill component is relatively small.[29] A weighted-shots paper uses logistic regression to estimate shot-to-goal probability and applies the resulting weights to goalie, skater, and team evaluation.[30]
+
+**Repo mapping:** preserve shooter/goalie identity, shot-quality model version, training window, and calibration scope. Keep goalie confirmation separate from chance-generation quality, and widen uncertainty when the skill-adjusted sample is sparse.[29][30]
+
 ## Basketball: pace-neutral efficiency and shot quality
 
 A modern Four Factors analysis describes offensive rating through shooting, turnover, offensive-rebound, and free-throw factors rather than raw points per game.[5] Its conclusion supports using the factor set as a compact team-quality representation, while the earlier possession-value paper shows why context and shrinkage matter when moving below box-score summaries.[2][5]
@@ -51,6 +55,12 @@ Noel's skill-adjusted NHL expected-goals model separates shooter and goaltender 
 Karlis and Ntzoufras report that bivariate Poisson models improve fit and draw prediction over independent Poisson models, with diagonal inflation improving draw estimation further.[10] A separate open-access hazard-rate study models a red card as a shift in goal-scoring rate, so red-card effects belong in live state transitions rather than a fixed pre-match adjustment.[8]
 
 **Repo mapping:** Keep soccer 1X2, exact-score, and totals calibration separate. Preserve competition scope and treat red cards as timestamped live context; don't inject a generic pre-match red-card penalty.[8][10]
+
+Dixon-Coles' original score model was fitted to English league and cup data and explicitly motivated by possible betting-market inefficiencies.[31] The repo implication is not that the old sample creates an edge; it is that low-score dependence and draw calibration belong in the model contract.[31]
+
+Red-card studies treat dismissals as time-varying match-state shocks, with asymmetric effects on the two teams rather than a symmetric strength adjustment.[32][33]
+
+Preserve the card timestamp and market phase, and never leak a later card into a frozen pre-match feature snapshot.[32][33]
 
 ## Tennis: surface is a real context variable
 
@@ -90,7 +100,9 @@ Bouchard's MLB thesis analyzes more than 88,000 games from 1977-2018 and compare
 
 ## NCAAF: external ratings need market-relative validation
 
-Sagarin publishes multiple score-based college-football methods, including a regular prediction block and a separate experimental home-away-adjusted block.[20] A one-week Sep. 3-6 snapshot matched 90 completed games and correctly picked 81 winners, but the sample was inflated by large favorites, mixed FBS and FCS games, and produced a 1-2 day on Sep. 6.[20][21][23][24]
+Sagarin publishes multiple score-based college-football methods, including a regular prediction block and a separate experimental home-away-adjusted block.[20]
+
+A one-week Sep. 3-6 snapshot matched 90 completed games and correctly picked 81 winners, but the sample was inflated by large favorites, mixed FBS and FCS games, and produced a 1-2 day on Sep. 6.[20][23][24]
 
 Fair and Oster found that computer ranking systems contain useful information for predicting college-football outcomes, but the final Las Vegas point spread dominated the ranking information in their market-efficiency test.[28] Coleman's later chronological metamodel work likewise reports that its test accuracy was not statistically different from the compared betting lines.[27]
 
@@ -122,8 +134,12 @@ These sources motivate evaluation fields and context gates. They do not prove a 
 [18] https://dash.harvard.edu/server/api/core/bitstreams/24950429-b1b7-4372-a029-1b68de1872e3/content
 [19] https://econpapers.repec.org/RePEc:inm:ormnsc:v:70:y:2024:i:12:p:8583-8611
 [20] http://sagarin.com/sports/cfsend.htm
-[21] https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20260903&limit=500
 [23] https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20260905&limit=500
 [24] https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20260906&limit=500
 [27] https://journals.sagepub.com/doi/10.1177/22150218251365223
 [28] http://depot.som.yale.edu/icf/papers/fileuploads/2377/original/02-35.pdf
+[29] https://arxiv.org/pdf/2511.07703
+[30] https://ar5iv.labs.arxiv.org/html/1205.1746
+[31] https://www.jstor.org/stable/2986290
+[32] https://doi.org/10.1007/s10479-022-04733-0
+[33] http://hdl.handle.net/1871/12468

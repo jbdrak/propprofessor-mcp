@@ -112,6 +112,12 @@ Starting goalie confirmation is a material variable and often arrives only near 
 
 **Repo mapping:** goalie confirmation must be separate from generic injury context and must not be marked known from a stale probable-starter field.
 
+Macdonald's expected-goals work treats scoring as sparse/noisy and evaluates shot-quality measures rather than raw goals alone.[4] A skill-adjusted shooter/goaltender expected-goals paper reports better performance than its baseline when shooter and goalie skill are modeled, while noting that the skill component is relatively small.[29]
+
+A weighted-shots paper uses logistic regression to estimate the probability that a shot becomes a goal, then uses those weighted shots to evaluate goalies, skaters, and teams.[30]
+
+**Updated repo mapping:** preserve goalie identity, shooter/goalie skill scope, shot-quality features, training window, regularization, and model version separately. Do not treat raw goals, raw shots, or unconfirmed goalies as stable probabilities.[29][30]
+
 ## Soccer / MLS
 
 Soccer requires three-way win/draw/loss treatment. Poisson/Dixon-Coles-style goal models are a useful baseline, but lineup, competition scope, and draw calibration must be preserved.
@@ -120,6 +126,12 @@ Soccer requires three-way win/draw/loss treatment. Poisson/Dixon-Coles-style goa
   - https://exprysm.com/insights/methodology/dixon-coles-model.html
 
 **Repo mapping:** keep `Soccer` as the backend sport identity while preserving exact `leagueName` competition scope. Never collapse draw/no-draw markets into generic two-way labels.
+
+Dixon and Coles fit a parametric score model to English league and cup data from 1992-95, motivated in part by possible inefficiencies in the football betting market.[31] The practical repo rule is to preserve low-score dependence and validate win/draw/loss calibration separately from totals rather than using independent Poisson scores by default.[31]
+
+Red-card research models the expulsion as a match-state change, not a generic team-strength penalty.[33] Later elite-soccer work studies red and yellow cards as time-varying performance shocks.[32] Apply asymmetric, timestamped live adjustments only after the event is confirmed; do not backfill a pre-match feature from a later card.[32][33]
+
+**Updated repo mapping:** keep competition, lineup, draw, card timestamp, score state, and market phase separate. A red card should invalidate or re-price the live state while leaving the original pre-match snapshot frozen.[32][33]
 
 ## UFC / MMA
 
@@ -203,3 +215,12 @@ features.
 - Academic results vary by era, league, book, market, and data availability.
 - Niche props and low-liquidity markets may be less efficient but have higher variance and worse execution.
 - The repository still needs resolved multi-sport data before any rank/tier weight change can be justified.
+
+## Sources
+
+[4] http://hockeyanalytics.com/Research_files/NHL-Expected-Goals-Brian-Macdonald.pdf
+[29] https://arxiv.org/pdf/2511.07703
+[30] https://ar5iv.labs.arxiv.org/html/1205.1746
+[31] https://www.jstor.org/stable/2986290
+[32] https://doi.org/10.1007/s10479-022-04733-0
+[33] http://hdl.handle.net/1871/12468
