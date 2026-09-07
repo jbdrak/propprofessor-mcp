@@ -165,6 +165,30 @@ inventing a pass. This helper is intentionally not wired into ranking yet; its
 first job is to make missing context visible without changing existing public
 play responses.
 
+### External-model benchmark adapters
+
+For a third-party prediction source such as Sagarin, use the pure adapter
+`lib/sagarin-external-evaluation.js` rather than changing the live ranking path or
+v2 ledger. It normalizes outcomes, preserves prediction/source timestamps,
+normalizes FBS/FCS segments, keeps unmatched rows visible, and marks missing,
+invalid, or post-decision provenance as unresolved. Unresolved and unmatched rows
+are excluded from score denominators rather than silently graded.
+
+- `normalizeSagarinRows(rows)` returns chronologically ordered rows plus an
+  `unresolved` list.
+- `scoreSagarinRows(rows)` delegates probability scoring to
+  `scoreEvaluationRows` using only `modelWinProbability`.
+- `segmentSagarinRows(rows, { minSample })` delegates competition segmentation
+  to `segmentEvaluationRows`.
+
+Store the external snapshot separately from settled PropProfessor bets. Record
+the source URL, retrieval time, prediction method, result source, competition
+level, market/price context, and matched/unmatched status. A one-week winner rate
+is descriptive only; compare external probabilities with the de-vigged market,
+closing-line value, calibration, ROI, and drawdown before changing a live weight.
+See `docs/research/sagarin-ncaaf-benchmark-2026-09-06.md` for the verified NCAAF
+snapshot and its source caveats.
+
 ## Daily snapshot + outcome-resolution pipeline (real P&L over time)
 
 The hand-authored fixture validates the _engine_. To accrue _real_ metrics,

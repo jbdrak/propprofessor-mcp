@@ -88,6 +88,14 @@ Bouchard's MLB thesis analyzes more than 88,000 games from 1977-2018 and compare
 
 **Repo mapping:** Store opener, decision price, close, sportsbook, and decision-to-first-pitch time separately. Evaluate MLB calibration and CLV by lead-time bucket rather than assuming that a later price is automatically better or that a movement label is a probability estimate.[18][19]
 
+## NCAAF: external ratings need market-relative validation
+
+Sagarin publishes multiple score-based college-football methods, including a regular prediction block and a separate experimental home-away-adjusted block.[20] A one-week Sep. 3-6 snapshot matched 90 completed games and correctly picked 81 winners, but the sample was inflated by large favorites, mixed FBS and FCS games, and produced a 1-2 day on Sep. 6.[20][21][23][24]
+
+Fair and Oster found that computer ranking systems contain useful information for predicting college-football outcomes, but the final Las Vegas point spread dominated the ranking information in their market-efficiency test.[28] Coleman's later chronological metamodel work likewise reports that its test accuracy was not statistically different from the compared betting lines.[27]
+
+**Repo mapping:** Store Sagarin as a dated external benchmark feature, preserve regular and experimental methods separately, segment FBS/FCS and favorite size, and require closing-line probability, CLV, calibration, and drawdown comparisons before changing a live ranking weight.[20][27][28]
+
 ## Limits
 
 These sources motivate evaluation fields and context gates. They do not prove a positive expected value for a PropProfessor signal, a sportsbook, or a particular market. The repository should require chronological, segment-level validation before changing rank weights or sizing logic.
@@ -113,3 +121,9 @@ These sources motivate evaluation fields and context gates. They do not prove a 
 [17] https://www.cbssports.com/college-football/news/college-football-returning-snap-percentages-2026
 [18] https://dash.harvard.edu/server/api/core/bitstreams/24950429-b1b7-4372-a029-1b68de1872e3/content
 [19] https://econpapers.repec.org/RePEc:inm:ormnsc:v:70:y:2024:i:12:p:8583-8611
+[20] http://sagarin.com/sports/cfsend.htm
+[21] https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20260903&limit=500
+[23] https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20260905&limit=500
+[24] https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates=20260906&limit=500
+[27] https://journals.sagepub.com/doi/10.1177/22150218251365223
+[28] http://depot.som.yale.edu/icf/papers/fileuploads/2377/original/02-35.pdf
