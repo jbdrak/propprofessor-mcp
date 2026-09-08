@@ -20,10 +20,23 @@ function scoreboardResponse(events) {
   };
 }
 
-function event({ date = '2026-09-07T18:45:00Z', home = 'Udinese', away = 'Lazio', homeAway = true } = {}) {
+function event({
+  date = '2026-09-07T18:45:00Z',
+  home = 'Udinese',
+  away = 'Lazio',
+  homeShort = home,
+  awayShort = away,
+  homeAway = true
+} = {}) {
   const competitors = [
-    { ...(homeAway ? { homeAway: 'home' } : {}), team: { displayName: home } },
-    { ...(homeAway ? { homeAway: 'away' } : {}), team: { displayName: away } }
+    {
+      ...(homeAway ? { homeAway: 'home' } : {}),
+      team: { displayName: home, shortDisplayName: homeShort }
+    },
+    {
+      ...(homeAway ? { homeAway: 'away' } : {}),
+      team: { displayName: away, shortDisplayName: awayShort }
+    }
   ];
   return {
     date,
@@ -70,6 +83,38 @@ describe('soccer event context', () => {
       start: '2026-09-07T18:45:00Z',
       homeTeam: 'Udinese',
       awayTeam: 'Lazio',
+      venue: 'Bluenergy Stadium'
+    });
+  });
+
+  it('resolves official team aliases and corrects reversed feed ordering', async () => {
+    const context = await resolveSoccerEventContext(
+      row({
+        leagueName: 'Champions League',
+        start: '2026-09-08T19:00:00.000Z',
+        homeTeam: 'Inter Milan',
+        awayTeam: 'Real Madrid'
+      }),
+      {
+        fetchImpl: async () =>
+          scoreboardResponse([
+            event({
+              date: '2026-09-08T19:00:00Z',
+              home: 'Real Madrid',
+              away: 'Internazionale',
+              awayShort: 'Inter Milan'
+            })
+          ])
+      }
+    );
+    assert.deepEqual(context, {
+      resolved: true,
+      source: 'espn',
+      competition: 'Champions League',
+      eventDate: '2026-09-08',
+      start: '2026-09-08T19:00:00Z',
+      homeTeam: 'Real Madrid',
+      awayTeam: 'Internazionale',
       venue: 'Bluenergy Stadium'
     });
   });
