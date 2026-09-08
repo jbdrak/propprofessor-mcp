@@ -1188,6 +1188,7 @@ async function cmdScan(handlers, positional, flags, client) {
   // minFinalTier still controls the onlyBets floor when --tier is explicit.
   const minFinalTier = tier ? (tier === '1' ? 'TIER 1' : tier === '2' ? 'TIER 2' : 'TIER 2') : 'TIER 2';
   const ncaafOnly = leagues.length === 1 && String(leagues[0]).toUpperCase() === 'NCAAF';
+  const singleLeagueScan = leagues.length === 1;
 
   const MOVEMENT_ALIASES = {
     supportive: ['supportive_clean', 'supportive_bouncy'],
@@ -1243,7 +1244,9 @@ async function cmdScan(handlers, positional, flags, client) {
           : ncaafOnly
             ? 80
             : onlyBets
-              ? Math.min(limit, 24)
+              ? singleLeagueScan
+                ? Math.min(limit, 100)
+                : Math.min(limit, 24)
               : Math.min(limit, 50),
       lite: true,
       verbosity: 'bets',

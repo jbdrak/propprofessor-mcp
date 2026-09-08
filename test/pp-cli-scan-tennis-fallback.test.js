@@ -135,6 +135,57 @@ describe('cmdScan tennis fallback in mixed-league scans', () => {
 
   // ── tests ────────────────────────────────────────────────────────
 
+  it('gives a single-league BET scan enough history candidates for its requested limit', async () => {
+    let request;
+    const res = {
+      data: {
+        results: [{ league: 'Tennis', market: 'Moneyline', plays: [] }],
+        totalCount: 0
+      }
+    };
+    const handlers = {
+      quick_screen: async (args) => {
+        request = args;
+        return res;
+      }
+    };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['scan', 'tennis'], { B: true, n: '100' }, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    assert.equal(request.scanLimit, 100, 'single-league -B scans must not use the mixed-scan 24-row cap');
+  });
+
+  it('preserves the bounded discovery cap for mixed-league BET scans', async () => {
+    let request;
+    const res = {
+      data: {
+        results: [
+          { league: 'MLB', market: 'Moneyline', plays: [{ selection: 'Yankees', odds: -120 }] },
+          { league: 'Tennis', market: 'Moneyline', plays: [] }
+        ],
+        totalCount: 1
+      }
+    };
+    const handlers = {
+      quick_screen: async (args) => {
+        request = args;
+        return res;
+      }
+    };
+    const orig = suppressConsole();
+    try {
+      await cmdScan(handlers, ['scan', 'mlb', 'tennis'], { B: true, n: '100' }, {});
+    } finally {
+      restoreConsole(orig);
+    }
+
+    assert.equal(request.scanLimit, 24, 'mixed-league -B scans keep the shared budget cap');
+  });
+
   it('preserves recovered opposite-side conflict demotions during normalization', async () => {
     mockedFallbackPlays = [CONFLICT_WINNER, CONFLICT_LOSER];
     const res = {
