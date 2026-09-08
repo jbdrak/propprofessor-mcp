@@ -1,0 +1,141 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { describe, it, beforeEach } = require('node:test');
+const {
+  clearSoccerEventCache,
+  getSoccerScoreboardUrl,
+  fetchSoccerScoreboard,
+  normalizeSoccerTeamName,
+  resolveSoccerEventContext,
+  enrichSoccerEventRows
+} = require('../lib/soccer-event-context');
+
+function scoreboardResponse(events) {
+  return {
+    ok: true,
+    async json() {
+      return { events };
+    }
+  };
+}
+
+function event({ date = '2026-09-07T18:45:00Z', home = 'Udinese', away = 'Lazio', homeAway = true } = {}) {
+  const competitors = [
+    { ...(homeAway ? { homeAway: 'home' } : {}), team: { displayName: home } },
+    { ...(homeAway ? { homeAway: 'away' } : {}), team: { displayName: away } }
+  ];
+  return {
+    date,
+    competitions: [{ competitors, venue: { fullName: 'Bluenergy Stadium' } }]
+  };
+}
+
+function row(overrides = {}) {
+  return {
+    league: 'Soccer',
+    leagueName: 'Serie A',
+    start: '2026-09-07T18:45:00.000Z',
+    homeTeam: 'Lazio',
+    awayTeam: 'Udinese',
+    ...overrides
+  };
+}
+
+describe('soccer event context', () => {
+  beforeEach(() => clearSoccerEventCache());
+
+  it('builds competition-scoped ESPN scoreboard URLs', () => {
+    assert.equal(
+      getSoccerScoreboardUrl('Serie A', '2026-09-07'),
+      'https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard?dates=20260907'
+    );
+    assert.equal(getSoccerScoreboardUrl('Soccer', '2026-09-07'), null);
+  });
+
+  it('normalizes team names without treating partial names as exact matches', () => {
+    assert.equal(normalizeSoccerTeamName('  Cagliári  '), 'cagliari');
+    assert.notEqual(normalizeSoccerTeamName('Celta'), normalizeSoccerTeamName('Celta Vigo'));
+  });
+
+  it('resolves exact team pair and date with ESPN home/away order', async () => {
+    const context = await resolveSoccerEventContext(row(), {
+      fetchImpl: async () => scoreboardResponse([event()])
+    });
+    assert.deepEqual(context, {
+      resolved: true,
+      source: 'espn',
+      competition: 'Serie A',
+      eventDate: '2026-09-07',
+      start: '2026-09-07T18:45:00Z',
+      homeTeam: 'Udinese',
+      awayTeam: 'Lazio',
+      venue: 'Bluenergy Stadium'
+    });
+  });
+
+  it('rejects a different event date', async () => {
+    const context = await resolveSoccerEventContext(row(), {
+      fetchImpl: async () => scoreboardResponse([event({ date: '2026-09-08T18:45:00Z' })])
+    });
+    assert.equal(context.resolved, false);
+    assert.equal(context.reason, 'schedule_match_not_found');
+  });
+
+  it('rejects an unsupported or missing competition scope', async () => {
+    let fetchCalls = 0;
+    const fetchImpl = async () => {
+      fetchCalls += 1;
+      return scoreboardResponse([event()]);
+    };
+    assert.equal((await resolveSoccerEventContext(row({ leagueName: 'MLS' }), { fetchImpl })).resolved, false);
+    assert.equal((await resolveSoccerEventContext(row({ leagueName: '' }), { fetchImpl })).resolved, false);
+    assert.equal(fetchCalls, 0);
+  });
+
+  it('rejects incomplete competitors without explicit homeAway fields', async () => {
+    const context = await resolveSoccerEventContext(row(), {
+      fetchImpl: async () => scoreboardResponse([event({ homeAway: false })])
+    });
+    assert.equal(context.resolved, false);
+    assert.equal(context.reason, 'schedule_match_not_found');
+  });
+
+  it('caches one scoreboard request for repeated rows in one enrichment', async () => {
+    let fetchCalls = 0;
+    const fetchImpl = async () => {
+      fetchCalls += 1;
+      return scoreboardResponse([event()]);
+    };
+    const enriched = await enrichSoccerEventRows([row(), row({ gameId: 'second-row' })], { fetchImpl });
+    assert.equal(fetchCalls, 1);
+    assert.equal(enriched.length, 2);
+    assert.ok(enriched.every((item) => item.venueOrderVerified === true));
+    assert.ok(enriched.every((item) => item.game === 'Lazio @ Udinese'));
+  });
+
+  it('aborts a scoreboard request that exceeds the bounded timeout', async () => {
+    let aborted = false;
+    const fetchImpl = async (_url, options) =>
+      new Promise((_resolve, reject) => {
+        options.signal.addEventListener(
+          'abort',
+          () => {
+            aborted = true;
+            reject(options.signal.reason || new Error('aborted'));
+          },
+          { once: true }
+        );
+      });
+
+    const result = await fetchSoccerScoreboard({
+      leagueName: 'Serie A',
+      dateKey: '2026-09-07',
+      fetchImpl,
+      timeoutMs: 5
+    });
+
+    assert.deepEqual(result, []);
+    assert.equal(aborted, true);
+  });
+});

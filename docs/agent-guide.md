@@ -44,6 +44,13 @@ ask({ query: "best WNBA play on NoVigApp tonight" })
 - Preserve exact frontend Tennis `leagueName` tournament scope when supplied. For Soccer, named frontend competitions such as EPL, La Liga, Serie A, Bundesliga, and Ligue 1 are `leagueName` filters over backend league `Soccer`; use Draw No Bet / Match Handicap / Total Goals, not Moneyline / Spread / Total. Tennis defaults are Moneyline / Total Games / Set Handicap; Game Handicap is explicit-only.
 - Repository changes require focused deterministic tests plus `npm run install:verify`, `npm run lint`, `npm run check:types`, and relevant checker/format checks. Never test with live PropProfessor requests; commit task-scoped verified changes using the repository's conventional-commit and co-author rules.
 
+### Soccer venue identity
+
+- Soccer event home/away identity is verified from a named competition-scoped schedule when available.
+- Generic backend Soccer rows without `leagueName` remain explicitly venue-unverified.
+- Missing/mismatched/stale schedule identity is a data-quality limitation, not proof that a play is bad or good.
+- Verified venue identity does not make a raw scan row actionable without exact validation, usable history, and matchup research.
+
 ---
 
 ## Pattern 2 — Validate a play before recommending it

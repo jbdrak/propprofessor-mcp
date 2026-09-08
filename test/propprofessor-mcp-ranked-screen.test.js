@@ -267,6 +267,97 @@ describe('buildRankedScreenResponse', () => {
     assert.equal(result.resultMeta.debugEnabled, false);
   });
 
+  it('enriches soccer rows with verified schedule venue order before ranking', async () => {
+    let fetchCalls = 0;
+    const result = await buildRankedScreenResponse({
+      client: null,
+      payloads: [
+        {
+          rows: [
+            {
+              gameId: 'serie-a-lazio-udinese',
+              league: 'Soccer',
+              leagueName: 'Serie A',
+              start: '2026-09-07T18:45:00.000Z',
+              homeTeam: 'Lazio',
+              awayTeam: 'Udinese',
+              selection1: 'Lazio',
+              selection2: 'Udinese',
+              odds: {
+                NoVigApp: { odds1: -110, odds2: 100 }
+              }
+            }
+          ]
+        }
+      ],
+      args: { skipHistory: true, debug: false },
+      soccerFetchImpl: async () => {
+        fetchCalls += 1;
+        return {
+          ok: true,
+          async json() {
+            return {
+              events: [
+                {
+                  date: '2026-09-07T18:45:00Z',
+                  competitions: [
+                    {
+                      competitors: [
+                        { homeAway: 'home', team: { displayName: 'Udinese' } },
+                        { homeAway: 'away', team: { displayName: 'Lazio' } }
+                      ],
+                      venue: { fullName: 'Bluenergy Stadium' }
+                    }
+                  ]
+                }
+              ]
+            };
+          }
+        };
+      },
+      rankRows: (rows) => rows
+    });
+
+    assert.equal(fetchCalls, 1);
+    assert.equal(result.ok, true);
+    assert.ok(result.result.length >= 1);
+    assert.ok(result.result.every((row) => row.venueOrderVerified === true));
+    assert.ok(result.result.every((row) => row.homeTeam === 'Udinese' && row.awayTeam === 'Lazio'));
+    assert.ok(result.result.every((row) => row.game === 'Lazio @ Udinese'));
+  });
+
+  it('keeps unresolved soccer rows explicitly unverified when schedule identity is absent', async () => {
+    const result = await buildRankedScreenResponse({
+      client: null,
+      payloads: [
+        {
+          rows: [
+            {
+              gameId: 'generic-soccer-match',
+              league: 'Soccer',
+              start: '2026-09-07T18:45:00.000Z',
+              homeTeam: 'Lazio',
+              awayTeam: 'Udinese',
+              selection1: 'Lazio',
+              selection2: 'Udinese',
+              odds: { NoVigApp: { odds1: -110, odds2: 100 } }
+            }
+          ]
+        }
+      ],
+      args: { skipHistory: true, debug: false },
+      soccerFetchImpl: async () => {
+        throw new Error('generic Soccer rows must not call a competition-scoped schedule');
+      },
+      rankRows: (rows) => rows
+    });
+
+    assert.equal(result.ok, true);
+    assert.ok(result.result.length >= 1);
+    assert.ok(result.result.every((row) => row.venueOrderVerified !== true));
+    assert.ok(result.result.every((row) => String(row.game).includes('(home/away unverified)')));
+  });
+
   it('keeps rationale in sync with the recomputed movementDisposition (yellow→green grade upgrade)', async () => {
     // Regression: the ranker builds `rationale` from the rank-time
     // movementDisposition, which is computed from the RAW movementGrade
