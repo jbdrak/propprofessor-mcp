@@ -166,11 +166,11 @@ jobs:
           python-version: '3.12'
 
       - name: Install Playwright + Chromium
-        # Only playwright is needed: the test imports EXTRACT_JS from
-        # scripts/flashscore_tennis.py and runs it against inline static HTML
-        # (page.set_content) — no network, no live Flashscore.
+        # Pin the Python package so a new upstream release cannot silently
+        # change CI behavior. Keep this aligned with the runtime Playwright
+        # line unless the extractor test intentionally needs a different one.
         run: |
-          pip install --quiet playwright
+          pip install --quiet playwright==1.63.0
           python -m playwright install --with-deps chromium
 
       - name: Run Flashscore extractor test
