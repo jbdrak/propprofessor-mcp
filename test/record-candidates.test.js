@@ -461,6 +461,104 @@ describe('featureSnapshot', () => {
     assert.equal(snap.targetBookOdds, null);
     assert.equal(snap.bestAvailableOdds, null);
   });
+
+  it('preserves explicit decision-time provenance/context fields when present', () => {
+    const row = {
+      league: 'MLB',
+      market: 'Moneyline',
+      book: 'Pinnacle',
+      line: -1.5,
+      selection: 'Yankees',
+      gameId: 'g-prov-1',
+      decisionTimestamp: '2026-08-14T12:05:00.000Z',
+      capturedAt: '2026-08-14T12:00:00.000Z',
+      openingOdds: -105,
+      decisionOdds: -120,
+      movementSourceBook: 'Pinnacle',
+      movementMode: 'same_book',
+      correlationGroupId: 'game-1',
+      sportContext: { format: 'best_of_5', surface: 'hard', round: 'R4' }
+    };
+    const snap = normalizeScanCandidates([{ league: 'MLB', market: 'Moneyline', plays: [row] }], {
+      scanId: 's'
+    })[0].featureSnapshot;
+    assert.equal(snap.league, 'MLB');
+    assert.equal(snap.market, 'Moneyline');
+    assert.equal(snap.book, 'Pinnacle');
+    assert.equal(snap.line, -1.5);
+    assert.equal(snap.selection, 'Yankees');
+    assert.equal(snap.gameId, 'g-prov-1');
+    assert.equal(snap.decisionTimestamp, '2026-08-14T12:05:00.000Z');
+    assert.equal(snap.capturedAt, '2026-08-14T12:00:00.000Z');
+    assert.equal(snap.openingOdds, -105);
+    assert.equal(snap.decisionOdds, -120);
+    assert.equal(snap.movementSourceBook, 'Pinnacle');
+    assert.equal(snap.movementMode, 'same_book');
+    assert.equal(snap.correlationGroupId, 'game-1');
+    assert.deepEqual(snap.sportContext, { format: 'best_of_5', surface: 'hard', round: 'R4' });
+  });
+
+  it('isolates nested sportContext from later row and snapshot mutation', () => {
+    const source = {
+      selection: 'Alcaraz C',
+      sportContext: { format: 'best_of_5', flags: { roof: 'closed' } }
+    };
+    const snap = normalizeScanCandidates([{ league: 'Tennis', market: 'Moneyline', plays: [source] }], {
+      scanId: 's'
+    })[0].featureSnapshot;
+    assert.deepEqual(snap.sportContext, { format: 'best_of_5', flags: { roof: 'closed' } });
+    source.sportContext.format = 'MUTATED';
+    source.sportContext.flags.roof = 'MUTATED';
+    assert.deepEqual(snap.sportContext, { format: 'best_of_5', flags: { roof: 'closed' } });
+    snap.sportContext.format = 'SNAP-MUTATED';
+    assert.equal(source.sportContext.format, 'MUTATED');
+  });
+
+  it('leaves provenance fields null when absent instead of inventing values', () => {
+    const snap = normalizeScanCandidates(
+      [
+        {
+          league: 'NBA',
+          market: 'Spread',
+          plays: [{ selection: 'Lakers', odds: -110, edge: 2.0, noVigProbability: 0.6 }]
+        }
+      ],
+      { scanId: 's' }
+    )[0].featureSnapshot;
+    assert.equal(snap.league, null);
+    assert.equal(snap.market, null);
+    assert.equal(snap.book, null);
+    assert.equal(snap.line, null);
+    assert.equal(snap.gameId, null);
+    assert.equal(snap.decisionTimestamp, null);
+    assert.equal(snap.openingOdds, null);
+    assert.equal(snap.decisionOdds, null);
+    assert.equal(snap.movementSourceBook, null);
+    assert.equal(snap.movementMode, null);
+    assert.equal(snap.correlationGroupId, null);
+    assert.equal(snap.sportContext, null);
+    // Block-level context is not backfilled into the explicit-only snapshot.
+    assert.equal(snap.selection, 'Lakers');
+  });
+
+  it('never copies settlement/postgame fields into the snapshot', () => {
+    const row = {
+      selection: 'Yankees',
+      outcome: 'win',
+      result: 'win',
+      winner: 'Yankees',
+      finalScore: '5-3',
+      settlement: { status: 'win' },
+      settledAt: '2026-08-15T12:00:00.000Z',
+      payout: 100
+    };
+    const snap = normalizeScanCandidates([{ league: 'MLB', market: 'Moneyline', plays: [row] }], {
+      scanId: 's'
+    })[0].featureSnapshot;
+    for (const field of ['outcome', 'result', 'winner', 'finalScore', 'settlement', 'settledAt', 'payout']) {
+      assert.equal(Object.prototype.hasOwnProperty.call(snap, field), false);
+    }
+  });
 });
 
 describe('buildCandidateId', () => {

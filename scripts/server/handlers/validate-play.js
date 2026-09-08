@@ -176,7 +176,7 @@ async function resolveValidationRow(client, ctx, options) {
   return { matchingRow, matchedViaGameIdChange, fallbackNote };
 }
 
-function buildValidationPlay({ matchingRow, market, gameId, league, selection }) {
+function buildValidationPlay({ matchingRow, market, gameId, league, selection, movementDisposition, movementLabel }) {
   return matchingRow
     ? {
         playId: matchingRow.playId || buildCanonicalPlayId(matchingRow),
@@ -188,14 +188,19 @@ function buildValidationPlay({ matchingRow, market, gameId, league, selection })
         start: matchingRow.start,
         odds: matchingRow.odds,
         bestAvailableOdds: matchingRow.bestAvailableOdds,
+        // Quote provenance: Novig is a fast peer-to-peer market, so every
+        // validated price carries when it was fetched and the side-specific
+        // liquidity behind it. Confirm the live number in-app at tap time.
+        quoteAsOf: new Date().toISOString(),
+        liquidityUsd: matchingRow.liquidityUsd ?? null,
         executionQuality: matchingRow.executionQuality,
         consensusEdge: matchingRow.consensusEdge,
         consensusBookCount: matchingRow.consensusBookCount,
         clvProxyPct: matchingRow.clvProxyPct,
         openToCurrentClvPct: matchingRow.openToCurrentClvPct,
         freshnessSource: matchingRow.freshnessSource || null,
-        movementLabel: matchingRow.movementLabel,
-        movementDisposition: matchingRow.movementDisposition || null,
+        movementLabel: movementLabel || matchingRow.movementLabel,
+        movementDisposition: movementDisposition || matchingRow.movementDisposition || null,
         movementSourceBook: matchingRow.movementSourceBook || null,
         movementMode: matchingRow.movementMode || null,
         lineHistoryLookbackHours: matchingRow.lineHistoryLookbackHours ?? null,
@@ -288,6 +293,7 @@ function buildValidationResponse(context) {
     detailResult,
     consensusDrift,
     driftReason,
+    confirmation,
     matchingRow,
     research,
     skipResearch,
@@ -313,7 +319,16 @@ function buildValidationResponse(context) {
     screenFreshness: detailResult?.freshness || null,
     consensusDrift,
     driftReason,
-    play: buildValidationPlay({ matchingRow, market, gameId, league, selection }),
+    confirmation: confirmation || null,
+    play: buildValidationPlay({
+      matchingRow,
+      market,
+      gameId,
+      league,
+      selection,
+      movementDisposition: verdictSummary?.movementDisposition,
+      movementLabel: verdictSummary?.movementDisposition === 'insufficient' ? 'insufficient_history' : undefined
+    }),
     research: buildValidationResearch({ research, skipResearch, researchError }),
     gameContext: buildValidationGameContext({ gameContext, isMlb, skipGameContext, gameContextError })
   };
@@ -335,7 +350,9 @@ function createValidatePlayHandlers(client, ctx) {
       return { ok: false, error: { code: 'VALIDATION_ERROR', message: 'selection or playId is required' } };
     }
     const market = String(args.market || 'Moneyline').trim() || 'Moneyline';
-    const books = normalizeBookList(args.books);
+    const requestedBooks =
+      Array.isArray(args.books) && args.books.length > 0 ? args.books : args.book ? [args.book] : args.books;
+    const books = normalizeBookList(requestedBooks);
     const lookbackHours = Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : 6;
     const skipResearch = args.skipResearch === true;
     const skipGameContext = args.skipGameContext === true;
@@ -394,8 +411,17 @@ function createValidatePlayHandlers(client, ctx) {
       research,
       gameContext
     });
-    const { verdict, tier, lookupStatus, reasonType, reasons, verdictSummary, consensusDrift, driftReason } =
-      verdictResult;
+    const {
+      verdict,
+      tier,
+      lookupStatus,
+      reasonType,
+      reasons,
+      verdictSummary,
+      consensusDrift,
+      driftReason,
+      confirmation
+    } = verdictResult;
 
     return buildValidationResponse({
       league,
@@ -413,6 +439,7 @@ function createValidatePlayHandlers(client, ctx) {
       detailResult,
       consensusDrift,
       driftReason,
+      confirmation,
       matchingRow,
       research,
       skipResearch,

@@ -10,11 +10,18 @@ const { rankTennisScreenRows } = require('../lib/screen-tennis');
 // A future regression that adds a start-time / card-window filter to the tennis
 // path would silently drop live pregame matches; these tests catch it.
 
-function tennisCandidate({ start, odds, consensusBookCount = 6, selection = 'Faria +2.5' } = {}) {
+function tennisCandidate({
+  start,
+  odds,
+  consensusBookCount = 6,
+  selection = 'Faria +2.5',
+  gameId = 'Tennis:PREMATCH:Darderi:Faria:1784914200',
+  game = 'Darderi vs Faria'
+} = {}) {
   return {
     league: 'Tennis',
-    gameId: 'Tennis:PREMATCH:Darderi:Faria:1784914200',
-    game: 'Darderi vs Faria',
+    gameId,
+    game,
     selection,
     market: 'Game Handicap',
     start,
@@ -68,17 +75,23 @@ describe('tennis pregame retention (odds presence = bettable)', () => {
       tennisCandidate({
         start: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
         odds: -104,
-        selection: 'A +1.5'
+        selection: 'A +1.5',
+        gameId: 'Tennis:PREMATCH:A:Z:1784914200',
+        game: 'A vs Z'
       }),
       tennisCandidate({
         start: new Date(Date.now() + 1 * 60 * 60 * 1000).toISOString(),
         odds: -110,
-        selection: 'B -2.5'
+        selection: 'B -2.5',
+        gameId: 'Tennis:PREMATCH:B:Y:1784914200',
+        game: 'B vs Y'
       }),
       tennisCandidate({
         start: new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString(),
         odds: -102,
-        selection: 'C +3.5'
+        selection: 'C +1.5',
+        gameId: 'Tennis:PREMATCH:C:X:1784914200',
+        game: 'C vs X'
       })
     ];
     const ranked = rankTennisScreenRows(rows, { includeAll: true });

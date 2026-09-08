@@ -1239,7 +1239,8 @@ describe('propprofessor MCP server stdio contract', () => {
       verdictCounts: { Pass: 2 },
       passReasonCounts: {
         consensus_book_count_below_1: 2,
-        movement_source_is_target_book: 2
+        movement_mode_mixed_books_fallback: 2,
+        missing_movement_source_book: 2
       }
     });
     assert.ok(result.resultMeta.emptyState);
@@ -1247,10 +1248,11 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.equal(result.resultMeta.emptyState.scannedRowCount, 2);
     assert.deepEqual(result.resultMeta.emptyState.failureBreakdown, {
       consensus_book_count_below_1: 2,
-      movement_source_is_target_book: 2
+      movement_mode_mixed_books_fallback: 2,
+      missing_movement_source_book: 2
     });
     assert.equal(result.resultMeta.emptyState.topNearMisses.length, 2);
-    assert.equal(result.resultMeta.emptyState.topNearMisses[0].movementSourceBook, 'NoVigApp');
+    assert.equal(result.resultMeta.emptyState.topNearMisses[0].movementSourceBook, null);
     assert.equal(typeof result.resultMeta.emptyState.topNearMisses[0].marketBookCount, 'number');
     assert.equal(typeof result.resultMeta.emptyState.topNearMisses[0].supportBookCount, 'number');
     assert.equal(typeof result.resultMeta.emptyState.topNearMisses[0].executionQuality, 'string');

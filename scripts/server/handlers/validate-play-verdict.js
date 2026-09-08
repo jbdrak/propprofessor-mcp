@@ -1,6 +1,6 @@
 'use strict';
 
-const { computeMovementDisposition } = require('../../../lib/propprofessor-movement-disposition');
+const { confirmExecution } = require('../../../lib/execution-confirmation');
 
 const STATUS_MESSAGES = {
   supportive_clean: 'all signals aligned — green movement, supportive direction, clean path',
@@ -10,154 +10,10 @@ const STATUS_MESSAGES = {
   insufficient: 'not enough data to evaluate movement quality'
 };
 
-function resolveBaseVerdict({
-  args,
-  matchingRow,
-  matchedViaGameIdChange,
-  detailError,
-  fallbackNote,
-  gameId,
-  selection
-}) {
-  const reasons = [];
-  const screenTier = args.screenTier || (matchingRow && matchingRow.screenTier);
-  const screenKaiCall = args.screenKaiCall || (matchingRow && matchingRow.screenKaiCall);
-  let tier = screenTier || matchingRow?.confidenceTier || null;
-  if (!tier) {
-    const kaiCall = screenKaiCall || matchingRow?.kaiCall;
-    if (kaiCall === 'BET') tier = 'TIER 1';
-    else if (kaiCall === 'CONSIDER') tier = 'TIER 2';
-    else tier = 'TIER 4';
-  }
-
-  let consensusDrift = false;
-  let driftReason = null;
-  if (matchingRow) {
-    const screenCbk = Number(args.screenConsensusBookCount);
-    const screenExec = String(args.screenExecutionQuality || '');
-    const currentCbk = Number(matchingRow.consensusBookCount || 0);
-    const currentExec = String(matchingRow.executionQuality || '');
-
-    if (Number.isFinite(screenCbk) && screenCbk > 0) {
-      const absDrop = screenCbk - currentCbk;
-      const pctDrop = screenCbk > 0 ? absDrop / screenCbk : 0;
-      if (absDrop >= 4 && pctDrop > 0.25) {
-        consensusDrift = true;
-        driftReason = `consensus collapsed (${screenCbk} → ${currentCbk} books)`;
-      }
-    }
-    if (
-      !consensusDrift &&
-      screenExec &&
-      screenExec !== 'unknown' &&
-      screenExec !== currentExec &&
-      currentExec === 'bad'
-    ) {
-      consensusDrift = true;
-      driftReason = 'execution quality changed';
-    }
-  }
-
-  let lookupStatus = 'resolved';
-  let reasonType = 'signal';
-  let verdict;
-  if (matchingRow) {
-    if (matchedViaGameIdChange) {
-      lookupStatus = 'gameId_changed';
-      reasonType = 'gameId_changed';
-      reasons.push(`gameId changed (${gameId} → ${matchingRow.gameId}); matched by league/market/selection/date`);
-    }
-    // The screen ranker is the authoritative tier→call source. Its kaiCall
-    // already encodes grade+risk semantics (TIER 2 green/yellow plays are
-    // BET-able; TIER 3 is speculative). Validation must NOT silently demote
-    // a screen BET to CONSIDER just because the re-fetch re-derived a lower
-    // confidence tier — that was demoting every TIER 2 BET (5-book consensus,
-    // supportive movement) into a CONSIDER and starving the card. Prefer the
-    // screen's kaiCall; only real drift/adverse movement (checked below and
-    // in applyFinalVerdict) overrides it.
-    if (screenKaiCall === 'BET' || (matchingRow && matchingRow.kaiCall === 'BET')) {
-      verdict = 'BET';
-    } else if (screenKaiCall === 'CONSIDER' || (matchingRow && matchingRow.kaiCall === 'CONSIDER')) {
-      verdict = 'CONSIDER';
-    } else if (tier === 'TIER 1') {
-      verdict = 'BET';
-    } else if (tier === 'TIER 2' || tier === 'TIER 3') {
-      verdict = 'CONSIDER';
-    } else {
-      verdict = 'PASS';
-      reasons.push('TIER 4 (no signal)');
-    }
-
-    if (consensusDrift && verdict === 'BET') {
-      verdict = 'CONSIDER';
-      reasons.push(`consensus drift: ${driftReason} (re-fetch disagrees with screen snapshot)`);
-    }
-
-    const exec = String(matchingRow.executionQuality || '');
-    if (exec === 'bad') {
-      verdict = 'PASS';
-      reasons.push('execution quality is "bad" on the requested book');
-    } else if (exec === 'playable') {
-      reasons.push('execution quality is "playable" (within 10¢ of best)');
-    } else if (exec === 'best') {
-      reasons.push('execution quality is "best" (top of market)');
-    } else {
-      reasons.push(`execution quality is "${exec || 'unknown'}"`);
-    }
-
-    const cbk = Number(matchingRow.consensusBookCount || 0);
-    if (cbk >= 3) reasons.push(`consensus: ${cbk} comp books agree`);
-    else if (cbk >= 1) reasons.push(`consensus: ${cbk} comp book (thin)`);
-    else reasons.push('no comp book consensus');
-  } else {
-    lookupStatus = 'lookup_failed';
-    reasonType = 'lookup_failure';
-    verdict = 'CONSIDER';
-    reasons.push(
-      detailError
-        ? `screen lookup failed: ${detailError}`
-        : `no row matched selection "${selection}" on gameId ${gameId}${
-            fallbackNote ? ` (fallback: ${fallbackNote})` : ''
-          }`
-    );
-  }
-
-  if (screenKaiCall && screenKaiCall !== 'BET' && verdict === 'BET') {
-    verdict = 'CONSIDER';
-    reasons.push(`downgraded to match screen snapshot (${screenKaiCall})`);
-  }
-
-  return { verdict, tier, lookupStatus, reasonType, reasons, screenKaiCall, consensusDrift, driftReason };
-}
-
-function applyResearchRisk(verdict, reasons, research) {
-  if (research && research.riskFlag === 'high') {
-    reasons.push('player_context riskFlag = "high"');
-    return 'PASS';
-  }
-  if (research && research.riskFlag === 'medium') {
-    reasons.push('player_context riskFlag = "medium" — proceed with caution');
-    return verdict === 'BET' ? 'CONSIDER' : verdict;
-  }
-  if (research && research.riskFlag === 'low') reasons.push('player_context riskFlag = "low"');
-  return verdict;
-}
-
-function applyGameContextRisk(verdict, reasons, gameContext) {
-  if (gameContext && gameContext.riskFlag === 'high') {
-    reasons.push(`game_context riskFlag = "high"${gameContext.riskSummary ? ` — ${gameContext.riskSummary}` : ''}`);
-    return 'PASS';
-  }
-  if (gameContext && gameContext.riskFlag === 'medium') {
-    reasons.push(`game_context riskFlag = "medium" — ${gameContext.riskSummary || 'proceed with caution'}`);
-    return verdict === 'BET' ? 'CONSIDER' : verdict;
-  }
-  if (gameContext && gameContext.riskFlag === 'low') {
-    reasons.push(`game_context riskFlag = "low" — ${gameContext.riskSummary || 'minor flag'}`);
-  } else if (gameContext && gameContext.riskFlag === 'unknown' && gameContext.riskSummary) {
-    reasons.push(`game_context: ${gameContext.riskSummary}`);
-  }
-  return verdict;
+function tierForKaiCall(kaiCall) {
+  if (kaiCall === 'BET') return 'TIER 1';
+  if (kaiCall === 'CONSIDER') return 'TIER 2';
+  return 'TIER 4';
 }
 
 function collectRiskFlags(research, gameContext, disposition) {
@@ -181,6 +37,9 @@ function buildActionableSummary({ verdict, lookupStatus, matchingRow, args, disp
   if (verdict !== 'CONSIDER') return 'PASS — one or more hard checks failed.';
 
   const cbk = Number(matchingRow?.consensusBookCount || 0);
+  if (disposition === 'insufficient') {
+    return `Comparable movement history is insufficient${cbk ? ` (${cbk} books visible)` : ''}. Treat this as unresolved, not as a directional signal.`;
+  }
   const edge = Number(matchingRow?.consensusEdge || args.screenConsensusEdge || 0);
   const clv = Number(matchingRow?.clvProxyPct || 0);
   const suffix = riskFlags.length > 0 ? ` — ${riskFlags.join(', ')}` : '';
@@ -232,7 +91,7 @@ function buildRationale({ matchingRow, args, disposition, consensusDrift, driftR
 }
 
 function buildValidationVerdict({
-  args,
+  args = {},
   matchingRow,
   matchedViaGameIdChange,
   detailError,
@@ -242,39 +101,106 @@ function buildValidationVerdict({
   research,
   gameContext
 }) {
-  const base = resolveBaseVerdict({
-    args,
-    matchingRow,
-    matchedViaGameIdChange,
-    detailError,
-    fallbackNote,
-    gameId,
-    selection
+  const scanSourced = args.screenKaiCall != null;
+  const currentOdds = matchingRow ? (matchingRow.odds ?? matchingRow.currentOdds ?? null) : null;
+  const rankedOdds = scanSourced ? (args.screenOdds ?? null) : currentOdds;
+  const lookupError = detailError
+    ? detailError instanceof Error
+      ? detailError
+      : new Error(String(detailError))
+    : null;
+  const confirmation = confirmExecution({
+    rankedOdds,
+    currentOdds,
+    currentRow: matchingRow || null,
+    quoteAsOf: matchingRow?.quoteAsOf || matchingRow?.updatedAt || null,
+    lookupError,
+    matchedViaGameIdChange: Boolean(matchedViaGameIdChange),
+    expectedGameId: gameId ?? null
   });
-  let { verdict, tier } = base;
-  const reasons = base.reasons;
-  verdict = applyResearchRisk(verdict, reasons, research);
-  verdict = applyGameContextRisk(verdict, reasons, gameContext);
 
-  const rowForDisposition = matchingRow ? { ...matchingRow } : null;
-  if (rowForDisposition && !rowForDisposition.sharpBookMovementConfirmed && args.screenSharpBookConfirmed) {
-    rowForDisposition.sharpBookMovementConfirmed = true;
+  const reasons = [];
+  let lookupStatus = 'resolved';
+  let reasonType = 'signal';
+  if (matchedViaGameIdChange && matchingRow) {
+    lookupStatus = 'gameId_changed';
+    reasonType = 'gameId_changed';
+    reasons.push(`gameId changed (${gameId} → ${matchingRow.gameId}); matched by league/market/selection/date`);
   }
-  const disposition = rowForDisposition ? computeMovementDisposition(rowForDisposition) : 'insufficient';
-  if ((disposition === 'adverse_recent' || disposition === 'adverse_full') && tier !== 'TIER 4') {
-    tier = 'TIER 3';
-    reasons.push(`movement ${disposition} — tier downgraded from screen snapshot`);
+  if (!matchingRow) {
+    lookupStatus = 'lookup_failed';
+    reasonType = 'lookup_failure';
+    reasons.push(
+      detailError
+        ? `screen lookup failed: ${detailError instanceof Error ? detailError.message : detailError}`
+        : `no row matched selection "${selection}" on gameId ${gameId}${fallbackNote ? ` (fallback: ${fallbackNote})` : ''}`
+    );
   }
 
+  let verdict;
+  let tier;
+  if (scanSourced) {
+    verdict = args.screenKaiCall;
+    tier = args.screenTier || tierForKaiCall(verdict);
+    if (verdict !== 'BET' && verdict !== 'CONSIDER') {
+      verdict = 'PASS';
+      tier = 'TIER 4';
+    }
+  } else if (matchingRow) {
+    verdict = matchingRow.kaiCall || 'PASS';
+    if (verdict !== 'BET' && verdict !== 'CONSIDER') verdict = 'PASS';
+    tier = matchingRow.confidenceTier || tierForKaiCall(verdict);
+  } else {
+    verdict = 'CONSIDER';
+    tier = 'TIER 4';
+  }
+  if (verdict === 'PASS') tier = 'TIER 4';
+
+  const confirmationFailed = ['moved', 'gone', 'ambiguous', 'error'].includes(confirmation.status);
+  if (confirmationFailed && verdict === 'BET') {
+    verdict = 'CONSIDER';
+    reasons.push(`execution ${confirmation.status}: ${confirmation.reason} — downgraded from ranker BET`);
+  } else {
+    reasons.push(`execution ${confirmation.status}: ${confirmation.reason}`);
+  }
+
+  if (research?.riskFlag) {
+    reasons.push(`player_context riskFlag = "${research.riskFlag}" (context only, verdict unchanged)`);
+  }
+  if (gameContext?.riskFlag) {
+    reasons.push(
+      `game_context riskFlag = "${gameContext.riskFlag}"${gameContext.riskSummary ? ` — ${gameContext.riskSummary}` : ''} (context only, verdict unchanged)`
+    );
+  }
+  const exec = String(matchingRow?.executionQuality || '');
+  if (exec) reasons.push(`execution quality is "${exec}" (context only)`);
+  const cbk = Number(matchingRow?.consensusBookCount || 0);
+  if (matchingRow) {
+    if (cbk >= 3) reasons.push(`consensus: ${cbk} comp books agree`);
+    else if (cbk >= 1) reasons.push(`consensus: ${cbk} comp book (thin)`);
+    else reasons.push('no comp book consensus');
+  }
+
+  const consensusDrift = confirmation.status === 'moved';
+  const driftReason = consensusDrift ? confirmation.reason : null;
+  let disposition = scanSourced
+    ? args.screenMovementDisposition || matchingRow?.movementDisposition || 'insufficient'
+    : matchingRow?.movementDisposition || 'insufficient';
+  const fallbackAdverse =
+    !scanSourced &&
+    matchingRow &&
+    String(matchingRow.movementMode || '').toLowerCase() === 'mixed_books_fallback' &&
+    String(disposition).toLowerCase().startsWith('adverse') &&
+    !matchingRow.movementSourceBook;
+  if (fallbackAdverse) {
+    disposition = 'insufficient';
+    reasons.push('fallback history was not comparable enough to authorize an adverse movement flip');
+    if (verdict === 'BET' || (verdict === 'PASS' && matchingRow.kaiCall === 'PASS')) {
+      verdict = 'CONSIDER';
+      tier = 'TIER 2';
+    }
+  }
   const riskFlags = collectRiskFlags(research, gameContext, disposition);
-  const actionableSummary = buildActionableSummary({
-    verdict,
-    lookupStatus: base.lookupStatus,
-    matchingRow,
-    args,
-    disposition,
-    riskFlags
-  });
   const verdictSummary = {
     displayTier: verdict === 'BET' ? 'BET' : verdict === 'CONSIDER' ? 'CONSIDER' : 'PASS',
     movementDisposition: disposition,
@@ -282,25 +208,20 @@ function buildValidationVerdict({
     executionQuality: matchingRow?.executionQuality || null,
     consensusSupport: matchingRow?.consensusBookCount > 0 ? `${matchingRow.consensusBookCount} books` : 'no consensus',
     riskFlags,
-    actionableSummary,
-    rationale: buildRationale({
-      matchingRow,
-      args,
-      disposition,
-      consensusDrift: base.consensusDrift,
-      driftReason: base.driftReason
-    })
+    actionableSummary: buildActionableSummary({ verdict, lookupStatus, matchingRow, args, disposition, riskFlags }),
+    rationale: buildRationale({ matchingRow, args, disposition, consensusDrift, driftReason })
   };
 
   return {
     verdict,
     tier,
-    lookupStatus: base.lookupStatus,
-    reasonType: base.reasonType,
+    lookupStatus,
+    reasonType,
     reasons,
     verdictSummary,
-    consensusDrift: base.consensusDrift,
-    driftReason: base.driftReason
+    consensusDrift,
+    driftReason,
+    confirmation
   };
 }
 

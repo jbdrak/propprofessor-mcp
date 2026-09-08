@@ -191,6 +191,7 @@ Commands:
   player     Player context + injury/risk flags
   prices     Compare prices across books
   rank       Ranked plays for a league
+  card       Today's bet slip (BETs across all markets, kickoff-sorted)
   wallets    Top Polymarket wallets vs a book (bet/pass)
   fantasy    Fantasy optimizer props
   health     Auth + backend health check
@@ -1153,10 +1154,7 @@ async function cmdScan(handlers, positional, flags, client) {
   const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
   const tier = flags.t || flags.tier || undefined;
   const onlyBets = flags.B || flags['only-bets'] || false;
-  if (onlyBets && leagues.length === 1 && String(leagues[0]).toUpperCase() === 'NCAAF' && !marketList) {
-    marketList = ['Moneyline'];
-    console.error('[ncaaf] strict BET scan defaults to Moneyline; use -m for another market');
-  }
+
   const sortBy = flags.sort || 'start';
   const sortDir = flags.asc ? 'asc' : 'desc';
 
@@ -1189,6 +1187,7 @@ async function cmdScan(handlers, positional, flags, client) {
     : ['TIER 1', 'TIER 2', 'TIER 3'];
   // minFinalTier still controls the onlyBets floor when --tier is explicit.
   const minFinalTier = tier ? (tier === '1' ? 'TIER 1' : tier === '2' ? 'TIER 2' : 'TIER 2') : 'TIER 2';
+  const ncaafOnly = leagues.length === 1 && String(leagues[0]).toUpperCase() === 'NCAAF';
 
   const MOVEMENT_ALIASES = {
     supportive: ['supportive_clean', 'supportive_bouncy'],
@@ -1241,14 +1240,17 @@ async function cmdScan(handlers, positional, flags, client) {
         Number.isFinite(Number(flags['scan-limit'] || flags.scanLimit)) &&
         Number(flags['scan-limit'] || flags.scanLimit) > 0
           ? Number(flags['scan-limit'] || flags.scanLimit)
-          : onlyBets
-            ? Math.min(limit, 24)
-            : Math.min(limit, 50),
+          : ncaafOnly
+            ? 80
+            : onlyBets
+              ? Math.min(limit, 24)
+              : Math.min(limit, 50),
       lite: true,
       verbosity: 'bets',
       validate: validateAll ? true : undefined,
       validateTop: validateAll ? undefined : 10,
-      includeResearch: false
+      includeResearch: false,
+      ...(ncaafOnly ? { preHistoryGameBudget: 80, preHistoryRowBudget: 80 } : {})
     });
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
@@ -1339,7 +1341,21 @@ async function cmdGame(handlers, positional, flags) {
   const args = { league, market, gameIds: [gameId], books: [book] };
   if (selection) args.selection = selection;
   if (playId.includes('::')) args.playId = playId;
-  const res = await handlers.get_play_details(args);
+  // Heartbeat: single-game hydration can take a minute on line markets.
+  // Print elapsed time every 30s so a slow call never looks dead.
+  const startedAt = Date.now();
+  const heartbeat = setInterval(() => {
+    console.error(
+      `... still fetching ${gameId} (${Math.round((Date.now() - startedAt) / 1000)}s, hydrating history) ...`
+    );
+  }, 30000);
+  if (heartbeat && typeof heartbeat.unref === 'function') heartbeat.unref();
+  let res;
+  try {
+    res = await handlers.get_play_details(args);
+  } finally {
+    clearInterval(heartbeat);
+  }
   const rows = res.result || res.data || [];
   if (/^tennis$/i.test(String(league)) && rows.length) {
     await correctTennisTimes(rows);
@@ -1692,6 +1708,81 @@ function mergeRankedResponses(league, responses) {
   return { result, resultMeta };
 }
 
+/**
+ * pp card <league> — today's bet slip. Fans out screen_ranked across the
+ * league's markets, keeps kaiCall BET rows, drops already-started games,
+ * sorts by kickoff, and prints a numbered slip. Same-game multiples are
+ * shown together (not silently dropped) so overlap is visible.
+ */
+async function cmdCard(handlers, positional, flags) {
+  const league = positional[1] || flags.l || flags.league || 'NCAAF';
+  const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
+  const limit = parseInt(flags.n || flags.limit || 15);
+  const jsonOut = flags.j || flags.json || false;
+  const markets = getMarketsForSport(league, book);
+
+  console.error(`Building ${league} card on ${book} (${markets.join(', ')})...`);
+  const card = [];
+  let considerCount = 0;
+  let startedCount = 0;
+  for (const market of markets) {
+    const res = await handlers.screen_ranked({
+      league,
+      market,
+      books: [book],
+      limit,
+      verbosity: 'standard',
+      includeResearch: false,
+      preHistoryShortlist: true
+    });
+    const rows = res?.result || res?.data || res?.rows || [];
+    for (const r of rows) {
+      if (!r || typeof r !== 'object') continue;
+      if (r.kaiCall === 'CONSIDER' || r.confidenceTier === 'TIER 2') considerCount += 1;
+      if (r.kaiCall !== 'BET') continue;
+      if (r.startsIn === 'started') {
+        startedCount += 1;
+        continue;
+      }
+      card.push(r);
+    }
+  }
+  // Soonest kickoff first; rows without a parseable start go last.
+  card.sort((a, b) => {
+    const ta = Date.parse(a.start);
+    const tb = Date.parse(b.start);
+    if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb;
+    if (Number.isFinite(ta)) return -1;
+    if (Number.isFinite(tb)) return 1;
+    return 0;
+  });
+  const gameCounts = new Map();
+  for (const r of card) gameCounts.set(r.gameId || r.game, (gameCounts.get(r.gameId || r.game) || 0) + 1);
+
+  if (jsonOut) {
+    console.log(JSON.stringify({ league, book, card, considerCount, startedDropped: startedCount }, null, 2));
+    return;
+  }
+  if (!card.length) {
+    console.log(`No BETs on today's ${league} card (${considerCount} CONSIDERs, ${startedCount} already started).`);
+    return;
+  }
+  console.log(B + `${league} card` + R + ` — ${card.length} BET${card.length === 1 ? '' : 's'} on ${book}`);
+  card.forEach((r, idx) => {
+    const oddsStr = r.odds > 0 ? '+' + r.odds : String(r.odds);
+    const when =
+      r.startsIn === 'LIVE' || r.isLive ? RED + 'LIVE' + R : [r.startCT, r.startsIn].filter(Boolean).join(', ');
+    const liq = r.liquidityFlag === 'thin' ? ' ' + RED + '[thin liq]' + R : '';
+    const sameGame = (gameCounts.get(r.gameId || r.game) || 0) > 1 ? '  (same game as below)' : '';
+    console.log(
+      `  ${idx + 1}. ${r.selection} @ ${oddsStr}  [${r.market}]  (${when})${liq}${sameGame}\n` +
+        `     ${r.game || ''}  |  mv ${r.movementDisposition || '?'}  |  books ${r.consensusBookCount ?? '?'}`
+    );
+  });
+  if (considerCount) console.error(`${considerCount} CONSIDERs left off — use pp rank to see them.`);
+  if (startedCount) console.error(`${startedCount} BETs already started, dropped.`);
+}
+
 /** Render the grouped, per-game rank view for a single or merged response. */
 function printRankedRows(league, res) {
   printRankedLeague(league, [res]);
@@ -1738,17 +1829,16 @@ function printRankedLeague(league, responses) {
     const grp = groups.get(gid);
     const g = grp[0];
     const mkts = [...new Set(grp.map((r) => r.market || r.playType || '?'))];
+    // Kickoff context: CT wall time + relative label, unverified for tennis.
+    let kickoff = '';
+    if (g.startsIn === 'LIVE' || g.isLive) kickoff = '  ' + RED + 'LIVE' + R;
+    else if (g.startCT || g.startsIn) {
+      kickoff = '  [' + [g.startCT, g.startsIn].filter(Boolean).join(', ') + ']';
+      if (g.startsIn === 'started') kickoff = '  ' + RED + '[started]' + R;
+      if (g.startUnverified) kickoff += ' (time unverified)';
+    }
     console.log(
-      '\n' +
-        B +
-        (g.awayTeam || '?') +
-        ' @ ' +
-        (g.homeTeam || '?') +
-        R +
-        '  [' +
-        mkts.join(',') +
-        ']' +
-        (g.isLive ? '  ' + RED + 'LIVE' + R : '')
+      '\n' + B + (g.awayTeam || '?') + ' @ ' + (g.homeTeam || '?') + R + '  [' + mkts.join(',') + ']' + kickoff
     );
     for (const r of grp) {
       const mv = movementColor(r.movementDisposition || '');
@@ -1757,8 +1847,11 @@ function printRankedLeague(league, responses) {
       let line = '  ' + (r.selection || r.participant || '?') + ' @ ' + oddsStr + '  ' + tier + '  |  mv ' + mv;
       const extra = [];
       if (r.consensusBookCount) extra.push('books ' + r.consensusBookCount);
-      if (Number.isFinite(Number(r.liquidityUsd)) && Number(r.liquidityUsd) > 0)
-        extra.push('liq $' + Math.round(Number(r.liquidityUsd)).toLocaleString('en-US'));
+      if (Number.isFinite(Number(r.liquidityUsd)) && Number(r.liquidityUsd) > 0) {
+        const liqLabel = 'liq $' + Math.round(Number(r.liquidityUsd)).toLocaleString('en-US');
+        // Thin books (<$100) may not fill a $50 ticket cleanly — red flag.
+        extra.push(r.liquidityFlag === 'thin' ? RED + liqLabel + ' THIN' + R : liqLabel);
+      }
       if (r.recentClvPct != null)
         extra.push('CLV ' + (Number(r.recentClvPct) >= 0 ? '+' : '') + Number(r.recentClvPct).toFixed(1) + '%');
       if (extra.length) line += '   ' + '[' + extra.join(' | ') + ']';
@@ -2195,6 +2288,9 @@ async function main() {
     case 'rank':
       await cmdRank(handlers, positional, flags);
       break;
+    case 'card':
+      await cmdCard(handlers, positional, flags);
+      break;
     case 'wallets':
       await cmdWallets(handlers, positional, flags);
       break;
@@ -2225,6 +2321,7 @@ module.exports = {
   main,
   formatError,
   cmdRank,
+  cmdCard,
   parseArgs,
   cmdScan,
   cmdGame,

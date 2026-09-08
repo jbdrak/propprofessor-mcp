@@ -4,7 +4,6 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
 const { resolveMarketName } = require('../lib/propprofessor-shared-utils');
-const { reconcileValidateOverride } = require('../lib/validate-reconcile');
 
 describe('NBASL movement quality fixes', () => {
   // ── Market aliases ────────────────────────────────────────────────
@@ -84,37 +83,5 @@ describe('NBASL movement quality fixes', () => {
       sharpBookMovementConfirmed: false
     });
     assert.equal(result, 'adverse_full', 'Should fall back to row.clv when openToCurrentClvPct is absent');
-  });
-
-  // ── Reconcile guard (already fixed in a7cd39e) ──────────────────
-  it('reconcileValidateOverride keeps screen signal when validate returns insufficient + exec quality noise drift', () => {
-    // This tests the a7cd39e fix: screen says supportive_clean, validate says
-    // insufficient, consensusDrift=true (from exec quality change, not real drift).
-    const result = reconcileValidateOverride({
-      screenExec: 'playable',
-      screenDisposition: 'supportive_clean',
-      validateExec: 'best',
-      validateDisposition: 'insufficient',
-      consensusDrift: true
-    });
-    assert.equal(
-      result.movementDisposition,
-      'supportive_clean',
-      'Should keep screen signal even when consensusDrift is exec-quality noise'
-    );
-    assert.equal(result.overridden, true, 'Should report that the screen signal was kept');
-  });
-
-  it('reconcileValidateOverride passes through insufficient when screen is also insufficient', () => {
-    // When both screen and validate are insufficient, no override needed.
-    const result = reconcileValidateOverride({
-      screenExec: 'unknown',
-      screenDisposition: 'insufficient',
-      validateExec: 'unknown',
-      validateDisposition: 'insufficient',
-      consensusDrift: false
-    });
-    assert.equal(result.movementDisposition, 'insufficient', 'Should pass through when both sides are insufficient');
-    assert.equal(result.overridden, false);
   });
 });

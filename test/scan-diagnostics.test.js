@@ -145,7 +145,7 @@ describe('formatScanDiagnostics', () => {
     );
   });
 
-  it('flags candidates found but downgraded by fresh validation (stale labels)', () => {
+  it('reports validated candidates when none survived as BET (no survivors)', () => {
     const lines = formatScanDiagnostics({
       mixedScan: true,
       tennisFallbackApplied: false,
@@ -159,8 +159,8 @@ describe('formatScanDiagnostics', () => {
       }
     });
     assert.ok(
-      lines.some((l) => /16 BET candidate/.test(l) && /exact reason/.test(l)),
-      'should report the eligible candidates that failed fresh validation'
+      lines.some((l) => /16 candidate/.test(l) && /none survived as BET/.test(l) && /exact reason/.test(l)),
+      'should report the validated candidates with no BET survivors'
     );
     assert.ok(
       lines.some((l) => /pp rank ufc/.test(l)),
@@ -176,7 +176,7 @@ describe('formatScanDiagnostics', () => {
       playCount: 3,
       scanHealth: { validation: { eligible: 16, selected: 10, completedCount: 10 } }
     });
-    assert.ok(!lines.some((l) => /BET candidate/.test(l)), 'no staleness warning when plays are present');
+    assert.ok(!lines.some((l) => /none survived as BET/.test(l)), 'no no-survivors warning when plays are present');
   });
 
   it('labels an empty market unresolved when its scan block was truncated', () => {

@@ -453,6 +453,12 @@ async function queryPlayDetailsResponse({
         compact: false,
         skipHistory: false,
         historySportsbooks: augmentedBooksExcluded,
+        // Single-game detail: alt lines are pruned pre-hydration and dropped
+        // post-rank, so cross-line variant fallback only burns queries on
+        // rows that can never surface. Off here. 90s hydration deadline —
+        // game detail must never hang (see pre-hydration prune + deadline).
+        enableHistoryLineFallback: false,
+        historyDeadlineMs: Number.isFinite(Number(args.historyDeadlineMs)) ? Number(args.historyDeadlineMs) : 90000,
         ...(propHistoryLookback !== undefined ? { lookbackHours: propHistoryLookback } : {})
       },
       // Hydrate only the exact requested selection when this detail call is

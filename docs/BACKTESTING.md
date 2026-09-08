@@ -136,9 +136,58 @@ node scripts/backtest.js --metrics 2026-06-10-mlb-moneyline.resolved.json
 | `sharpe`      | Mean per-play return ÷ sample stdev (null if < 2 plays) |
 | `maxDrawdown` | Largest peak-to-trough drop in the cumulative P&L curve |
 
-> The PropProfessor API does **not** provide historical settled results, so
-> there is no bundled "profitable" history. Any published numbers must come
-> from snapshots you resolved yourself.
+> Profitability is **UNPROVEN** until the input contains real resolved outcomes.
+
+### Segmented evaluation and leakage checks
+
+Use `segmentEvaluationRows(rows, { dimensions, minSample })` from
+`lib/record-evaluation.js` to keep sports, markets, books, and price bands
+separate. The function reports wins, losses, pushes, decided hit rate, and an
+`insufficientSample` flag. Do not use a pooled all-sports hit rate to change
+ranking weights.
+
+Use `validateDecisionTimeIntegrity(row)` before scoring a row. It flags outcome,
+settlement, final-score, and payout fields leaked into the decision snapshot and
+flags decision timestamps that are not before settlement. Closing odds belong in
+an evaluation field, not in the model's decision-time feature set.
+
+Keep Brier score, log loss, reliability bins, ROI, CLV, and drawdown together.
+Accuracy alone cannot distinguish a calibrated near-even model from an
+overconfident model that loses at bad prices.
+
+Use `assessSportContext({ league, market, sportContext })` from
+`lib/propprofessor-context-gates.js` as a pre-evaluation diagnostic. It fails
+closed on missing context for tennis format, soccer competition/draw structure,
+MLB pitcher/lineup/weather state, NHL goalies, football timing/line identity,
+basketball availability/rest/pace, and UFC replacement/weigh-in/weight-class/
+bout format. It reports `not_applicable` for uncovered leagues rather than
+inventing a pass. This helper is intentionally not wired into ranking yet; its
+first job is to make missing context visible without changing existing public
+play responses.
+
+### External-model benchmark adapters
+
+For a third-party prediction source such as Sagarin, use the pure adapter
+`lib/sagarin-external-evaluation.js` rather than changing the live ranking path or
+v2 ledger. It normalizes outcomes, preserves prediction/source timestamps,
+normalizes FBS/FCS segments, keeps unmatched rows visible, and marks missing,
+invalid, or post-decision provenance as unresolved. Unresolved and unmatched rows
+are excluded from score denominators rather than silently graded.
+
+- `normalizeSagarinRows(rows)` returns chronologically ordered rows plus an
+  `unresolved` list.
+- `scoreSagarinRows(rows)` delegates probability scoring to
+  `scoreEvaluationRows` using only `modelWinProbability`.
+- `segmentSagarinRows(rows, { minSample })` delegates competition segmentation
+  to `segmentEvaluationRows`.
+
+Store the external snapshot separately from settled PropProfessor bets. Record
+the source URL, retrieval time, prediction method, result source, competition
+level, market/price context, and matched/unmatched status. A one-week winner rate
+is descriptive only; compare external probabilities with the de-vigged market,
+closing-line value, calibration, ROI, and drawdown before changing a live weight.
+See `docs/research/sagarin-ncaaf-benchmark-2026-09-06.md` for the verified NCAAF
+snapshot and its source caveats.
 
 ## Daily snapshot + outcome-resolution pipeline (real P&L over time)
 

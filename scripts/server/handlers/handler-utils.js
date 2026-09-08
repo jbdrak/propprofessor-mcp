@@ -31,7 +31,8 @@ const SOCCER_COMPETITIONS = new Set([
   'Europa League',
   'La Liga',
   'Liga MX',
-  'Ligue 1'
+  'Ligue 1',
+  'Serie A'
 ]);
 
 function resolveSoccerLeague(league, leagueName) {

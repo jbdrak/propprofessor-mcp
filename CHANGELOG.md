@@ -1,3 +1,7 @@
+## Unreleased
+
+- fix: scan-sourced validation trusts the screen snapshot for fast Novig markets. The validation re-fetch confirms the line is still there instead of re-grading it: consensus wobbles, exec-quality flips, and movement-label flips between two fetches seconds apart no longer downgrade a screen BET. Only material changes downgrade — line gone (lookup_failed) or a big price move (30+ pts American, 5+ pts NoVig percentage → CONSIDER). Direct `validate_play` calls without a screen snapshot keep the legacy strict behavior. Validated prices now carry `quoteAsOf` + `liquidityUsd` so every quote has an age — confirm the live number in-app at tap time.
+
 ## 2.9.3
 
 - fix: mixed-scan reliability and throughput. Tennis fallback now honors the caller's tier filter (`-t`); JSON scans summarize >50 unresolved rows into total/byReason/sample instead of shipping tens of megabytes of identical failure reasons; the odds-history gate is no longer serial (parallel, env `PP_ODDS_HISTORY_CONCURRENCY`, default 3) so the budget is actually spendable in-wall-clock. Upstream 429s still halt the gate with cooldown.
@@ -30,6 +34,7 @@
 
 ## Unreleased
 
+- fix: NCAAF NoVig scans now use the local today window, scan the standard Moneyline/Point Spread/Total Points markets without forcing Moneyline-only, and use bounded per-market recovery (80 rows per market with a 700-row shortlist ceiling). Exact validation keeps NoVigApp first in the book list so comparison-book data cannot make a valid NoVig line appear missing. Unresolved alternate rows remain explicitly non-actionable.
 - change: browser fallback order in `fetchAccessToken()` is now `got-scraping` → **ego-browser** → **CDP** (ego-browser is the default first browser fallback; CDP is tried only when ego-browser fails). Env gates and injection points are unchanged: `PP_NO_EGO_FALLBACK=1` / `enableEgoFallback:false` skip ego and go straight to CDP; `PP_NO_CDP_FALLBACK=1` / `enableCdpFallback:false` keep CDP disabled. Combined-error shape (`TOKEN_REFRESH_FAILED_BOTH_PATHS`, JWT-redacted details, `err.cause.{gotErr,cdpErr,egoErr}`) is unchanged; the message now lists `ego:` before `CDP:`.
 - fix: auth refresh — `fetchAccessTokenViaCDP()` now honors `PROPPROFESSOR_CDP_VERSION_URL` (default stays `http://127.0.0.1:9222/json/version`), and a freshly created CDP tab waits (bounded by the runtime timeout) for `app.propprofessor.com` to load before the in-page fetch — fixes the opaque-origin `Failed to fetch` race. `scripts/pp-token-watchdog.js` reads the same env var instead of hardcoding port 9222.
 - fix: ego fallback default task space is now the named space `pp-token-refresh` (ego creates it on first use) instead of numeric `7`, which only matched an existing space and failed when none existed. `PROPPROFESSOR_EGO_TASK_SPACE` overrides (positive integer server-assigned id) and validation are unchanged; the ego script opens/reuses a same-origin tab before `browserFetch`.
