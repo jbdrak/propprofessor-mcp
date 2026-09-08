@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
+  quality:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -175,3 +175,31 @@ jobs:
 
       - name: Run Flashscore extractor test
         run: python test/flashscore-extractor.test.py
+
+  # `checks` is the branch-protection context. Keep this job name stable.
+  # It runs only after every CI leg and fails closed if any dependency did
+  # not finish successfully, so the protected-branch requirement covers the
+  # entire suite instead of only the fast quality checks.
+  checks:
+    if: ${{ always() }}
+    needs:
+      - quality
+      - test
+      - coverage
+      - python-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require every CI leg to pass
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
+          PYTHON_RESULT: ${{ needs.python-checks.result }}
+        run: |
+          printf 'quality=%s\ntest=%s\ncoverage=%s\npython=%s\n' \
+            "$QUALITY_RESULT" "$TEST_RESULT" "$COVERAGE_RESULT" "$PYTHON_RESULT"
+          test "$QUALITY_RESULT" = success
+          test "$TEST_RESULT" = success
+          test "$COVERAGE_RESULT" = success
+          test "$PYTHON_RESULT" = success
