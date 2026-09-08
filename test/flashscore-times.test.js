@@ -15,8 +15,8 @@ const TEST_CACHE = {
   scrapedAt: '2026-07-29T20:00:00Z',
   source: 'flashscore',
   timezone: 'America/Chicago',
-  totalMatches: 10,
-  scheduled: 8,
+  totalMatches: 11,
+  scheduled: 9,
   matches: [
     {
       id: 'abc123',
@@ -103,6 +103,17 @@ const TEST_CACHE = {
       tournament: 'Test Open',
       category: 'WTA - SINGLES',
       surface: 'hard'
+    },
+    {
+      id: 'manzano001',
+      time: '04:00',
+      foundOn: '2026-09-08',
+      status: 'scheduled',
+      home: 'Aboian V.',
+      away: 'Martin Manzano J. C.',
+      tournament: 'Genova (Italy)',
+      category: 'CHALLENGER MEN - SINGLES',
+      surface: ''
     },
     {
       id: 'jkl012',
@@ -227,6 +238,13 @@ describe('flashscore-times', () => {
       assert.equal(mod.lookupMatchTime('Bueno', 'Reis Da Silva').time, '08:30');
     });
 
+    it('matches a surname against a full Flashscore name with initials', () => {
+      const m = mod.lookupMatchTime('Aboian', 'Manzano');
+      assert.ok(m, 'should match surname to full given-name record');
+      assert.equal(m.tournament, 'Genova (Italy)');
+      assert.equal(m.category, 'CHALLENGER MEN - SINGLES');
+    });
+
     it('handles initials in PP names', () => {
       const m = mod.lookupMatchTime('Dart H.', 'Dong E.');
       assert.ok(m, 'should find match with initials');
@@ -277,8 +295,8 @@ describe('flashscore-times', () => {
       const info = mod.getCacheInfo();
       assert.ok(info);
       assert.equal(info.date, '2026-07-29');
-      assert.equal(info.totalMatches, 10);
-      assert.equal(info.scheduled, 8);
+      assert.equal(info.totalMatches, 11);
+      assert.equal(info.scheduled, 9);
       assert.equal(info.source, 'flashscore');
       assert.equal(info.timezone, 'America/Chicago');
     });

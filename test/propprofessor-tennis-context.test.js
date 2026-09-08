@@ -951,6 +951,37 @@ describe('getTennisContext — flashscore exact-match fallback', () => {
     }
   });
 
+  it('lets exact Challenger metadata beat the Grand Slam-week fallback', async () => {
+    mockCurlSuccess(EMPTY_RSS);
+    const restore = stubModuleExports(FLASHSCORE_PATH, {
+      lookupMatchTime: () => ({
+        time: '09:00',
+        date: '2026-09-08',
+        tournament: 'Genova (Italy)',
+        category: 'CHALLENGER MEN - SINGLES',
+        surface: ''
+      }),
+      getCacheInfo: () => freshCacheInfo('2026-09-08')
+    });
+    try {
+      clearModuleCache();
+      const { getTennisContext } = require('../lib/propprofessor-tennis-context');
+      const result = await getTennisContext({
+        player1: 'Aboian',
+        player2: 'Manzano',
+        tournament: 'Aboian vs Manzano',
+        start: '2026-09-08T09:00:00.000Z'
+      });
+      assert.equal(result.surface, 'Clay');
+      assert.equal(result.level, 'Challenger');
+      assert.equal(result.tournament, 'Genova (Italy)');
+      assert.equal(result.signals.resolvedFromMatchup, true);
+      assert.equal(result.tour, 'atp');
+    } finally {
+      restore();
+    }
+  });
+
   it('stays fail-closed when the Flashscore cache is stale', async () => {
     mockCurlSuccess(EMPTY_RSS);
     const restore = stubModuleExports(FLASHSCORE_PATH, {
