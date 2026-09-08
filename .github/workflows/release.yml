@@ -51,33 +51,25 @@ jobs:
       - name: Run tests
         run: npm test
 
-  publish:
-    needs: verify
+  package-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write
-      id-token: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up Node.js for trusted publishing
+      - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-
-      - name: Use OIDC-capable npm
-        run: npm install --global npm@11.19.1
+          node-version: 22
+          cache: npm
 
       - name: Install dependencies
         run: npm ci --include=dev
-
-      - name: Check version consistency
-        run: npm run check:version
 
       - name: Check README claim drift
         run: npm run check:claims:quick
@@ -94,14 +86,53 @@ jobs:
       - name: Check publish tree
         run: npm run check:publish-tree
 
+  publish:
+    needs:
+      - verify
+      - package-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js for trusted publishing
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Use OIDC-capable npm
+        run: npm install --global npm@11.19.1
+
+      - name: Check version consistency
+        # This check has no package dependencies, so the OIDC-capable publish
+        # job never needs to run npm install/ci or dependency lifecycle scripts.
+        run: npm run check:version
+
       - name: Publish to npm with trusted publishing
         # Requires a one-time npm trusted-publisher relationship for
         # jbdrak/propprofessor-mcp + release.yml. No long-lived NPM_TOKEN.
+        # npm publish runs prepublishOnly, which re-checks package contents and
+        # the clean publish tree using dependency-free repository scripts.
         run: npm publish
 
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
       - name: Create GitHub release
-        # Only after npm publish succeeds, so a failed publish never
-        # leaves an orphan GitHub release.
+        # Separate from the OIDC job so no step has both npm identity-token
+        # permission and repository write permission.
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           generate_release_notes: true
