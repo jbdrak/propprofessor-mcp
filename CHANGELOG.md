@@ -1,38 +1,12 @@
-## Unreleased
-
-- fix: scan-sourced validation trusts the screen snapshot for fast Novig markets. The validation re-fetch confirms the line is still there instead of re-grading it: consensus wobbles, exec-quality flips, and movement-label flips between two fetches seconds apart no longer downgrade a screen BET. Only material changes downgrade — line gone (lookup_failed) or a big price move (30+ pts American, 5+ pts NoVig percentage → CONSIDER). Direct `validate_play` calls without a screen snapshot keep the legacy strict behavior. Validated prices now carry `quoteAsOf` + `liquidityUsd` so every quote has an age — confirm the live number in-app at tap time.
-
-## 2.9.3
-
-- fix: mixed-scan reliability and throughput. Tennis fallback now honors the caller's tier filter (`-t`); JSON scans summarize >50 unresolved rows into total/byReason/sample instead of shipping tens of megabytes of identical failure reasons; the odds-history gate is no longer serial (parallel, env `PP_ODDS_HISTORY_CONCURRENCY`, default 3) so the budget is actually spendable in-wall-clock. Upstream 429s still halt the gate with cooldown.
-
-## 2.9.2
-
-- fix: bound aggregate per-pair hydration budget by the caller's limit. Mixed quick_screen scans (e.g. tennis/MLB/WNBA/NCAAF together with -n 5) never emitted JSON: the allocator share (133 games/pair for 9 pairs) flooded the serial odds-history gate and every pair blew PAIR_TIMEOUT_MS. Effective per-pair budget is now min(allocator share, limit-derived need); EV-first cap threaded per-pair the same way. Live: 150s+ timeout with 1000+ aborts and no JSON becomes ~33s, 0 aborts, honest output. Regressions: aggregate-pair-budget-limit, ev-first-aggregate-budget.
-
-## 2.9.1
-
-- Dependabot: fixed high-severity `adm-zip` transitive vulnerability via npm overrides pin (safe, no breaking changes).
-
-## 2.9.0
-
-- Backtest summary: `getBacktestSummary()` wired into `today()` response (sampleSize, settled, byTier, note — honest reporting, never fabricated ROI).
-- Lint hygiene: cleared 30+ ESLint errors across `lib/`, `test/`, `scripts/`. Fixed tennis schedule duplicate-key data corruption (`Rybakina`/`Zhang` shadowing WTA entry).
-- Docs: normalized retired `recommended_bets`/`sharp_plays` references to `quick_screen` in RESPONSE_SHAPES.md, HERMES_SKILL.md, PERFORMANCE.md. Updated tool composition map. Staking plan now calls `quick_screen` directly.
-
-## 2.8.0
-
-- `quick_screen` minimal formatter now includes `gameId`, `playId`, `selectionKey`, `finalConfidenceTier`, `displayTier`, `finalVerdict`, `hoursUntilStart`, `kaiCall`, `riskScore`, `consensusBookCount`, and `rationale` so agents can chain `quick_screen → validate_play` without special-casing verbosity.
-- `formatQuickScreenBets`/`standard` carry the same authoritative fields (`finalVerdict`, `displayTier`, validated movement, etc.) across all verbosity levels.
-- Sort tie-breaker now prefers near-even moneylines within equal tier/movement so usable -150/+130 lines surface before -300/+250.
-- `validate_play` adverse-movement tier downgrade code is present; regression test scaffold added (currently blocked by movement-shape fixture coverage — see test note).
-- Version bump only; changelog entry added.
-
----
-
 # Changelog
 
 ## Unreleased
+
+## 2.10.0
+
+- fix: scan-sourced validation trusts the screen snapshot for fast Novig markets. The validation re-fetch confirms the line is still there instead of re-grading it: consensus wobbles, exec-quality flips, and movement-label flips between two fetches seconds apart no longer downgrade a screen BET. Only material changes downgrade — line gone (lookup_failed) or a big price move (30+ pts American, 5+ pts NoVig percentage → CONSIDER). Direct `validate_play` calls without a screen snapshot keep the legacy strict behavior. Validated prices now carry `quoteAsOf` + `liquidityUsd` so every quote has an age — confirm the live number in-app at tap time.
+
+- fix: competition-scoped Soccer rows now verify official home/away order and venue through ESPN schedule data; generic or unresolved rows remain explicitly unverified, and lookups are cached with a bounded timeout.
 
 - fix: NCAAF NoVig scans now use the local today window, scan the standard Moneyline/Point Spread/Total Points markets without forcing Moneyline-only, and use bounded per-market recovery (80 rows per market with a 700-row shortlist ceiling). Exact validation keeps NoVigApp first in the book list so comparison-book data cannot make a valid NoVig line appear missing. Unresolved alternate rows remain explicitly non-actionable.
 - change: browser fallback order in `fetchAccessToken()` is now `got-scraping` → **ego-browser** → **CDP** (ego-browser is the default first browser fallback; CDP is tried only when ego-browser fails). Env gates and injection points are unchanged: `PP_NO_EGO_FALLBACK=1` / `enableEgoFallback:false` skip ego and go straight to CDP; `PP_NO_CDP_FALLBACK=1` / `enableCdpFallback:false` keep CDP disabled. Combined-error shape (`TOKEN_REFRESH_FAILED_BOTH_PATHS`, JWT-redacted details, `err.cause.{gotErr,cdpErr,egoErr}`) is unchanged; the message now lists `ego:` before `CDP:`.
@@ -87,6 +61,32 @@
 ### Migration notes
 
 No breaking changes. `finalVerdict` is additive. `sharp_alerts` is a new tool (available in full and lite modes). Prefer `sharp_alerts` over polling crons — frequent screen-endpoint polling triggered a rate-limit ban for the project owner.
+
+## 2.9.3
+
+- fix: mixed-scan reliability and throughput. Tennis fallback now honors the caller's tier filter (`-t`); JSON scans summarize >50 unresolved rows into total/byReason/sample instead of shipping tens of megabytes of identical failure reasons; the odds-history gate is no longer serial (parallel, env `PP_ODDS_HISTORY_CONCURRENCY`, default 3) so the budget is actually spendable in-wall-clock. Upstream 429s still halt the gate with cooldown.
+
+## 2.9.2
+
+- fix: bound aggregate per-pair hydration budget by the caller's limit. Mixed quick_screen scans (e.g. tennis/MLB/WNBA/NCAAF together with -n 5) never emitted JSON: the allocator share (133 games/pair for 9 pairs) flooded the serial odds-history gate and every pair blew PAIR_TIMEOUT_MS. Effective per-pair budget is now min(allocator share, limit-derived need); EV-first cap threaded per-pair the same way. Live: 150s+ timeout with 1000+ aborts and no JSON becomes ~33s, 0 aborts, honest output. Regressions: aggregate-pair-budget-limit, ev-first-aggregate-budget.
+
+## 2.9.1
+
+- Dependabot: fixed high-severity `adm-zip` transitive vulnerability via npm overrides pin (safe, no breaking changes).
+
+## 2.9.0
+
+- Backtest summary: `getBacktestSummary()` wired into `today()` response (sampleSize, settled, byTier, note — honest reporting, never fabricated ROI).
+- Lint hygiene: cleared 30+ ESLint errors across `lib/`, `test/`, `scripts/`. Fixed tennis schedule duplicate-key data corruption (`Rybakina`/`Zhang` shadowing WTA entry).
+- Docs: normalized retired `recommended_bets`/`sharp_plays` references to `quick_screen` in RESPONSE_SHAPES.md, HERMES_SKILL.md, PERFORMANCE.md. Updated tool composition map. Staking plan now calls `quick_screen` directly.
+
+## 2.8.0
+
+- `quick_screen` minimal formatter now includes `gameId`, `playId`, `selectionKey`, `finalConfidenceTier`, `displayTier`, `finalVerdict`, `hoursUntilStart`, `kaiCall`, `riskScore`, `consensusBookCount`, and `rationale` so agents can chain `quick_screen → validate_play` without special-casing verbosity.
+- `formatQuickScreenBets`/`standard` carry the same authoritative fields (`finalVerdict`, `displayTier`, validated movement, etc.) across all verbosity levels.
+- Sort tie-breaker now prefers near-even moneylines within equal tier/movement so usable -150/+130 lines surface before -300/+250.
+- `validate_play` adverse-movement tier downgrade code is present; regression test scaffold added (currently blocked by movement-shape fixture coverage — see test note).
+- Version bump only; changelog entry added.
 
 ## 2.8.3 (unreleased)
 
