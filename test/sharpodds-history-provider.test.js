@@ -311,6 +311,27 @@ describe('sharpodds-history-provider resolve', () => {
     assert.equal(seenParams.timezone, '-0500');
   });
 
+  it('falls through to the next sharp book when the first book has unusable history', async () => {
+    const calls = [];
+    const empty = { meta: { date: '2026-09-01' }, markets: { SPREADS: [], TOTALS: [], MONEYLINES: [] } };
+    const provider = createSharpOddsHistoryProvider({
+      client: {
+        fetchBoard: async () => ({ data: [boardEvent({ books: [{ id: 7, name: 'Pinnacle' }, { id: 41, name: 'Circa' }] })] }),
+        fetchHistory: async (params) => {
+          calls.push(params.bookName);
+          return { data: params.bookName === 'Pinnacle' ? empty : totalHistoryPayload() };
+        }
+      },
+      timezone: TZ
+    });
+
+    const result = await provider.resolve(totalRow());
+    assert.deepEqual(calls, ['Pinnacle', 'Circa']);
+    assert.equal(result.lineHistoryAvailable, true);
+    assert.equal(result.movementSourceBook, 'Circa');
+    assert.deepEqual(result.historySportsbooksRequested, ['Circa']);
+  });
+
   it('prefers Pinnacle over other listed sharp books and passes its bid', async () => {
     let seenParams;
     const provider = createSharpOddsHistoryProvider({
