@@ -1341,7 +1341,7 @@ async function cmdGame(handlers, positional, flags) {
 
   console.error('Fetching ' + gameId + (selection ? ' [' + selection + ']' : '') + '...');
 
-  const args = { league, market, gameIds: [gameId], books: [book] };
+  const args = { league, market, gameIds: [gameId], books: [book], enableSharpOddsHistory: true };
   if (selection) args.selection = selection;
   if (playId.includes('::')) args.playId = playId;
   // Heartbeat: single-game hydration can take a minute on line markets.

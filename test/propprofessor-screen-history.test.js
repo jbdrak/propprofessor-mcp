@@ -128,6 +128,101 @@ describe('hydrateScreenRowsWithHistory', () => {
     assert.ok(Array.isArray(result.lineHistory));
   });
 
+  it('uses SharpOdds history after PP history is degraded and preserves execution quote', async () => {
+    let providerCalls = 0;
+    const client = makeClient(async () => []);
+    const row = makeRow({
+      market: 'Total Runs',
+      pick: 'Over 8.5',
+      selection: 'Over 8.5',
+      homeTeam: 'Los Angeles Dodgers',
+      awayTeam: 'New York Yankees',
+      league: 'MLB',
+      start: '2026-09-01T19:05:00Z',
+      odds: -110,
+      currentOdds: -110,
+      liquidityUsd: 500
+    });
+    const [result] = await hydrateScreenRowsWithHistory([row], {
+      client,
+      sharpOddsProvider: {
+        resolve: async () => {
+          providerCalls += 1;
+          return {
+            lineHistoryAvailable: true,
+            lineHistorySource: 'sharpodds',
+            historyProvider: 'sharpodds',
+            historyGameId: '98765',
+            movementSourceBook: 'Pinnacle',
+            movementMode: 'same_book',
+            lineHistory: [
+              { time: '2026-09-01T14:00:00.000Z', line: 8.5, odds: -110, book: 'Pinnacle' },
+              { time: '2026-09-01T16:00:00.000Z', line: 9, odds: -105, book: 'Pinnacle' }
+            ]
+          };
+        }
+      },
+      preferSharpOddsHistory: true,
+      enableLineFallback: false
+    });
+
+    assert.equal(providerCalls, 1);
+    assert.equal(result.lineHistoryAvailable, true);
+    assert.equal(result.lineHistorySource, 'sharpodds');
+    assert.equal(result.historyProvider, 'sharpodds');
+    assert.equal(result.movementSourceBook, 'Pinnacle');
+    assert.equal(result.odds, -110);
+    assert.equal(result.currentOdds, -110);
+    assert.equal(result.liquidityUsd, 500);
+    assert.equal(result.lineHistory[1].line, 9);
+  });
+
+  it('replaces PP line-backfilled history with SharpOdds history', async () => {
+    let providerCalls = 0;
+    const client = makeClient(async () => [
+      { odds: -110, start_ts: 1 },
+      { odds: -115, start_ts: 2 }
+    ]);
+    const row = makeRow({
+      market: 'Total Runs',
+      pick: 'Over 8.5',
+      selection: 'Over 8.5',
+      line1: 8.5,
+      homeTeam: 'Los Angeles Dodgers',
+      awayTeam: 'New York Yankees',
+      league: 'MLB',
+      start: '2026-09-01T19:05:00Z',
+      odds: -110,
+      currentOdds: -110,
+      liquidityUsd: 500
+    });
+    const [result] = await hydrateScreenRowsWithHistory([row], {
+      client,
+      sharpOddsProvider: {
+        resolve: async () => {
+          providerCalls += 1;
+          return {
+            lineHistoryAvailable: true,
+            lineHistorySource: 'sharpodds',
+            historyProvider: 'sharpodds',
+            lineHistory: [
+              { time: '2026-09-01T14:00:00.000Z', line: 8.5, odds: -110, book: 'Pinnacle' },
+              { time: '2026-09-01T16:00:00.000Z', line: 9, odds: -105, book: 'Pinnacle' }
+            ]
+          };
+        }
+      },
+      preferSharpOddsHistory: true,
+      enableLineFallback: false
+    });
+
+    assert.equal(providerCalls, 1);
+    assert.equal(result.lineHistorySource, 'sharpodds');
+    assert.equal(result.lineHistory[1].line, 9);
+    assert.equal(result.odds, -110);
+    assert.equal(result.liquidityUsd, 500);
+  });
+
   it('resolves from cache — identical cache keys only make one query', async () => {
     let queryCount = 0;
     const client = makeClient(async () => {

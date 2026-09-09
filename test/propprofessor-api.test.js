@@ -1070,7 +1070,7 @@ describe('createPropProfessorClient', () => {
     assert.equal(typeof celticsRow.clvProxyPct, 'number');
     assert.equal(celticsRow.movementMode, 'mixed_books_fallback');
     assert.equal(celticsRow.movementSourceBook ?? null, null);
-    assert.equal(celticsRow.lineHistoryUsable, true);
+    assert.equal(celticsRow.lineHistoryUsable, false);
     assert.equal(Array.isArray(celticsRow.historySportsbooksRequested), true);
     assert.equal(typeof celticsRow.movementDebug, 'object');
     assert.equal(Array.isArray(celticsRow.filteredLineHistory), true);

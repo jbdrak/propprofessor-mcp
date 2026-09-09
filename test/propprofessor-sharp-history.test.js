@@ -210,7 +210,8 @@ describe('propprofessor sharp history helpers', () => {
 
     assert.equal(summary.movementMode, 'mixed_books_fallback');
     assert.equal(summary.movementQuality, 'low');
-    assert.equal(summary.lineHistoryUsable, true);
+    assert.equal(summary.lineHistoryUsable, false);
+    assert.equal(summary.movementLabel, 'insufficient_history');
   });
 
   it('falls back to mixed-book movement when no same-book trail is usable', () => {
@@ -227,7 +228,25 @@ describe('propprofessor sharp history helpers', () => {
 
     assert.equal(summary.movementMode, 'mixed_books_fallback');
     assert.equal(summary.movementQuality, 'low');
-    assert.equal(summary.lineHistoryUsable, true);
+    assert.equal(summary.lineHistoryUsable, false);
+    assert.equal(summary.movementLabel, 'insufficient_history');
+  });
+
+  it('fails closed when line history values were backfilled from the current line', () => {
+    const nowMs = Date.UTC(2026, 4, 7, 12, 0, 0);
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: -110, line: 33.5, time: nowMs - 60 * 60 * 1000 },
+        { book: 'Pinnacle', odds: -125, line: 33.5, time: nowMs }
+      ],
+      preferredBook: 'NoVigApp',
+      sharpBooks: ['Pinnacle'],
+      options: { nowMs, lineFieldMissingCount: 2 }
+    });
+
+    assert.equal(summary.lineHistoryQuality, 'degraded_line_fields');
+    assert.equal(summary.lineHistoryUsable, false);
+    assert.equal(summary.movementLabel, 'insufficient_history');
   });
 
   it('flags V-shaped recovery where endpoints positive but midline adverse', () => {

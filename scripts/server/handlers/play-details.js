@@ -18,6 +18,9 @@ const { formatGetPlayDetailsMinimal, formatGetPlayDetailsStandard } = require('.
 const { stripExactLineHistoryFields } = require('./strip-exact-line-history');
 const { filterPlayDetailsRows } = require('./filter-play-details-rows');
 const { recoverPlayDetailsRows } = require('./recover-play-details-rows');
+const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
+const { createSharpOddsHistoryProvider } = require('../../../lib/sharpodds-history-provider');
+const { getLocalTimezone } = require('../../../lib/mcp-runtime-config');
 
 // Parse source values before coercion: unknown is not zero liquidity or odds.
 function finiteQuoteValue(value) {
@@ -439,6 +442,14 @@ async function queryPlayDetailsResponse({
       currentPayload = { rows: [] };
     }
   }
+  const sharpOddsProvider =
+    gameIds.length === 1 && args.enableSharpOddsHistory === true
+      ? createSharpOddsHistoryProvider({
+          client: createSharpOddsClient({ fetchImpl: globalThis.fetch }),
+          timezone: getLocalTimezone(),
+          sharpBooks: getSharpBookComparisonSet({ league, market })
+        })
+      : null;
   let response;
   try {
     const propHistoryLookback =
@@ -478,6 +489,7 @@ async function queryPlayDetailsResponse({
         : {}),
       league,
       focusBook,
+      sharpOddsProvider,
       rankRows: (hydratedRows, options = {}) => {
         const debug = Boolean(/** @type {any} */ (options).debug);
         const recentWindowHours = Number.isFinite(Number(options.recentWindowHours))
