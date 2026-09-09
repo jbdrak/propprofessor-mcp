@@ -150,9 +150,8 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
     }
   }
 
-  const evResult = await runEvFirst(client, args, league, market, requestedBooks);
-  if (evResult) return evResult;
-
+  // Free-access mode uses the /screen feed directly. The paid EV/sportsbook
+  // discovery pass is intentionally not part of normal league scans.
   const payload = await client.queryScreenOddsBestComps({
     market,
     league,

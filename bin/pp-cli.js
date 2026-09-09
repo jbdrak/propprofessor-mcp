@@ -2253,7 +2253,7 @@ async function main() {
   }
 
   const client = createPropProfessorClient();
-  const handlers = createMcpHandlers({ client });
+  const handlers = createMcpHandlers({ client, enableSharpOddsHistory: true });
 
   const start = Date.now();
 

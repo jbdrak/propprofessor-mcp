@@ -38,8 +38,12 @@ const touchdownPayload = {
 
 describe('NCAAF player-prop discovery', () => {
   it('keeps touchdown rows when the requested NoVigApp target has no prop price', async () => {
+    let paidEvCalls = 0;
     const client = {
-      queryPositiveEV: async () => ({ game_data: [] }),
+      queryPositiveEV: async () => {
+        paidEvCalls += 1;
+        return { game_data: [] };
+      },
       queryScreenOddsBestComps: async () => touchdownPayload
     };
     const handlers = createScreenLeaguesHandlers(client, makeContext());
@@ -53,5 +57,6 @@ describe('NCAAF player-prop discovery', () => {
     assert.equal(response.result[0].market, 'Player Touchdowns');
     assert.equal(response.result[0].book, 'DraftKings');
     assert.equal(response.resultMeta.focusBook, 'NoVigApp');
+    assert.equal(paidEvCalls, 0);
   });
 });

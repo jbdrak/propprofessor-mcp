@@ -6,8 +6,6 @@
 
 const {
   correctTennisTimes,
-  enrichTennisEvCandidates,
-  getTennisMarketFamily,
   normalizeTennisMarketQuery,
   rankTennisScreenRows
 } = require('../../../lib/screen-tennis');
@@ -15,7 +13,6 @@ const {
   buildRankedScreenResponse: buildRankedScreenResponseShared,
   getIncludeAll,
   getLimit,
-  getLookbackHours,
   getMaxAgeMs,
   normalizeBookList
 } = require('../../../lib/propprofessor-mcp-ranked-screen');
@@ -39,87 +36,6 @@ function buildCacheKey(prefix, args, league) {
     participants: args.participants || [],
     leagueName: args.leagueName || null
   });
-}
-
-async function runTennisEvFallback({ client, args, rows, marketResolution, preferredBook }) {
-  let evResult;
-  try {
-    evResult = await client.querySportsbook({
-      leagues: ['Tennis'],
-      sportsbooks: [
-        'FanDuel',
-        'DraftKings',
-        'BetMGM',
-        'Caesars',
-        'Pinnacle',
-        'Polymarket',
-        'Circa',
-        'BetOnline',
-        'Kalshi',
-        'NoVigApp'
-      ],
-      minOdds: -9999,
-      maxOdds: 9999,
-      minValue: 0,
-      maxHoursAway: 48,
-      isLive: false
-    });
-  } catch (error) {
-    process.stderr.write(`[propprofessor-mcp] Tennis +EV fallback query failed: ${error?.message || error}\n`);
-    return {
-      ok: true,
-      result: [],
-      league: 'Tennis',
-      resultMeta: { debugEnabled: false, source: 'fallback_empty' },
-      freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
-      warning: 'No tennis data available from either /screen or +EV endpoint'
-    };
-  }
-
-  const evCandidates = Array.isArray(evResult)
-    ? evResult.filter((row) => String(row.league || '').toLowerCase() === 'tennis')
-    : [];
-
-  const requestedMarket = marketResolution.single || null;
-  const marketFamilyCandidates = requestedMarket
-    ? evCandidates.filter((row) => {
-        const rowFamily = getTennisMarketFamily(row);
-        const requestedFamilies = normalizeTennisMarketQuery(requestedMarket).map((m) =>
-          getTennisMarketFamily({ market: m })
-        );
-        return rowFamily !== null && requestedFamilies.includes(rowFamily);
-      })
-    : evCandidates;
-
-  const cardWindowCandidates = filterTennisRowsByCardWindow(marketFamilyCandidates, args.cardWindow);
-
-  if (!cardWindowCandidates.length) {
-    return {
-      ok: true,
-      result: [],
-      league: 'Tennis',
-      resultMeta: { debugEnabled: false, source: 'fallback_empty' },
-      freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
-      warning:
-        '/screen returned only Polymarket odds and +EV endpoint has no tennis candidates in the requested card window'
-    };
-  }
-
-  const ranked = await enrichTennisEvCandidates(cardWindowCandidates, client, {
-    preferredBook,
-    limit: getLimit(args),
-    lookbackHours: getLookbackHours(args),
-    requestedMarket
-  });
-
-  return {
-    ok: true,
-    result: ranked,
-    league: 'Tennis',
-    freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
-    source: '+ev_enriched',
-    note: '/screen returned insufficient tennis data; results enriched from +EV endpoint with odds history'
-  };
 }
 
 /**
@@ -228,13 +144,17 @@ function createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }
       return screenResult;
     }
 
-    return runTennisEvFallback({
-      client,
-      args,
-      rows,
-      marketResolution,
-      preferredBook
-    });
+    // Free-access mode does not call the paid +EV endpoint. A truthful empty
+    // response is safer than silently substituting a paid discovery source.
+    return {
+      ok: true,
+      result: [],
+      league: 'Tennis',
+      resultMeta: { debugEnabled: false, source: 'fallback_empty' },
+      freshness: { rowCount: rows.length, newestAgeMs: 0, oldestAgeMs: 0, staleCount: 0, stale: false },
+      warning:
+        'No tennis data available from the free /screen endpoint; no tennis candidates in the requested card window'
+    };
   }
 
   return { runTennisScreen };
