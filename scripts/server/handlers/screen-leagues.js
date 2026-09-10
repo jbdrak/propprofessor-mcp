@@ -5,7 +5,7 @@
  * Extracted from createMcpHandlers() in handlers.js.
  */
 
-const { resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
+const { resolveSoccerLeague, resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
 const {
   normalizeBookList,
   buildRankedScreenResponse: buildRankedScreenResponseShared,
@@ -146,15 +146,19 @@ async function runEvFirst(client, args, league, market, requestedBooks) {
 }
 
 async function runLeagueScreen(client, ctx, args = {}, league) {
+  const requestedLeague = String(league || '').trim() || 'Soccer';
+  const soccerResolution = /^(mls|soccer)$/i.test(requestedLeague) ? resolveSoccerLeague(requestedLeague, args.leagueName) : null;
+  const backendLeague = soccerResolution?.league || requestedLeague;
+  const responseLeagueName = soccerResolution?.leagueName || args.leagueName || null;
   const requestedBooks = normalizeBookList(args.books);
-  const marketResolution = resolveMarkets(args, league);
+  const marketResolution = resolveMarkets(args, backendLeague);
   const market = marketResolution.single;
-  const preset = getLeagueRankingPreset(league, market);
+  const preset = getLeagueRankingPreset(backendLeague, market);
   const focusBook = requestedBooks[0] || preset.preferredBooks[0];
 
   const nonMajorLeagues = ['TENNIS', 'SOCCER', 'UFC', 'WNBA', 'NCAAB', 'NCAAF'];
-  const leagueUpper = (league || '').toUpperCase();
-  const sharpBookSet = getSharpBookComparisonSet({ league, market });
+  const leagueUpper = backendLeague.toUpperCase();
+  const sharpBookSet = getSharpBookComparisonSet({ league: backendLeague, market });
   const sharpOddsBooks =
     Array.isArray(args.sharpOddsBooks) && args.sharpOddsBooks.length ? args.sharpOddsBooks : DEFAULT_SHARP_BOOKS;
   const augmentedBooks = nonMajorLeagues.includes(leagueUpper)
@@ -175,26 +179,27 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
   // discovery pass is intentionally not part of normal league scans.
   const payload = await client.queryScreenOddsBestComps({
     market,
-    league,
+    league: backendLeague,
     games: Array.isArray(args.games) ? args.games : [],
     participants: Array.isArray(args.participants) ? args.participants : [],
     books: augmentedBooks,
     is_live: false
   });
-  const response = buildRankedScreenResponseShared({
+  const response = await buildRankedScreenResponseShared({
     client,
-    payloads: [filterPayloadByLeagueName(payload, args.leagueName)],
+    payloads: [filterPayloadByLeagueName(payload, responseLeagueName)],
     args: {
       ...args,
+      leagueName: responseLeagueName,
       historySportsbooks: augmentedBooks,
       sharpOddsBooks
     },
-    league,
+    league: backendLeague,
     focusBook,
     sharpOddsProvider,
     rankRows: (hydratedRows, { debug } = {}) =>
       rankLeagueScreenRows(hydratedRows, {
-        league,
+        league: backendLeague,
         market,
         limit: getLimit(args),
         books: requestedBooks.length ? requestedBooks : undefined,
@@ -206,6 +211,19 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
         playableOnly: args.playableOnly === true
       })
   });
+
+  if (soccerResolution) {
+    response.league = requestedLeague;
+    response.result = Array.isArray(response.result)
+      ? response.result.map((row) => ({ ...row, league: requestedLeague, leagueName: responseLeagueName }))
+      : response.result;
+    response.resultMeta = {
+      ...response.resultMeta,
+      league: requestedLeague,
+      backendLeague,
+      leagueName: responseLeagueName
+    };
+  }
 
   if (marketResolution.aliasesUsed.length) {
     response.resultMeta = {

@@ -10,6 +10,8 @@ test('maps named soccer competitions to the Soccer backend and leagueName scope'
   assert.deepEqual(resolveSoccerLeague('La Liga'), { league: 'Soccer', leagueName: 'La Liga' });
   assert.deepEqual(resolveSoccerLeague('Serie A'), { league: 'Soccer', leagueName: 'Serie A' });
   assert.deepEqual(resolveSoccerLeague('Soccer', 'Serie A'), { league: 'Soccer', leagueName: 'Serie A' });
+  assert.deepEqual(resolveSoccerLeague('MLS'), { league: 'Soccer', leagueName: 'MLS' });
+  assert.deepEqual(resolveSoccerLeague('Soccer', 'MLS'), { league: 'Soccer', leagueName: 'MLS' });
   assert.deepEqual(resolveSoccerLeague('Soccer'), { league: 'Soccer', leagueName: null });
   assert.deepEqual(resolveScreenCommand('screen', { league: 'EPL' }), {
     command: 'screen',
@@ -24,6 +26,50 @@ test('maps named soccer competitions to the Soccer backend and leagueName scope'
     }
   );
 });
+
+test('routes MLS through the Soccer backend and scopes the response to MLS', async () => {
+  const calls = [];
+  const row = {
+    gameId: 'Soccer:GAME:Austin_FC:Colorado_Rapids:1789000000',
+    league: 'Soccer',
+    leagueName: 'MLS',
+    market: 'Total Goals',
+    homeTeam: 'Colorado Rapids',
+    awayTeam: 'Austin FC',
+    start: new Date(Date.now() + 3600000).toISOString(),
+    defaultKey: '2.5',
+    selections: {
+      '2.5': {
+        selection1: 'Over 2.5',
+        selection2: 'Under 2.5',
+        selection1Id: 'Total_Goals:Over_2.5',
+        selection2Id: 'Total_Goals:Under_2.5',
+        line1: 2.5,
+        line2: 2.5,
+        odds: { NoVigApp: { odds1: -110, odds2: -110, liquidity1: 100, liquidity2: 100 } }
+      }
+    }
+  };
+  const client = {
+    queryScreenOddsBestComps: async (request) => {
+      calls.push(request);
+      return { game_data: [row, { ...row, gameId: 'epl-row', leagueName: 'EPL' }] };
+    }
+  };
+  const ctx = { responseCache: { get: () => null, set: () => {} }, responseCacheTtlMs: 1000 };
+  const { runLeagueScreen } = require('../scripts/server/handlers/screen-leagues').createScreenLeaguesHandlers(client, ctx);
+  const result = await runLeagueScreen(
+    { market: 'Total Goals', books: ['NoVigApp'], compact: true, skipHistory: true },
+    'MLS'
+  );
+
+  assert.equal(calls[0].league, 'Soccer');
+  assert.equal(calls[0].market, 'Total Goals');
+  assert.equal(result.league, 'MLS');
+  assert.equal(result.resultMeta.backendLeague, 'Soccer');
+  assert.ok(result.result.every((candidate) => candidate.league === 'MLS'));
+});
+
 
 test('filters mixed Soccer screen payloads by leagueName without leaking other leagues', () => {
   const payload = {
