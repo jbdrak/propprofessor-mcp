@@ -68,7 +68,7 @@ describe('propprofessor sharp history helpers', () => {
     assert.equal(windows.recentWindow.pointCount, 2);
   });
 
-  it('summarizes same-book sharp movement with recent-supportive-only labeling', () => {
+  it('summarizes comparison-book sharp movement with recent-supportive-only labeling', () => {
     const nowMs = Date.UTC(2026, 4, 6, 12, 0, 0);
     const summary = summarizeSharpMovement({
       lineHistory: [
@@ -86,7 +86,7 @@ describe('propprofessor sharp history helpers', () => {
     assert.equal(summary.movementMode, 'comparison_book');
     assert.equal(summary.movementLabel, 'recent_supportive_only');
     assert.equal(summary.lineHistoryUsable, true);
-    assert.equal(summary.movementQuality, 'low');
+    assert.equal(summary.movementQuality, 'high');
     assert.equal(summary.droppedHistoryPointCount, 1);
     assert.equal(typeof summary.clvProxyPct, 'number');
     assert.equal(typeof summary.recentClvPct, 'number');
@@ -164,9 +164,10 @@ describe('propprofessor sharp history helpers', () => {
 
     assert.equal(summary.movementMode, 'mixed_books_fallback');
     assert.equal(summary.movementSourceBook, null);
+    assert.equal(summary.movementQuality, 'low');
   });
 
-  it('downgrades comparison movement when the named book has no history', () => {
+  it('keeps independent comparison movement high when the named book has no history', () => {
     const summary = summarizeSharpMovement({
       lineHistory: [
         { book: 'Pinnacle', odds: -108, time: 1 },
@@ -179,7 +180,7 @@ describe('propprofessor sharp history helpers', () => {
 
     assert.notEqual(summary.movementMode, 'same_book');
     assert.equal(summary.movementSourceBook, 'Pinnacle');
-    assert.notEqual(summary.movementQuality, 'high');
+    assert.equal(summary.movementQuality, 'high');
   });
 
   it('preserves broad sharp-book movement without a named book context', () => {

@@ -267,7 +267,7 @@ describe('tennis screen ranking helpers', () => {
 
     assert.equal(summary.movementSourceBook, 'Pinnacle');
     assert.equal(summary.movementMode, 'comparison_book');
-    assert.equal(summary.movementQuality, 'low');
+    assert.equal(summary.movementQuality, 'high');
     assert.equal(summary.lineHistoryUsable, true);
     assert.equal(summary.droppedHistoryPointCount, 1);
     assert.equal(summary.movementLabel, 'supportive');

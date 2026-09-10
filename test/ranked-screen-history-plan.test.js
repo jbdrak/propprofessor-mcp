@@ -63,6 +63,12 @@ describe('planPreHistoryHydration', () => {
           official: false,
           incomplete: true,
           status: 'unresolved',
+          verdict: 'WATCH',
+          finalVerdict: 'WATCH',
+          kaiCall: 'WATCH',
+          displayTier: 'WATCH',
+          diagnosticOnly: true,
+          originalVerdict: null,
           lineHistoryAvailable: false,
           movementDisposition: 'unavailable',
           validationFailureReason: 'history not hydrated within bounded scan budget'
