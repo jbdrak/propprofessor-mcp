@@ -229,6 +229,7 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
         'lineVariantUsed'
       ];
       const sourceSelectionId = String(row?.selectionId || '').trim();
+      const responseSelectionKey = key === 'null' ? 'exact' : key;
       const materializedRow = {
         ...row,
         ...(sourceSelectionId !== String(side.id).trim()
@@ -248,8 +249,8 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
         currentOdds: odds,
         targetBookOdds: odds,
         liquidityUsd,
-        selections: { [key]: nested },
-        defaultKey: key
+        selections: { [responseSelectionKey]: nested },
+        defaultKey: responseSelectionKey
       };
       materialized.push(materializedRow);
       seenGames.add(row.gameId);
@@ -369,6 +370,16 @@ function finalizePlayDetailsResponse({ response, merged, args, gameIds, relaxedG
         row.sharpBookMovementSource = sourceEntry?.book || sharpBookSetDetail[0] || null;
       }
     }
+  }
+
+  for (const row of response.result) {
+    const selections = row?.selections;
+    if (!selections || typeof selections !== 'object' || !Object.prototype.hasOwnProperty.call(selections, 'null')) {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(selections, 'exact')) selections.exact = selections.null;
+    delete selections.null;
+    if (row.defaultKey === 'null') row.defaultKey = 'exact';
   }
 
   response.focusBookMissingRows = undefined;

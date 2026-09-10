@@ -141,6 +141,57 @@ describe('sharpodds-history-provider resolve', () => {
     assert.equal(result.lineHistory[0].odds, -150);
   });
 
+  it('maps the requested side when the SharpOdds board reverses home and away', async () => {
+    const history = {
+      meta: {
+        sportsbook: 'Pinnacle',
+        period: 'Game',
+        away_team: 'Los Angeles Dodgers',
+        home_team: 'New York Yankees',
+        date: '2026-09-01',
+        updated: '2026-09-01T12:00:00Z'
+      },
+      markets: {
+        MONEYLINES: [
+          { date: '09/01', time: '9:00 AM', away: '-150', home: '+130', pub: null },
+          { date: '09/01', time: '12:00 PM', away: '-160', home: '+140', pub: null }
+        ]
+      }
+    };
+    const board = [
+      boardEvent({ homeTeam: 'New York Yankees', awayTeam: 'Los Angeles Dodgers' })
+    ];
+    const provider = createSharpOddsHistoryProvider({ client: fakeClient({ board, history }), timezone: TZ });
+    const result = await provider.resolve(
+      totalRow({ market: 'Moneyline', pick: 'Los Angeles Dodgers', selection: 'Los Angeles Dodgers' })
+    );
+    assert.equal(result.lineHistoryAvailable, true);
+    assert.equal(result.lineHistory[0].odds, -150);
+  });
+
+  it('rejects history metadata for a different fixture', async () => {
+    const history = {
+      meta: {
+        sportsbook: 'Pinnacle',
+        period: 'Game',
+        away_team: 'Boston Red Sox',
+        home_team: 'New York Mets',
+        date: '2026-09-01',
+        updated: '2026-09-01T12:00:00Z'
+      },
+      markets: {
+        TOTALS: [
+          { date: '09/01', time: '9:00 AM', away: 'o8.5 -110', home: 'u8.5 -110', pub: null },
+          { date: '09/01', time: '12:00 PM', away: 'o8.5 -115', home: 'u8.5 -105', pub: null }
+        ]
+      }
+    };
+    const provider = createSharpOddsHistoryProvider({ client: fakeClient({ history }), timezone: TZ });
+    const result = await provider.resolve(totalRow());
+    assert.equal(result.lineHistoryAvailable, false);
+    assert.equal(result.historyReason, 'history_identity_mismatch');
+  });
+
   it('returns unavailable for unsupported markets without fetching history', async () => {
     let historyCalls = 0;
     const provider = createSharpOddsHistoryProvider({
@@ -319,7 +370,10 @@ describe('sharpodds-history-provider resolve', () => {
         fetchBoard: async () => ({ data: [boardEvent({ books: [{ id: 7, name: 'Pinnacle' }, { id: 41, name: 'Circa' }] })] }),
         fetchHistory: async (params) => {
           calls.push(params.bookName);
-          return { data: params.bookName === 'Pinnacle' ? empty : totalHistoryPayload() };
+          if (params.bookName === 'Pinnacle') return { data: empty };
+          const fallbackHistory = totalHistoryPayload();
+          fallbackHistory.meta.sportsbook = params.bookName;
+          return { data: fallbackHistory };
         }
       },
       timezone: TZ

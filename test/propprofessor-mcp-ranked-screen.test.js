@@ -267,6 +267,60 @@ describe('buildRankedScreenResponse', () => {
     assert.equal(result.resultMeta.debugEnabled, false);
   });
 
+  it('keeps execution and SharpOdds comparison books separate', async () => {
+    const seen = [];
+    const provider = {
+      resolve: async (_row, options) => {
+        seen.push(options);
+        return {
+          lineHistoryAvailable: false,
+          historyProvider: 'sharpodds',
+          historyReason: 'history_unusable',
+          historyWarning: 'test fixture'
+        };
+      }
+    };
+    const client = { queryOddsHistory: async () => ({}) };
+    const result = await buildRankedScreenResponse({
+      client,
+      payloads: [
+        {
+          rows: [
+            {
+              gameId: 'game-1',
+              homeTeam: 'Celtics',
+              awayTeam: 'Lakers',
+              league: 'NBA',
+              market: 'Moneyline',
+              selection1: 'Celtics',
+              selection1Id: 'Moneyline:Celtics',
+              selection2: 'Lakers',
+              selection2Id: 'Moneyline:Lakers',
+              start: '2026-09-01T19:05:00Z',
+              odds: {
+                Fliff: { odds1: -110, odds2: 100 },
+                Pinnacle: { odds1: -112, odds2: 102 }
+              }
+            }
+          ]
+        }
+      ],
+      args: {
+        enableSharpOddsHistory: true,
+        books: ['Fliff'],
+        historySportsbooks: ['Fliff', 'Pinnacle'],
+        sharpOddsBooks: ['Pinnacle']
+      },
+      focusBook: 'Fliff',
+      sharpOddsProvider: provider,
+      rankRows: (rows) => rows
+    });
+
+    assert.equal(result.ok, true);
+    assert.ok(seen.length > 0, 'SharpOdds provider should be called');
+    assert.deepEqual(seen[0].sharpBooks, ['Pinnacle']);
+  });
+
   it('enriches soccer rows with verified schedule venue order before ranking', async () => {
     let fetchCalls = 0;
     const result = await buildRankedScreenResponse({
@@ -563,6 +617,9 @@ describe('buildRankedScreenResponse', () => {
     // Focus-book coverage gap should also show up in degradedDataWarningCount or
     // similar surfaced count — at minimum, the gap info is reachable via resultMeta.
     assert.equal(result.resultMeta.focusBook, 'NoVigApp');
+    assert.equal(result.resultMeta.targetBookCoverage.targetBook, 'NoVigApp');
+    assert.equal(result.resultMeta.targetBookCoverage.sourceRowCount, 1);
+    assert.equal(result.resultMeta.targetBookCoverage.missingQuoteCount, 1);
   });
 });
 

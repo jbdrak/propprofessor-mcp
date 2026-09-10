@@ -19,6 +19,9 @@ const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { buildUfcShortlist } = require('../../../lib/propprofessor-sharp-plays');
 const { validatePositiveEvCandidates } = require('../../../lib/validate-ev-candidates');
 const { buildEvRecoveryRequest, extractEvRows, dedupeEvRows } = require('./ev-recovery');
+const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
+const { createSharpOddsHistoryProvider } = require('../../../lib/sharpodds-history-provider');
+const { getLocalTimezone } = require('../../../lib/mcp-runtime-config');
 
 function buildCacheKey(prefix, args, league) {
   return JSON.stringify({
@@ -50,6 +53,16 @@ function marketMatches(row, market) {
 
 function isPlayerPropMarket(market) {
   return /^(player|pitcher)\b/i.test(String(market || '').trim());
+}
+
+function getSharedSharpOddsProvider(ctx) {
+  if (!ctx.sharpOddsProvider) {
+    ctx.sharpOddsProvider = createSharpOddsHistoryProvider({
+      client: createSharpOddsClient({ fetchImpl: globalThis.fetch, timeoutMs: 12_000 }),
+      timezone: getLocalTimezone()
+    });
+  }
+  return ctx.sharpOddsProvider;
 }
 
 // In aggregate quick_screen mode the main ranked query owns the ENTIRE
@@ -140,6 +153,7 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
   const augmentedBooks = nonMajorLeagues.includes(leagueUpper)
     ? ALL_SCREEN_BOOKS
     : uniqueBooks([...requestedBooks, ...sharpBookSet]);
+  const sharpOddsProvider = args.enableSharpOddsHistory === true ? getSharedSharpOddsProvider(ctx) : null;
 
   const canCache = !args.compact && !args.fields && !args.include;
   const cacheKey = canCache ? buildCacheKey('league', { ...args, books: augmentedBooks }, league) : null;
@@ -163,9 +177,10 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
   const response = buildRankedScreenResponseShared({
     client,
     payloads: [filterPayloadByLeagueName(payload, args.leagueName)],
-    args: { ...args, historySportsbooks: augmentedBooks },
+    args: { ...args, historySportsbooks: augmentedBooks, sharpOddsBooks: sharpBookSet },
     league,
     focusBook,
+    sharpOddsProvider,
     rankRows: (hydratedRows, { debug } = {}) =>
       rankLeagueScreenRows(hydratedRows, {
         league,
