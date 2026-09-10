@@ -125,6 +125,20 @@ describe('sharpodds-history-provider resolve', () => {
     assert.equal(result.lineHistory[0].line, 8.5);
   });
 
+  it('rejects history when every returned line differs from the requested line', async () => {
+    const history = totalHistoryPayload();
+    history.markets.TOTALS = history.markets.TOTALS.map((point) => ({
+      ...point,
+      away: point.away.replace('8.5', '9.5'),
+      home: point.home.replace('8.5', '9.5')
+    }));
+    const provider = createSharpOddsHistoryProvider({ client: fakeClient({ history }), timezone: TZ });
+    const result = await provider.resolve(totalRow());
+    assert.equal(result.lineHistoryAvailable, false);
+    assert.equal(result.historyReason, 'line_mismatch');
+    assert.match(result.historyWarning, /8\.5/);
+  });
+
   it('resolves a moneyline row through the away column', async () => {
     const history = {
       meta: { sportsbook: 'Pinnacle', period: 'Game', away_team: 'NYY', home_team: 'LAD', date: '2026-09-01', updated: '2026-09-01T12:00:00Z' },

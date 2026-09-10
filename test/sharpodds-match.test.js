@@ -72,6 +72,26 @@ describe('sharpodds-match normalizers', () => {
 });
 
 describe('sharpodds-match event identity', () => {
+  it('matches the live Miami FL alias used by PropProfessor', () => {
+    const result = matchSharpOddsEvent(
+      {
+        homeTeam: 'Florida A&M',
+        awayTeam: 'Miami FL',
+        league: 'NCAAF',
+        startTime: '2026-09-11T00:00:00.000Z',
+      },
+      {
+        id: 714430,
+        homeTeam: 'Miami Florida',
+        awayTeam: 'Florida A&M',
+        league: 'NCAAF',
+        startTime: '2026-09-11T00:00:00.000Z',
+      }
+    );
+    assert.equal(result.matched, true);
+    assert.equal(result.order, 'swapped');
+  });
+
   it('matches by stable numeric SharpOdds event ID', () => {
     const result = matchSharpOddsEvent(
       request({ sharpOddsEventId: '98765' }),
