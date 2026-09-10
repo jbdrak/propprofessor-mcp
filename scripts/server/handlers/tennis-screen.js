@@ -19,6 +19,9 @@ const {
 const { resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
 const { extractScreenRows } = require('../../../lib/screen-parser');
 const { ALL_SCREEN_BOOKS } = require('../../../lib/propprofessor-sharp-books');
+const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
+const { createSharpOddsHistoryProvider } = require('../../../lib/sharpodds-history-provider');
+const { getLocalTimezone } = require('../../../lib/mcp-runtime-config');
 const { filterTennisRowsByCardWindow } = require('../../../lib/tennis-fallback');
 
 function buildCacheKey(prefix, args, league) {
@@ -34,8 +37,21 @@ function buildCacheKey(prefix, args, league) {
     lookbackHours: Number.isFinite(Number(args.lookbackHours)) ? Number(args.lookbackHours) : null,
     games: args.games || [],
     participants: args.participants || [],
-    leagueName: args.leagueName || null
+    leagueName: args.leagueName || null,
+    enableSharpOddsHistory: args.enableSharpOddsHistory === true,
+    sharpOddsBooks: normalizeBookList(args.sharpOddsBooks)
   });
+}
+
+function getSharedSharpOddsProvider(ctx) {
+  if (!ctx) return null;
+  if (!ctx.sharpOddsProvider) {
+    ctx.sharpOddsProvider = createSharpOddsHistoryProvider({
+      client: createSharpOddsClient({ fetchImpl: globalThis.fetch, timeoutMs: 12_000 }),
+      timezone: getLocalTimezone()
+    });
+  }
+  return ctx.sharpOddsProvider;
 }
 
 /**
@@ -43,8 +59,9 @@ function buildCacheKey(prefix, args, league) {
  * @param {object} deps
  * @param {import('lru-cache')} deps.responseCache
  * @param {number} deps.responseCacheTtlMs
+ * @param {object} [deps.ctx]
  */
-function createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }) {
+function createTennisScreenHandler(client, { responseCache, responseCacheTtlMs, ctx }) {
   async function runTennisScreen(args = {}) {
     const preferredBook = String(args.book || 'Pinnacle').trim() || 'Pinnacle';
     const requestedBooks = normalizeBookList(args.books);
@@ -114,6 +131,7 @@ function createTennisScreenHandler(client, { responseCache, responseCacheTtlMs }
         args,
         league: 'Tennis',
         focusBook: preferredBook,
+        sharpOddsProvider: args.enableSharpOddsHistory === true ? getSharedSharpOddsProvider(ctx) : null,
         rankRows: (hydratedRows, { debug: rankDebug } = {}) =>
           rankTennisScreenRows(hydratedRows, {
             limit: getLimit(args),

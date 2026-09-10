@@ -20,7 +20,10 @@ const { buildUfcShortlist } = require('../../../lib/propprofessor-sharp-plays');
 const { validatePositiveEvCandidates } = require('../../../lib/validate-ev-candidates');
 const { buildEvRecoveryRequest, extractEvRows, dedupeEvRows } = require('./ev-recovery');
 const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
-const { createSharpOddsHistoryProvider } = require('../../../lib/sharpodds-history-provider');
+const {
+  createSharpOddsHistoryProvider,
+  DEFAULT_SHARP_BOOKS
+} = require('../../../lib/sharpodds-history-provider');
 const { getLocalTimezone } = require('../../../lib/mcp-runtime-config');
 
 function buildCacheKey(prefix, args, league) {
@@ -37,7 +40,9 @@ function buildCacheKey(prefix, args, league) {
     games: args.games || [],
     participants: args.participants || [],
     leagueName: args.leagueName || null,
-    evFirst: args.evFirst !== false
+    evFirst: args.evFirst !== false,
+    enableSharpOddsHistory: args.enableSharpOddsHistory === true,
+    sharpOddsBooks: normalizeBookList(args.sharpOddsBooks)
   });
 }
 
@@ -150,6 +155,8 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
   const nonMajorLeagues = ['TENNIS', 'SOCCER', 'UFC', 'WNBA', 'NCAAB', 'NCAAF'];
   const leagueUpper = (league || '').toUpperCase();
   const sharpBookSet = getSharpBookComparisonSet({ league, market });
+  const sharpOddsBooks =
+    Array.isArray(args.sharpOddsBooks) && args.sharpOddsBooks.length ? args.sharpOddsBooks : DEFAULT_SHARP_BOOKS;
   const augmentedBooks = nonMajorLeagues.includes(leagueUpper)
     ? ALL_SCREEN_BOOKS
     : uniqueBooks([...requestedBooks, ...sharpBookSet]);
@@ -177,7 +184,11 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
   const response = buildRankedScreenResponseShared({
     client,
     payloads: [filterPayloadByLeagueName(payload, args.leagueName)],
-    args: { ...args, historySportsbooks: augmentedBooks, sharpOddsBooks: sharpBookSet },
+    args: {
+      ...args,
+      historySportsbooks: augmentedBooks,
+      sharpOddsBooks
+    },
     league,
     focusBook,
     sharpOddsProvider,

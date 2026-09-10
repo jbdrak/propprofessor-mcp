@@ -169,6 +169,32 @@ describe('sharpodds-history-provider resolve', () => {
     assert.equal(result.lineHistory[0].odds, -150);
   });
 
+  it('keeps total over/under columns stable when the SharpOdds board reverses teams', async () => {
+    const board = [boardEvent({ homeTeam: 'New York Yankees', awayTeam: 'Los Angeles Dodgers' })];
+    const history = {
+      meta: {
+        sportsbook: 'Pinnacle',
+        period: 'Game',
+        away_team: 'Los Angeles Dodgers',
+        home_team: 'New York Yankees',
+        date: '2026-09-01'
+      },
+      markets: {
+        TOTALS: [
+          { date: '09/01', time: '9:00 AM', away: 'o8.5 -110', home: 'u8.5 +100', pub: null },
+          { date: '09/01', time: '12:00 PM', away: 'o8.5 -115', home: 'u8.5 +105', pub: null }
+        ]
+      }
+    };
+    const provider = createSharpOddsHistoryProvider({ client: fakeClient({ board, history }), timezone: TZ });
+    const [over, under] = await Promise.all([
+      provider.resolve(totalRow({ pick: 'Over 8.5', selection: 'Over 8.5' })),
+      provider.resolve(totalRow({ pick: 'Under 8.5', selection: 'Under 8.5' }))
+    ]);
+    assert.equal(over.lineHistory[0].odds, -110);
+    assert.equal(under.lineHistory[0].odds, 100);
+  });
+
   it('rejects history metadata for a different fixture', async () => {
     const history = {
       meta: {

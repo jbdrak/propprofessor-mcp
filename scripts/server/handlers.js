@@ -101,7 +101,11 @@ function createMcpHandlers({
     handlers,
     handlerOwners,
     'tennis-screen',
-    createTennisScreenHandler(client, { responseCache: ctx.responseCache, responseCacheTtlMs: ctx.responseCacheTtlMs })
+    createTennisScreenHandler(client, {
+      responseCache: ctx.responseCache,
+      responseCacheTtlMs: ctx.responseCacheTtlMs,
+      ctx
+    })
   );
   // Core dispatch handlers extracted from the monolithic body below.
   mergeHandlerModule(handlers, handlerOwners, 'screen-ranked', createScreenRankedHandlers(client, ctx));
