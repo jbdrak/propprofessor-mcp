@@ -239,7 +239,7 @@ describe('sharpodds-history-provider resolve', () => {
     assert.equal(result.historyReason, 'segment_unsupported');
   });
 
-  it('returns event_mismatch when no board event matches', async () => {
+  it('returns event_not_covered when no board event matches', async () => {
     let historyCalls = 0;
     const provider = createSharpOddsHistoryProvider({
       client: fakeClient({ onHistory: () => { historyCalls += 1; } }),
@@ -247,7 +247,7 @@ describe('sharpodds-history-provider resolve', () => {
     });
     const result = await provider.resolve(totalRow({ homeTeam: 'Boston Red Sox', awayTeam: 'Chicago Cubs' }));
     assert.equal(result.lineHistoryAvailable, false);
-    assert.equal(result.historyReason, 'event_mismatch');
+    assert.equal(result.historyReason, 'event_not_covered');
     assert.equal(historyCalls, 0);
   });
 
