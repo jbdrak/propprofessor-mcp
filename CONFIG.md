@@ -1,22 +1,22 @@
 # Configuration
 
-Environment variables and book configuration for the PropProfessor MCP.
+Environment variables and book configuration for the SSB MCP.
 
 ## Environment Variables
 
-| Variable                                   | Default                      | Description                                                                                                                                                                     |
-| ------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AUTH_FILE`                                | `~/.propprofessor/auth.json` | Path to the auth file (cookies + tokens)                                                                                                                                        |
-| `PROPPROFESSOR_MCP_NDJSON`                 | (required)                   | Set to `'true'` to enable NDJSON framing (required for stdio MCP)                                                                                                               |
-| `PROPPROFESSOR_CACHE_TTL_MS`               | `60000`                      | Response cache TTL in milliseconds                                                                                                                                              |
-| `PROPPROFESSOR_CACHE_MAX`                  | `50`                         | Max cache entries (LRU eviction)                                                                                                                                                |
-| `LOCAL_TIMEZONE`                           | `America/Chicago`            | Display timezone for CLI output                                                                                                                                                 |
-| `PROPPROFESSOR_DEBUG`                      | (unset)                      | Set to any value to enable debug logging to stderr                                                                                                                              |
-| `PROPPROFESSOR_MCP_MODE`                   | `lite`                       | Tool surface mode. `lite` (default) exposes the 15 essentials for agent-friendly workflows. `full` exposes all 31 tools for power users.                                        |
-| `NITTER_BASE`                              | `http://localhost:8080`      | Nitter instance for `player_context` tweet lookup                                                                                                                               |
-| `PROPPROFESSOR_MCP_STDIO_COALESCE_MS`      | `0`                          | Batch stdout writes (ms). `0` = passthrough (no change). `1`+ buffers and flushes on a timer. Reduces write syscalls during bursty JSON-RPC responses. Requires server restart. |
-| `PROPPROFESSOR_CIRCUIT_BREAKER_THRESHOLD`  | `5`                          | Consecutive upstream failures before the circuit opens.                                                                                                                         |
-| `PROPPROFESSOR_CIRCUIT_BREAKER_TIMEOUT_MS` | `30000`                      | Ms until the circuit transitions open → half-open for a test request.                                                                                                           |
+| Variable                         | Default                       | Description                                                                                                                                                                     |
+| -------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_FILE`                      | `~/.ssb-for-agents/auth.json` | Path to the auth file (cookies + tokens)                                                                                                                                        |
+| `SSB_MCP_NDJSON`                 | (required)                    | Set to `'true'` to enable NDJSON framing (required for stdio MCP)                                                                                                               |
+| `SSB_CACHE_TTL_MS`               | `60000`                       | Response cache TTL in milliseconds                                                                                                                                              |
+| `SSB_CACHE_MAX`                  | `50`                          | Max cache entries (LRU eviction)                                                                                                                                                |
+| `LOCAL_TIMEZONE`                 | `America/Chicago`             | Display timezone for CLI output                                                                                                                                                 |
+| `SSB_DEBUG`                      | (unset)                       | Set to any value to enable debug logging to stderr                                                                                                                              |
+| `SSB_MCP_MODE`                   | `lite`                        | Tool surface mode. `lite` (default) exposes the 15 essentials for agent-friendly workflows. `full` exposes all 31 tools for power users.                                        |
+| `NITTER_BASE`                    | `http://localhost:8080`       | Nitter instance for `player_context` tweet lookup                                                                                                                               |
+| `SSB_MCP_STDIO_COALESCE_MS`      | `0`                           | Batch stdout writes (ms). `0` = passthrough (no change). `1`+ buffers and flushes on a timer. Reduces write syscalls during bursty JSON-RPC responses. Requires server restart. |
+| `SSB_CIRCUIT_BREAKER_THRESHOLD`  | `5`                           | Consecutive upstream failures before the circuit opens.                                                                                                                         |
+| `SSB_CIRCUIT_BREAKER_TIMEOUT_MS` | `30000`                       | Ms until the circuit transitions open → half-open for a test request.                                                                                                           |
 
 ## Book configuration
 
@@ -50,7 +50,7 @@ Books to show in `find_best_price` or `screen_raw`:
 
 ### Default sharp sets (per sport/market)
 
-Pre-configured in `lib/propprofessor-sharp-books.js`:
+Pre-configured in `lib/ssb-sharp-books.js`:
 
 | Sport                               | Main market                                               | Props                                                     |
 | ----------------------------------- | --------------------------------------------------------- | --------------------------------------------------------- |
@@ -69,15 +69,15 @@ For agents that hit context-window limits:
 
 ```yaml
 mcp_servers:
-  propprofessor:
+  ssb:
     command: caveman-shrink
     args:
       - node
-      - /path/to/propprofessor-mcp/scripts/propprofessor-mcp-server.js
+      - /path/to/ssb-for-agents/scripts/ssb-mcp-server.js
     enabled: true
     env:
-      AUTH_FILE: /path/to/.propprofessor/auth.json
-      PROPPROFESSOR_MCP_NDJSON: 'true'
+      AUTH_FILE: /path/to/.ssb-for-agents/auth.json
+      SSB_MCP_NDJSON: 'true'
 ```
 
 Typically cuts token usage 30–50% on large responses with minimal loss of meaning.

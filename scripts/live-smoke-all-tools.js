@@ -1,8 +1,8 @@
 'use strict';
 
 const { buildToolDefinitions } = require('../lib/tool-definitions/index');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
-const { createPropProfessorClient } = require('../lib/propprofessor-api');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
+const { createSSBClient } = require('../lib/ssb-api');
 
 // Minimal valid arg shapes per tool — enough to exercise the handler without
 // forcing a specific result. Tools that need a live gameId use a placeholder;
@@ -55,7 +55,7 @@ const ARGS = {
 };
 
 (async () => {
-  const handlers = createMcpHandlers({ client: createPropProfessorClient() });
+  const handlers = createMcpHandlers({ client: createSSBClient() });
   const defs = buildToolDefinitions();
   const names = defs.map((d) => d.name).sort();
 

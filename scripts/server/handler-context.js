@@ -16,9 +16,9 @@
  */
 
 const { getCacheTtlMs, getCacheMaxEntries, getCacheMaxEntrySizeBytes } = require('../../lib/mcp-runtime-config');
-const { LruCache } = require('../../lib/propprofessor-lru-cache');
-const { clearTierCache } = require('../../lib/propprofessor-risk-score');
-const { createCanonicalScreenCache } = require('../../lib/propprofessor-shared-utils');
+const { LruCache } = require('../../lib/ssb-lru-cache');
+const { clearTierCache } = require('../../lib/ssb-risk-score');
+const { createCanonicalScreenCache } = require('../../lib/ssb-shared-utils');
 
 function createHandlerContext({ client } = {}) {
   const _maybeGc =

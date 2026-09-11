@@ -1,4 +1,4 @@
-# Contributing to PropProfessor MCP
+# Contributing to SSB MCP
 
 PRs welcome! This is a community-driven project — fixes, features, docs, and test improvements all help.
 
@@ -53,4 +53,4 @@ Be decent. This is a small project about sports betting data — there's no room
 
 ## Questions?
 
-Open a [Discussion](https://github.com/jbdrak/propprofessor-mcp/discussions) or an [Issue](https://github.com/jbdrak/propprofessor-mcp/issues).
+Open a [Discussion](https://github.com/jbdrak/ssb-for-agents/discussions) or an [Issue](https://github.com/jbdrak/ssb-for-agents/issues).

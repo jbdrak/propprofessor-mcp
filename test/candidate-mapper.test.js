@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { mapCandidateRow } = require('../lib/propprofessor-mcp-candidate-mapper');
+const { mapCandidateRow } = require('../lib/ssb-mcp-candidate-mapper');
 
 describe('mapCandidateRow screenUrl', () => {
   it('builds a screenUrl deep-link when gameId/market/selection present', () => {

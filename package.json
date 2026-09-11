@@ -1,30 +1,30 @@
 {
-  "name": "propprofessor-mcp",
+  "name": "ssb-for-agents",
   "version": "2.10.0",
-  "description": "Beginner-friendly PropProfessor MCP server and setup CLI for any MCP client",
+  "description": "Beginner-friendly SSB MCP server and setup CLI for any MCP client",
   "type": "commonjs",
   "private": false,
-  "main": "scripts/propprofessor-mcp-server.js",
+  "main": "scripts/ssb-mcp-server.js",
   "exports": {
-    ".": "./scripts/propprofessor-mcp-server.js",
-    "./api": "./lib/propprofessor-api.js",
-    "./auth": "./lib/propprofessor-auth.js",
-    "./analysis": "./lib/propprofessor-analysis.js",
-    "./mcp-stdio": "./lib/propprofessor-mcp-stdio.js",
-    "./ranked-screen": "./lib/propprofessor-mcp-ranked-screen.js",
+    ".": "./scripts/ssb-mcp-server.js",
+    "./api": "./lib/ssb-api.js",
+    "./auth": "./lib/ssb-auth.js",
+    "./analysis": "./lib/ssb-analysis.js",
+    "./mcp-stdio": "./lib/ssb-mcp-stdio.js",
+    "./ranked-screen": "./lib/ssb-mcp-ranked-screen.js",
     "./screen-parser": "./lib/screen-parser.js",
     "./selection-resolver": "./lib/selection-resolver.js",
     "./screen-ranker": "./lib/screen-ranker.js",
     "./league-presets": "./lib/league-presets.js",
     "./screen-summary": "./lib/screen-summary.js",
     "./screen-tennis": "./lib/screen-tennis.js",
-    "./sharp-books": "./lib/propprofessor-sharp-books.js",
-    "./sharp-plays": "./lib/propprofessor-sharp-plays.js",
-    "./sharp-plays-service": "./lib/propprofessor-sharp-plays-service.js"
+    "./sharp-books": "./lib/ssb-sharp-books.js",
+    "./sharp-plays": "./lib/ssb-sharp-plays.js",
+    "./sharp-plays-service": "./lib/ssb-sharp-plays-service.js"
   },
   "bin": {
-    "pp-mcp": "scripts/propprofessor-mcp-server.js",
-    "pp-query": "scripts/query-propprofessor.js",
+    "pp-mcp": "scripts/ssb-mcp-server.js",
+    "pp-query": "scripts/query-ssb.js",
     "pp": "bin/pp",
     "pp-backtest": "bin/backtest"
   },
@@ -45,17 +45,17 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jbdrak/propprofessor-mcp.git"
+    "url": "git+https://github.com/jbdrak/ssb-for-agents.git"
   },
   "bugs": {
-    "url": "https://github.com/jbdrak/propprofessor-mcp/issues"
+    "url": "https://github.com/jbdrak/ssb-for-agents/issues"
   },
-  "homepage": "https://github.com/jbdrak/propprofessor-mcp#readme",
+  "homepage": "https://github.com/jbdrak/ssb-for-agents#readme",
   "keywords": [
     "mcp",
     "mcp-server",
     "model-context-protocol",
-    "propprofessor",
+    "ssb",
     "sports-betting",
     "cli",
     "ai-agent",
@@ -72,8 +72,8 @@
     "npm": ">=10.0.0"
   },
   "scripts": {
-    "mcp": "node scripts/propprofessor-mcp-server.js",
-    "query": "node scripts/query-propprofessor.js",
+    "mcp": "node scripts/ssb-mcp-server.js",
+    "query": "node scripts/query-ssb.js",
     "export-screen": "node scripts/export-ranked-screen.js",
     "exe": "node scripts/prop-professor.exe.js",
     "check:version": "node scripts/check-version-consistency.js",
@@ -93,7 +93,7 @@
     "test:timings": "node test/timings.js",
     "test:ci": "node --test --test-concurrency=1 test/*.test.js",
     "test:coverage": "c8 --reporter=text-summary --reporter=lcov node --test --test-concurrency=1 test/*.test.js",
-    "install:verify": "node --test \"test/quick-screen-cache.test.js\" \"test/ask-routes.test.js\" \"test/propprofessor-tool-definitions.test.js\" \"test/place-bet.test.js\" \"test/today.test.js\" \"test/pipeline.test.js\" \"test/propprofessor-verbosity-param.test.js\" \"test/propprofessor-mcp-server-meta.test.js\" \"test/propprofessor-mcp-server-stderr.test.js\"",
+    "install:verify": "node --test \"test/quick-screen-cache.test.js\" \"test/ask-routes.test.js\" \"test/ssb-tool-definitions.test.js\" \"test/place-bet.test.js\" \"test/today.test.js\" \"test/pipeline.test.js\" \"test/ssb-verbosity-param.test.js\" \"test/ssb-mcp-server-meta.test.js\" \"test/ssb-mcp-server-stderr.test.js\"",
     "prepublishOnly": "npm run check:package && npm run check:publish-tree"
   },
   "dependencies": {

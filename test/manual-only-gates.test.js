@@ -12,11 +12,11 @@ const INSTALL_PY = path.join(REPO_ROOT, 'scripts', 'install.py');
 // ---------------------------------------------------------------------------
 // Executable-surface scanner
 //
-// Rule: PropProfessor is manual-only. No tracked executable automation
-// surface may combine scheduling/unattended language with live PropProfessor
+// Rule: SSB is manual-only. No tracked executable automation
+// surface may combine scheduling/unattended language with live SSB
 // client/endpoint access. Public-only data refreshes (ESPN settlement,
 // Flashscore cache refresh) are allowed to discuss scheduling ONLY when they
-// never construct a PropProfessor client or call a PropProfessor endpoint —
+// never construct a SSB client or call a SSB endpoint —
 // those files live in PUBLIC_ONLY_ALLOWLIST with a documented rationale.
 // ---------------------------------------------------------------------------
 
@@ -42,13 +42,13 @@ const SCHEDULE_PATTERNS = [
 ];
 
 /**
- * Live PropProfessor client/endpoint access. Matches the actual API surface
+ * Live SSB client/endpoint access. Matches the actual API surface
  * (screen calls, client construction, PP host, live handler names) rather
  * than mere imports of local auth helpers.
  */
 const PP_PATTERNS = [
   /queryScreenOddsBestComps|queryScreenOdds\b/, // direct PP screen queries
-  /createPropProfessorClient\s*\(/, // constructs the live PP client
+  /createSSBClient\s*\(/, // constructs the live PP client
   /app\.propprofessor\.com/, // PP endpoint host
   /\bquick_screen\b|\brecommended_bets\b|\bscreen_ranked\b|\bget_alerts\b/, // live PP handler/tool names
   /takeSnapshot\s*\(/ // backtest snapshot helper (always constructs a live client)
@@ -59,13 +59,13 @@ const PP_PATTERNS = [
  * scheduling. Each entry is asserted to (a) never reference live PP access
  * and (b) reference public data sources (ESPN/Flashscore/Sofascore) only.
  * These are safe under the rule: scheduled public-only settlement is allowed
- * if it never calls PropProfessor.
+ * if it never calls SSB.
  */
 const PUBLIC_ONLY_ALLOWLIST = {
   'scripts/resolve-outcomes.js':
-    'Public-only settlement: fetches settled scores from ESPN public endpoints only; never constructs a PropProfessor client or calls a PP endpoint.',
+    'Public-only settlement: fetches settled scores from ESPN public endpoints only; never constructs a SSB client or calls a PP endpoint.',
   'scripts/refresh-tennis-circuit.js':
-    'Public-only tennis circuit refresh: rebuilds PLAYER_CIRCUIT from ESPN/Flashscore public schedule data; never imports propprofessor-api or calls a PP endpoint.'
+    'Public-only tennis circuit refresh: rebuilds PLAYER_CIRCUIT from ESPN/Flashscore public schedule data; never imports ssb-api or calls a PP endpoint.'
 };
 
 /** True when a file combines scheduling language with live PP access. */
@@ -113,16 +113,16 @@ describe('manual-only gates — scheduling', () => {
       workflows = [];
     }
 
-    it('no scheduled workflow references live PropProfessor access', () => {
+    it('no scheduled workflow references live SSB access', () => {
       for (const wf of workflows) {
         const fullPath = path.join(WORKFLOW_DIR, wf);
         const content = fs.readFileSync(fullPath, 'utf8');
         // Scheduled workflows are only a violation when they also reference
-        // live PropProfessor. Public-only schedules (ESPN settlement,
+        // live SSB. Public-only schedules (ESPN settlement,
         // Flashscore refresh) never touch PP and are harmless — allowed.
         assert.ok(
           !hasScheduledPPAccess(content),
-          `workflow ${wf} combines a schedule trigger with live PropProfessor access — PropProfessor is manual-only`
+          `workflow ${wf} combines a schedule trigger with live SSB access — SSB is manual-only`
         );
       }
     });
@@ -132,7 +132,7 @@ describe('manual-only gates — scheduling', () => {
         const fullPath = path.join(WORKFLOW_DIR, wf);
         const content = fs.readFileSync(fullPath, 'utf8');
         const hasSmokeLive = /smoke\s*:\s*live/.test(content);
-        assert.ok(!hasSmokeLive, `workflow ${wf} references smoke:live — PropProfessor is manual-only`);
+        assert.ok(!hasSmokeLive, `workflow ${wf} references smoke:live — SSB is manual-only`);
       }
     });
   });
@@ -142,17 +142,14 @@ describe('manual-only gates — scheduling', () => {
       const content = fs.readFileSync(INSTALL_PY, 'utf8');
       // `cron` should not appear as a subcommand name in the argparse registration
       const hasCronSubcommand = /"cron"/.test(content) || /'cron'/.test(content);
-      assert.ok(
-        !hasCronSubcommand,
-        'install.py has a cron subcommand — PropProfessor cron installation is not supported'
-      );
+      assert.ok(!hasCronSubcommand, 'install.py has a cron subcommand — SSB cron installation is not supported');
     });
 
     it('install.py has no install_cron function', () => {
       const content = fs.readFileSync(INSTALL_PY, 'utf8');
       assert.ok(
         !/def install_cron/.test(content),
-        'install.py has an install_cron function — PropProfessor cron installation is not supported'
+        'install.py has an install_cron function — SSB cron installation is not supported'
       );
     });
   });
@@ -169,7 +166,7 @@ describe('manual-only gates — scheduling', () => {
       }
       assert.ok(
         !/install-cron\s*:/.test(content),
-        'Makefile has an install-cron target — PropProfessor cron installation is not supported'
+        'Makefile has an install-cron target — SSB cron installation is not supported'
       );
     });
   });
@@ -200,9 +197,9 @@ describe('manual-only gates — scheduling', () => {
       const fake = [
         '#!/usr/bin/env node',
         '// Runs via Hermes cron (no_agent: true). Silent on success, alerts on failure.',
-        "const { createPropProfessorClient } = require('../lib/propprofessor-api');",
+        "const { createSSBClient } = require('../lib/ssb-api');",
         'async function main() {',
-        '  const client = createPropProfessorClient();',
+        '  const client = createSSBClient();',
         "  const payload = await client.queryScreenOdds({ league: 'NBA', market: 'Moneyline' });",
         '}',
         'main();'
@@ -229,7 +226,7 @@ describe('manual-only gates — scheduling', () => {
     // RED fixture: a scheduled public-only workflow must be ALLOWED. The old
     // blanket gate ("no workflow has a schedule trigger") rejected ANY
     // scheduled workflow; the corrected gate only rejects schedules that also
-    // reference live PropProfessor. Public-only ESPN settlement / Flashscore
+    // reference live SSB. Public-only ESPN settlement / Flashscore
     // refresh schedules are harmless.
     it('allows a scheduled public-only workflow (RED fixture)', () => {
       const fakeWorkflow = [
@@ -247,12 +244,12 @@ describe('manual-only gates — scheduling', () => {
       assert.equal(
         hasScheduledPPAccess(fakeWorkflow),
         false,
-        'scheduled public-only settlement workflow must be allowed — it never references PropProfessor'
+        'scheduled public-only settlement workflow must be allowed — it never references SSB'
       );
     });
 
     // RED fixture: a scheduled public-only script must be ALLOWED for the
-    // same reason (public data refresh, no PropProfessor client/endpoint).
+    // same reason (public data refresh, no SSB client/endpoint).
     it('allows a scheduled public-only script (RED fixture)', () => {
       const fakeScript = [
         '#!/usr/bin/env node',
@@ -264,12 +261,12 @@ describe('manual-only gates — scheduling', () => {
       assert.equal(
         hasScheduledPPAccess(fakeScript),
         false,
-        'scheduled public-only Flashscore refresh must be allowed — it never references PropProfessor'
+        'scheduled public-only Flashscore refresh must be allowed — it never references SSB'
       );
     });
 
     // Companion RED fixture: the corrected gate still blocks a scheduled
-    // workflow that DOES reference live PropProfessor endpoints.
+    // workflow that DOES reference live SSB endpoints.
     it('rejects a scheduled workflow that references live PP (RED fixture)', () => {
       const fakeWorkflow = [
         'name: pp-snapshot',
@@ -285,7 +282,7 @@ describe('manual-only gates — scheduling', () => {
       assert.equal(
         hasScheduledPPAccess(fakeWorkflow),
         true,
-        'scheduled workflow hitting the live PropProfessor host must be flagged'
+        'scheduled workflow hitting the live SSB host must be flagged'
       );
     });
 
@@ -296,13 +293,13 @@ describe('manual-only gates — scheduling', () => {
         'negated cron prose is not a schedule'
       );
       assert.equal(
-        hasScheduledPPAccess("const client = createPropProfessorClient(); client.queryScreenOdds({ league: 'NBA' });"),
+        hasScheduledPPAccess("const client = createSSBClient(); client.queryScreenOdds({ league: 'NBA' });"),
         false,
         'manual PP call without scheduling is allowed'
       );
     });
 
-    it('no tracked executable combines scheduling with live PropProfessor access', () => {
+    it('no tracked executable combines scheduling with live SSB access', () => {
       const files = enumerateTrackedExecutables();
       assert.ok(files.length > 0, 'expected tracked executable surfaces to be enumerated');
       const violations = [];
@@ -314,21 +311,18 @@ describe('manual-only gates — scheduling', () => {
       assert.deepEqual(
         violations,
         [],
-        `tracked executable(s) combine scheduling with live PropProfessor access — PropProfessor is manual-only: ${violations.join(', ')}`
+        `tracked executable(s) combine scheduling with live SSB access — SSB is manual-only: ${violations.join(', ')}`
       );
     });
 
-    it('allowlisted public-only files never reference PropProfessor and are public-data refreshes', () => {
+    it('allowlisted public-only files never reference SSB and are public-data refreshes', () => {
       const entries = Object.entries(PUBLIC_ONLY_ALLOWLIST);
       assert.ok(entries.length > 0, 'allowlist must be non-empty');
       for (const [relPath, rationale] of entries) {
         assert.ok(rationale.length > 20, `allowlist entry ${relPath} needs a documented rationale`);
         const fullPath = path.join(REPO_ROOT, relPath);
         const content = fs.readFileSync(fullPath, 'utf8');
-        assert.ok(
-          !hasPPAccess(content),
-          `allowlisted ${relPath} must never reference live PropProfessor access: ${rationale}`
-        );
+        assert.ok(!hasPPAccess(content), `allowlisted ${relPath} must never reference live SSB access: ${rationale}`);
         assert.ok(
           /espn|flashscore|sofascore/i.test(content),
           `allowlisted ${relPath} should be a public-data (ESPN/Flashscore/Sofascore) refresh: ${rationale}`

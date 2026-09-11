@@ -28,7 +28,7 @@ sharpMatch.matchSharpOddsEvent = function (request, candidate, options) {
 };
 
 const flashscore = require('../lib/flashscore-times');
-const tennis = require('../lib/propprofessor-tennis');
+const tennis = require('../lib/ssb-tennis');
 const { createPlayDetailsHandlers } = require('../scripts/server/handlers/play-details');
 
 const STALE_PP_START = '2026-09-15T10:00:00.000Z';

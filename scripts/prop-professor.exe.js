@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * PropProfessor.exe - Tier Ranked Plays Display
+ * SSB.exe - Tier Ranked Plays Display
  *
- * A quick CLI tool to display tier-ranked prop bets from PropProfessor.
+ * A quick CLI tool to display tier-ranked prop bets from SSB.
  * Shows plays grouped by confidence tier (1 = highest, 4 = lowest).
  *
  * Usage:
@@ -27,7 +27,7 @@ const colors = {
   clear: '\x1b[2J\x1b[H'
 };
 
-const DEFAULT_PP_QUERY = require('path').join(__dirname, 'query-propprofessor.js');
+const DEFAULT_PP_QUERY = require('path').join(__dirname, 'query-ssb.js');
 
 function runQuery(args = []) {
   return new Promise((resolve, reject) => {

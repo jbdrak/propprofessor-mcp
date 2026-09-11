@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 
 const FANTASY_FIXTURE = [
   { id: 'fp-1', player: 'Luka Doncic', market: 'Points', line: 28.5, odds: -110 },

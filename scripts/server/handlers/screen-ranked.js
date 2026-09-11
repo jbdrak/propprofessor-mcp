@@ -9,8 +9,8 @@
  * memoization, same ctx.handlers.runScreenRankedImpl delegation.
  */
 
-const { clearTierCache } = require('../../../lib/propprofessor-risk-score');
-const { canonicalizeScreenArgs } = require('../../../lib/propprofessor-shared-utils');
+const { clearTierCache } = require('../../../lib/ssb-risk-score');
+const { canonicalizeScreenArgs } = require('../../../lib/ssb-shared-utils');
 
 function createScreenRankedHandlers(client, ctx) {
   return {

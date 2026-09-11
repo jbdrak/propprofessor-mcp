@@ -49,7 +49,7 @@ jobs:
         run: npm run check:claims:quick
 
       - name: Check for credential leaks
-        # Fails if auth.json, token-cache.json, or .propprofessor/ are ever
+        # Fails if auth.json, token-cache.json, or .ssb-for-agents/ are ever
         # committed. Belt-and-suspenders alongside .gitignore.
         run: npm run check:secrets
 

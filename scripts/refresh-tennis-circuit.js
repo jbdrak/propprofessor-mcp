@@ -58,7 +58,7 @@ async function fetchUrl(url) {
   try {
     const { stdout } = await execFile(
       'curl',
-      ['-sL', '--max-time', String(CURL_TIMEOUT), '-A', 'Mozilla/5.0 (PropProfessor Tennis MCP refresh)', url],
+      ['-sL', '--max-time', String(CURL_TIMEOUT), '-A', 'Mozilla/5.0 (SSB Tennis MCP refresh)', url],
       { timeout: CURL_TIMEOUT * 1000 }
     );
     return stdout;

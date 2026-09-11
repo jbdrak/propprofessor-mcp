@@ -8,7 +8,7 @@ const {
   stripCdata,
   parseRss,
   parseEspnSearch
-} = require('../lib/propprofessor-news-sources');
+} = require('../lib/ssb-news-sources');
 
 describe('buildGoogleNewsUrl', () => {
   it('encodes the query and uses the legacy RSS endpoint', () => {

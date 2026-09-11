@@ -58,8 +58,8 @@ Returns the multi-window sharp consensus trace for a specific game.
 
 The MCP has a built-in in-memory LRU cache:
 
-- **TTL**: 60s default, configurable via `PROPPROFESSOR_CACHE_TTL_MS`
-- **Max entries**: 50, configurable via `PROPPROFESSOR_CACHE_MAX`
+- **TTL**: 60s default, configurable via `SSB_CACHE_TTL_MS`
+- **Max entries**: 50, configurable via `SSB_CACHE_MAX`
 - **Cache hits**: reported via `resultMeta.cached: true`
 - **Caches only**: full responses (not compact or fields-filtered)
 
@@ -71,15 +71,15 @@ For agents that hit context-window limits with large responses, install `caveman
 
 ```yaml
 mcp_servers:
-  propprofessor:
+  ssb:
     command: caveman-shrink
     args:
       - node
-      - /path/to/propprofessor-mcp/scripts/propprofessor-mcp-server.js
+      - /path/to/ssb-for-agents/scripts/ssb-mcp-server.js
     enabled: true
     env:
-      AUTH_FILE: /path/to/.propprofessor/auth.json
-      PROPPROFESSOR_MCP_NDJSON: 'true'
+      AUTH_FILE: /path/to/.ssb-for-agents/auth.json
+      SSB_MCP_NDJSON: 'true'
 ```
 
 This typically cuts token usage 30–50% on large responses with minimal loss of meaning.

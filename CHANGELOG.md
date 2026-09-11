@@ -22,8 +22,8 @@
 
 - fix: NCAAF NoVig scans now use the local today window, scan the standard Moneyline/Point Spread/Total Points markets without forcing Moneyline-only, and use bounded per-market recovery (80 rows per market with a 700-row shortlist ceiling). Exact validation keeps NoVigApp first in the book list so comparison-book data cannot make a valid NoVig line appear missing. Unresolved alternate rows remain explicitly non-actionable.
 - change: browser fallback order in `fetchAccessToken()` is now `got-scraping` → **ego-browser** → **CDP** (ego-browser is the default first browser fallback; CDP is tried only when ego-browser fails). Env gates and injection points are unchanged: `PP_NO_EGO_FALLBACK=1` / `enableEgoFallback:false` skip ego and go straight to CDP; `PP_NO_CDP_FALLBACK=1` / `enableCdpFallback:false` keep CDP disabled. Combined-error shape (`TOKEN_REFRESH_FAILED_BOTH_PATHS`, JWT-redacted details, `err.cause.{gotErr,cdpErr,egoErr}`) is unchanged; the message now lists `ego:` before `CDP:`.
-- fix: auth refresh — `fetchAccessTokenViaCDP()` now honors `PROPPROFESSOR_CDP_VERSION_URL` (default stays `http://127.0.0.1:9222/json/version`), and a freshly created CDP tab waits (bounded by the runtime timeout) for `app.propprofessor.com` to load before the in-page fetch — fixes the opaque-origin `Failed to fetch` race. `scripts/pp-token-watchdog.js` reads the same env var instead of hardcoding port 9222.
-- fix: ego fallback default task space is now the named space `pp-token-refresh` (ego creates it on first use) instead of numeric `7`, which only matched an existing space and failed when none existed. `PROPPROFESSOR_EGO_TASK_SPACE` overrides (positive integer server-assigned id) and validation are unchanged; the ego script opens/reuses a same-origin tab before `browserFetch`.
+- fix: auth refresh — `fetchAccessTokenViaCDP()` now honors `SSB_CDP_VERSION_URL` (default stays `http://127.0.0.1:9222/json/version`), and a freshly created CDP tab waits (bounded by the runtime timeout) for `app.propprofessor.com` to load before the in-page fetch — fixes the opaque-origin `Failed to fetch` race. `scripts/pp-token-watchdog.js` reads the same env var instead of hardcoding port 9222.
+- fix: ego fallback default task space is now the named space `pp-token-refresh` (ego creates it on first use) instead of numeric `7`, which only matched an existing space and failed when none existed. `SSB_EGO_TASK_SPACE` overrides (positive integer server-assigned id) and validation are unchanged; the ego script opens/reuses a same-origin tab before `browserFetch`.
 - fix: mapCandidateRow now recomputes movementDisposition via computeMovementDisposition instead of copying a pre-tag stamp, so the sharp-confirmation upgrade (insufficient -> supportive_bouncy) actually applies in quick_screen / screen output. Previously the disposition was stamped before sharpBookMovementConfirmed was set, leaving sharp-backed thin-history plays as "insufficient".
 - fix: movementDisposition now upgrades `insufficient` to `supportive_bouncy` when `sharpBookMovementConfirmed` is true (independent sharp book moved on the side) — previously sharp-confirmed plays on thin-history slates were mislabeled "can't tell". Adverse dispositions are untouched.
 
@@ -68,7 +68,7 @@
 
 - **`finalVerdict` field.** Every returned candidate now carries a single authoritative bet/no-bet call that merges the raw screen tier and the validation verdict. Resolution rule: prefer `validatedVerdict` (it reflects re-fetched consensus + movement); hard safety override forces a `movement adverse` / `exec bad` flag to PASS (never BET). Also sets `finalConfidenceTier`, `priceDrift` (screen vs validated odds), and `finalWarnings` (`price-drift`, `unknown-game-context`, `validation-failed`).
 - **`onlyBets` / `minFinalTier` filter on `quick_screen`.** Return only `finalVerdict=BET` rows at/above the tier floor in one call.
-- **New `sharp_alerts` tool.** On-demand alert surface (no cron/polling). Returns ONLY `finalVerdict=BET` plays with clean research, deduped against a local store (`~/.propprofessor/sharp-alerts-store.json`) so the same play isn't re-alerted within the dedup window (default 6h). Response shape: `newAlerts` / `repeatAlerts` / `allBets` + a `message` when nothing is new.
+- **New `sharp_alerts` tool.** On-demand alert surface (no cron/polling). Returns ONLY `finalVerdict=BET` plays with clean research, deduped against a local store (`~/.ssb-for-agents/sharp-alerts-store.json`) so the same play isn't re-alerted within the dedup window (default 6h). Response shape: `newAlerts` / `repeatAlerts` / `allBets` + a `message` when nothing is new.
 
 ### Migration notes
 
@@ -161,8 +161,8 @@ All changes are additive. Default behavior is unchanged: `cardWindow` defaults t
 
 ### What changed
 
-- **Published to npm** — `npx -y propprofessor-mcp` now works. Package is public on npmjs.com.
-- **Cookie-based auth alternative** — `PROPPROFESSOR_COOKIES` env var lets agents authenticate without Chrome/CDP. Export cookies from a logged-in browser session and set the env var.
+- **Published to npm** — `npx -y ssb-for-agents` now works. Package is public on npmjs.com.
+- **Cookie-based auth alternative** — `SSB_COOKIES` env var lets agents authenticate without Chrome/CDP. Export cookies from a logged-in browser session and set the env var.
 - **Agent examples** — `examples/` directory with pre-configured MCP configs for Claude Desktop, Cursor, and Hermes.
 - **minEV filter** — `quick_screen`, `recommended_bets`, `screen_ranked` now accept `minEV` parameter to filter to +EV plays only.
 - **`validate_play` schema gate now accepts `playId`** — the input schema omitted `playId` (and set `additionalProperties: false`), so the arg-validator rejected it as "unknown property" before the handler ran. The handler and selection-matcher already supported exact `playId` matching (CHANGELOG 2.5.0), but the advertised path was unreachable through the tool surface. `playId` is now a declared property, `selection` is optional when `playId` is present, and the handler guard requires at least one of `selection`/`playId`. Agents should pass `playId` from the screen row for totals/spread/soccer/tennis markets to avoid fragile string matching and "no row matched" `lookup_failed` errors. Regression tests added in `test/mcp-arg-validator.test.js`.
@@ -182,7 +182,7 @@ All changes are additive. Existing callers see no behavior change.
 - **Dead row filtering** — rows with `consensusBookCount: 0` and `movementLabel: 'insufficient_history'` are now dropped from results. Total Games and other thin markets no longer return 7 PASS rows with zero data.
 - **Tennis game_context fix** — Added Cobolli and Minaur to PLAYER_CIRCUIT map so Wimbledon matches resolve to Grass/Grand Slam instead of "unknown".
 - **New `tonight_bets` tool** — One-call bundle: screen + sort by game time + filter to BET/CONSIDER tier. Use when you want actionable bets for tonight without chaining multiple calls.
-- **npm publish pipeline** — Release workflow now publishes to npm on tag push. `npx -y propprofessor-mcp` will work after first publish.
+- **npm publish pipeline** — Release workflow now publishes to npm on tag push. `npx -y ssb-for-agents` will work after first publish.
 - **Tool count** — 29 tools (was 28). `tonight_bets` added to screen category and lite mode.
 
 ### Migration notes
@@ -220,13 +220,13 @@ Zero. All new params are optional with sensible defaults. Existing callers see n
 ### Tests
 
 - 1390/1390 passing (up from 1341)
-- New: `test/propprofessor-row-filter.test.js` (19 tests)
-- New: `test/propprofessor-sort-utils.test.js` (30 tests, including `toNumberOrEpoch` helper coverage)
+- New: `test/ssb-row-filter.test.js` (19 tests)
+- New: `test/ssb-sort-utils.test.js` (30 tests, including `toNumberOrEpoch` helper coverage)
 - New: regression coverage for in-place mutation aliasing bug (caught by `staking_plan` integration test)
 
 ### Files
 
-- New: `lib/propprofessor-row-filter.js`, `lib/propprofessor-sort-utils.js`
+- New: `lib/ssb-row-filter.js`, `lib/ssb-sort-utils.js`
 - Modified: `lib/tool-definitions/screen.js`, `scripts/server/handlers.js`, `scripts/check-claims.js`, `docs/RESPONSE_SHAPES.md`, `docs/HERMES_SKILL.md`, `README.md`, `package.json`
 
 ## 2.4.0
@@ -280,7 +280,7 @@ Zero. For matchup strings where resolution succeeds (tour-level events in the sc
 
 ### Tests
 
-25 new tests in `test/propprofessor-tennis-context.test.js` covering matchup detection, parseMatchup, the resolver against live gameIds from the June 22 grass swing, the integration path, and the schedule-data helpers. Full suite: 1225/1225 pass.
+25 new tests in `test/ssb-tennis-context.test.js` covering matchup detection, parseMatchup, the resolver against live gameIds from the June 22 grass swing, the integration path, and the schedule-data helpers. Full suite: 1225/1225 pass.
 
 ## 2.3.1
 
@@ -303,8 +303,8 @@ Zero. For matchup strings where resolution succeeds (tour-level events in the sc
 ### What changed
 
 - **Parallel league pre-warming.** Screen calls for all 10 leagues fire concurrently instead of sequentially. ~2s vs ~20s cold-start.
-- **Write-coalescing.** Optional stdout buffering (default OFF, opt-in via `PROPPROFESSOR_MCP_STDIO_COALESCE_MS`). When enabled, JSON-RPC messages are batched on a 1ms timer or 16KB buffer, reducing write syscalls during bursty responses.
-- **Circuit breaker.** Per-endpoint failure tracking. After 5 consecutive upstream errors, the breaker opens and fast-fails rather than retrying into a degrading backend. Auto-transitions to half-open after 30s. Configurable via `PROPPROFESSOR_CIRCUIT_BREAKER_THRESHOLD` and `PROPPROFESSOR_CIRCUIT_BREAKER_TIMEOUT_MS`.
+- **Write-coalescing.** Optional stdout buffering (default OFF, opt-in via `SSB_MCP_STDIO_COALESCE_MS`). When enabled, JSON-RPC messages are batched on a 1ms timer or 16KB buffer, reducing write syscalls during bursty responses.
+- **Circuit breaker.** Per-endpoint failure tracking. After 5 consecutive upstream errors, the breaker opens and fast-fails rather than retrying into a degrading backend. Auto-transitions to half-open after 30s. Configurable via `SSB_CIRCUIT_BREAKER_THRESHOLD` and `SSB_CIRCUIT_BREAKER_TIMEOUT_MS`.
 - **Cross-request cache key normalization.** Parallel MCP requests with identical parameters but different array ordering now share a single upstream call instead of duplicating.
 - **Docs.** 6 new env vars documented in CONFIG.md.
 
@@ -321,7 +321,7 @@ This is the release that takes the agent-ergonomics feedback from the June 2026 
 ### What changed for users
 
 - **Canonical param names.** `live` is now the canonical name for what used to be `is_live` (13 tools). `gameIds` is canonical for `game_ids` (`get_play_details`). The 5-name `sharp_plays` books param (`targetBooks` / `books` / `targetBook` / `book` / `targetBooksCsv`) is now documented as a single canonical form (`targetBooks`) with 4 deprecated aliases. New code can use the clean names; old code keeps working.
-- **Tool surface modes via `PROPPROFESSOR_MCP_MODE` env var.** Default `full` exposes all 26 tools; opt-in `lite` exposes 10 tools covering the casual / intermediate workflow (router → discover → drill-down → validate → track). Lite mode cuts the `tools/list` response by ~60%, which materially helps agents on tight context budgets.
+- **Tool surface modes via `SSB_MCP_MODE` env var.** Default `full` exposes all 26 tools; opt-in `lite` exposes 10 tools covering the casual / intermediate workflow (router → discover → drill-down → validate → track). Lite mode cuts the `tools/list` response by ~60%, which materially helps agents on tight context budgets.
 - **Tool categories.** Every tool now carries a `category` field on its `tools/list` definition: `discovery` (5), `screen` (6), `drill_down` (3), `research` (3), `tracking` (4), `admin` (2), `meta` (3). Agents can cluster the surface instead of reading 26 individual descriptions.
 - **`tools/list` returns a `_meta` block.** `{ mode, toolCount, liteToolCount, fullToolCount }` makes it obvious when an expected tool is missing because the server is in lite mode — no more env-grep debugging.
 - **`verbosity=minimal` footgun is documented.** The minimal mode returns a plain-English summary STRING (not structured JSON), which trips agents that pick `minimal` to save tokens and then try to parse the response as data. The caveat is now in `VERBOSITY_PARAM.description` so it shows up wherever an agent is choosing a verbosity value.
@@ -340,11 +340,11 @@ This release makes every one of those discoverable from the schema alone.
 
 ### What changed under the hood
 
-- `lib/propprofessor-tool-definitions.js` — new `__requiredAliases` schema hint, new `category` field on every tool, new `mode` option on `buildToolDefinitions()`. Exports `LITE_MODE_TOOLS` and `TOOL_CATEGORIES` for downstream consumers.
+- `lib/ssb-tool-definitions.js` — new `__requiredAliases` schema hint, new `category` field on every tool, new `mode` option on `buildToolDefinitions()`. Exports `LITE_MODE_TOOLS` and `TOOL_CATEGORIES` for downstream consumers.
 - `lib/mcp-arg-validator.js` — `validateArgs()` honors `__requiredAliases` so the required-check accepts a deprecated alias when the canonical key is absent. New `normalizeArgs()` helper bidirectionally syncs canonical ↔ alias param names at dispatch time (without mutating caller args).
-- `scripts/propprofessor-mcp-server.js` — reads `PROPPROFESSOR_MCP_MODE` env var (default `full`), runs `normalizeArgs()` between `validateArgs()` and handler dispatch, surfaces the `_meta` block in `tools/list`.
+- `scripts/ssb-mcp-server.js` — reads `SSB_MCP_MODE` env var (default `full`), runs `normalizeArgs()` between `validateArgs()` and handler dispatch, surfaces the `_meta` block in `tools/list`.
 - `test/mcp-arg-validator.test.js` — +14 tests covering `normalizeArgs` and `__requiredAliases`.
-- `test/propprofessor-tool-definitions.test.js` — new file, 13 tests covering lite mode, category injection, alphabetical sort, and category-count lock-in.
+- `test/ssb-tool-definitions.test.js` — new file, 13 tests covering lite mode, category injection, alphabetical sort, and category-count lock-in.
 
 ### Migration notes
 
@@ -352,7 +352,7 @@ No code changes required for existing callers. To opt into the new behavior:
 
 ```bash
 # Run server in lite mode (10 tools instead of 26)
-PROPPROFESSOR_MCP_MODE=lite pp-query serve
+SSB_MCP_MODE=lite pp-query serve
 
 # Use the new canonical param names in new code
 quick_screen({ books: ["Fliff"], live: true })        # canonical "live"
@@ -379,21 +379,21 @@ Old param names (`is_live`, `game_ids`) keep working unchanged.
 
 ### Why this is the right shape
 
-v2.1.8's perf PR was a one-off; this release codifies the pattern. The shared `mapWithConcurrency(items, worker, { concurrency })` (extracted to `lib/propprofessor-shared-utils.js` from `scripts/server/handlers.js`) is the same primitive every fan-out uses. The shared `createCrossCallMemoizedQuery(fn, { cache, keyFn })` is the same primitive every memoized query uses. Future "this is slow" investigations will land on the same primitives, and the reviewer can validate that the cap is appropriate for the call count.
+v2.1.8's perf PR was a one-off; this release codifies the pattern. The shared `mapWithConcurrency(items, worker, { concurrency })` (extracted to `lib/ssb-shared-utils.js` from `scripts/server/handlers.js`) is the same primitive every fan-out uses. The shared `createCrossCallMemoizedQuery(fn, { cache, keyFn })` is the same primitive every memoized query uses. Future "this is slow" investigations will land on the same primitives, and the reviewer can validate that the cap is appropriate for the call count.
 
 ### What changed under the hood
 
-- `lib/propprofessor-shared-utils.js` — new `mapWithConcurrency` (extracted from handlers.js) and new `createCrossCallMemoizedQuery(fn, { cache, keyFn })`. Both have unit tests.
+- `lib/ssb-shared-utils.js` — new `mapWithConcurrency` (extracted from handlers.js) and new `createCrossCallMemoizedQuery(fn, { cache, keyFn })`. Both have unit tests.
 - `lib/mcp-runtime-config.js` — new `getOddsHistoryCache()` returns the shared process-wide LRU; `getOddsHistoryCacheTtlMs()` exposes the 5-min TTL. Defaults: 250 entries, 5 min TTL — sized for a full NBA slate + 10 min of follow-up validation calls.
-- `lib/propprofessor-sharp-plays-service.js` — `runSharpPlays` rank scan and cross-ref loops converted to `mapWithConcurrency(4)`.
+- `lib/ssb-sharp-plays-service.js` — `runSharpPlays` rank scan and cross-ref loops converted to `mapWithConcurrency(4)`.
 - `lib/screen-tennis.js` — per-candidate history hydration wrapped in `mapWithConcurrency(6)`.
-- `lib/propprofessor-research-runner.js` — `runResearchOnTopRows` rewritten to use `mapWithConcurrency(3)` with a new `concurrency` parameter.
-- `lib/propprofessor-player-context.js` — Nitter+GoogleNews and GoogleNews+ESPN pairs converted to `Promise.allSettled`.
-- `lib/propprofessor-api.js` — `requestJSON` hoists `JSON.stringify(body)` and the static header scaffolding out of the retry loop.
+- `lib/ssb-research-runner.js` — `runResearchOnTopRows` rewritten to use `mapWithConcurrency(3)` with a new `concurrency` parameter.
+- `lib/ssb-player-context.js` — Nitter+GoogleNews and GoogleNews+ESPN pairs converted to `Promise.allSettled`.
+- `lib/ssb-api.js` — `requestJSON` hoists `JSON.stringify(body)` and the static header scaffolding out of the retry loop.
 - `lib/screen-ranker.js` — `freshnessAgeMs` reuses the existing `nowMs` instead of a second `Date.now()`.
 - `scripts/server/handlers.js` — `createOddsHistoryMemoizedQuery` now uses the cross-call LRU; `recommended_bets` inner market loop is parallelized; `health_status` exposes `caches.response` and `caches.oddsHistory` stats.
-- `test/propprofessor-shared-utils.test.js` — 9 new tests covering `mapWithConcurrency` (empty input, order preservation, concurrency cap, non-numeric coercion) and `createCrossCallMemoizedQuery` (in-flight mutex, cross-call LRU, no failure caching, input validation).
-- `test/propprofessor-mcp-server.test.js` — `validated candidates reuse identical odds-history lookups` updated to use unique gameId/selectionId since the cache is now process-wide (a previous test's result would otherwise be served).
+- `test/ssb-shared-utils.test.js` — 9 new tests covering `mapWithConcurrency` (empty input, order preservation, concurrency cap, non-numeric coercion) and `createCrossCallMemoizedQuery` (in-flight mutex, cross-call LRU, no failure caching, input validation).
+- `test/ssb-mcp-server.test.js` — `validated candidates reuse identical odds-history lookups` updated to use unique gameId/selectionId since the cache is now process-wide (a previous test's result would otherwise be served).
 
 ### Stats
 
@@ -411,18 +411,18 @@ v2.1.8's perf PR was a one-off; this release codifies the pattern. The shared `m
 
 ## 2.1.9
 
-**Consolidate the default-leagues list into a single source of truth, and add the two leagues the in-progress work missed (NFL, NCAAB, NCAAF).** Until v2.1.8 the default `leagues` argument across `screen_ranked`, `recommended_bets`, `get_alerts`, the `query-propprofessor.js` CLI, and the `propprofessor-api.js` default scan was a partial subset of what the PropProfessor backend supports. v2.1.9 picks up where v2.1.8 left off — the in_progress work added the missing leagues but kept them hardcoded inline in 6+ files, which is a footgun for future drift. This release replaces all of those with a single frozen `DEFAULT_LEAGUES` constant exported from `propprofessor-shared-utils.js` (and derives `SUPPORTED_LEAGUES` from it in `backtest-daily-snapshot.js`).
+**Consolidate the default-leagues list into a single source of truth, and add the two leagues the in-progress work missed (NFL, NCAAB, NCAAF).** Until v2.1.8 the default `leagues` argument across `screen_ranked`, `recommended_bets`, `get_alerts`, the `query-ssb.js` CLI, and the `ssb-api.js` default scan was a partial subset of what the PropProfessor backend supports. v2.1.9 picks up where v2.1.8 left off — the in_progress work added the missing leagues but kept them hardcoded inline in 6+ files, which is a footgun for future drift. This release replaces all of those with a single frozen `DEFAULT_LEAGUES` constant exported from `ssb-shared-utils.js` (and derives `SUPPORTED_LEAGUES` from it in `backtest-daily-snapshot.js`).
 
 ### What changed
 
-- `lib/propprofessor-shared-utils.js` — new `DEFAULT_LEAGUES` export, frozen: `[NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC]`. Order matches the upstream `/screen` POST shape (main US sports first, then college, then international / niche).
-- `lib/propprofessor-api.js` — `queryScreenOddsBestComps` default `leagues` payload now uses `Array.from(DEFAULT_LEAGUES)` instead of a partial inline list.
-- `lib/propprofessor-sharp-plays.js` — `resolveSharpPlayLeagues` default now uses `Array.from(DEFAULT_LEAGUES)`.
-- `lib/propprofessor-tool-definitions.js` — `screen_ranked`, `recommended_bets`, `novig_screen`, `get_alerts`, and `get_started` tool descriptions updated to point at `DEFAULT_LEAGUES` instead of an inline league list.
+- `lib/ssb-shared-utils.js` — new `DEFAULT_LEAGUES` export, frozen: `[NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC]`. Order matches the upstream `/screen` POST shape (main US sports first, then college, then international / niche).
+- `lib/ssb-api.js` — `queryScreenOddsBestComps` default `leagues` payload now uses `Array.from(DEFAULT_LEAGUES)` instead of a partial inline list.
+- `lib/ssb-sharp-plays.js` — `resolveSharpPlayLeagues` default now uses `Array.from(DEFAULT_LEAGUES)`.
+- `lib/ssb-tool-definitions.js` — `screen_ranked`, `recommended_bets`, `novig_screen`, `get_alerts`, and `get_started` tool descriptions updated to point at `DEFAULT_LEAGUES` instead of an inline league list.
 - `scripts/server/handlers.js` — all 5 hardcoded `leagues` defaults (`novig_screen`, `recommended_bets`, `all_slates`, `get_started`, `get_alerts`) now use `Array.from(DEFAULT_LEAGUES)`. Removed the local `const DEFAULT_LEAGUES` shadow in `all_slates` that was hiding the import.
-- `scripts/query-propprofessor.js` — CLI `sharp-plays` default now uses `Array.from(DEFAULT_LEAGUES)`.
+- `scripts/query-ssb.js` — CLI `sharp-plays` default now uses `Array.from(DEFAULT_LEAGUES)`.
 - `scripts/backtest-daily-snapshot.js` — `SUPPORTED_LEAGUES` is now derived from `DEFAULT_LEAGUES` (uppercased + Set) so the snapshot guard, the API payload, and the CLI defaults can never drift out of sync.
-- `test/propprofessor-shared-utils.test.js` — 3 new tests asserting the list contents, frozen state, and the presence/absence sanity guards (NBA, NFL, Soccer, Tennis must be present; empty string must not).
+- `test/ssb-shared-utils.test.js` — 3 new tests asserting the list contents, frozen state, and the presence/absence sanity guards (NBA, NFL, Soccer, Tennis must be present; empty string must not).
 - `test/backtest-daily-snapshot.test.js` — unchanged, still passes (the test asserts the derived Set has the same 10 expected keys).
 
 ### Why this is the right shape
@@ -450,12 +450,12 @@ The v2.1.8 in_progress diff added the missing leagues to each callsite individua
 
 ### What changed under the hood
 
-- `lib/propprofessor-research-runner.js` (new) — `runResearchOnTopRows({ rows, limit, playerContextFn, maxAgeMinutes })` runs player_context on the top N rows by screenScore, captures per-row errors without aborting, and returns a normalized result array. Lives in its own module so the same code path serves `screen_ranked`, `recommended_bets`, and the future riskDowngrade path.
-- `lib/propprofessor-tool-definitions.js` — added `validate_play` tool definition. Added `includeResearch`, `researchLimit`, `riskDowngrade` to `screen_ranked` and `recommended_bets` inputSchemas. The v2.1.6 arg validator enforces the types.
+- `lib/ssb-research-runner.js` (new) — `runResearchOnTopRows({ rows, limit, playerContextFn, maxAgeMinutes })` runs player_context on the top N rows by screenScore, captures per-row errors without aborting, and returns a normalized result array. Lives in its own module so the same code path serves `screen_ranked`, `recommended_bets`, and the future riskDowngrade path.
+- `lib/ssb-tool-definitions.js` — added `validate_play` tool definition. Added `includeResearch`, `researchLimit`, `riskDowngrade` to `screen_ranked` and `recommended_bets` inputSchemas. The v2.1.6 arg validator enforces the types.
 - `scripts/server/handlers.js` — `screen_ranked`, `recommended_bets`, and the new `validate_play` all use the research runner. When `riskDowngrade` is set, plays with high riskFlag are removed from the response and the count is surfaced in `resultMeta.riskDowngradedCount`.
-- `test/propprofessor-research-runner.test.js` (new, 8 tests) — covers empty input, missing function, sort order, limit, error handling, missing selection, and tweet truncation.
-- `test/propprofessor-validate-play.test.js` (new, 7 tests) — covers the validation errors, skipResearch, high/medium riskFlag downgrades, and the no-match-found path.
-- `test/propprofessor-mcp-server.test.js` — added `validate_play` to the stdio-contract tool list assertion.
+- `test/ssb-research-runner.test.js` (new, 8 tests) — covers empty input, missing function, sort order, limit, error handling, missing selection, and tweet truncation.
+- `test/ssb-validate-play.test.js` (new, 7 tests) — covers the validation errors, skipResearch, high/medium riskFlag downgrades, and the no-match-found path.
+- `test/ssb-mcp-server.test.js` — added `validate_play` to the stdio-contract tool list assertion.
 - `docs/openapi.json` — regenerated for the new tool.
 
 ### Why this is the right shape for the v2.1.7 "playable, not best" workflow
@@ -491,7 +491,7 @@ Before v2.1.8, a Fliff Tennis `screen_ranked` with `playableOnly: true` returned
 - `lib/screen-ranker.js` `expandScreenRow` / `rankScreenRows` / `rankLeagueScreenRows` — new `playableOnly` option. When true, the row filter drops only `executionQuality === 'bad'` rows (where the user's book is 10+ cents worse than the comp consensus). `'playable'` and `'best'` rows are kept regardless of consensus edge direction.
 - `lib/screen-tennis.js` `rankTennisScreenRows` — same `playableOnly` option threaded through.
 - `scripts/server/handlers.js` `screen_ranked`, `runLeagueScreen` (sharp_plays path), `runTennisScreen` — pass `playableOnly: args.playableOnly === true` to the ranker.
-- `lib/propprofessor-tool-definitions.js` `screen_ranked` — added `playableOnly: { type: 'boolean', description: '...' }` to the inputSchema. The validator (added in v2.1.6 hardening) enforces the boolean type.
+- `lib/ssb-tool-definitions.js` `screen_ranked` — added `playableOnly: { type: 'boolean', description: '...' }` to the inputSchema. The validator (added in v2.1.6 hardening) enforces the boolean type.
 - `test/screen-ranker.test.js` — 4 new tests covering playable/best/bad execution under `playableOnly=true` and the default behavior.
 
 ### Why this is the right default for a "playable, not best" workflow
@@ -524,7 +524,7 @@ Example: with `books: ['Fliff']` and `playableOnly: true`, `screen_ranked` now s
 - `lib/screen-ranker.js` `rankScreenRows` + `rankLeagueScreenRows` — new `requirePreferredBook` option threaded through.
 - `lib/screen-tennis.js` `rankTennisScreenRows` — same `requirePreferredBook` option threaded through.
 - `test/screen-ranker.test.js` (new file, 6 tests) — first direct unit tests for the ranker. Covers the happy path, the `requirePreferredBook` drop, the legacy fallback, and the v2.1.6 `allBookOdds` reconstruction. The ranker was the most complex file in the project (916 LOC) without a direct test before this release; this is the test debt LOW-1 / LOW-2 from the prior audit, partially retired.
-- `test/propprofessor-api.test.js` (3 assertions updated) and `test/propprofessor-mcp-server.test.js` (1 assertion + 1 mock update) — updated to reflect the augmented book list and the new "first sharp book" mock convention.
+- `test/ssb-api.test.js` (3 assertions updated) and `test/ssb-mcp-server.test.js` (1 assertion + 1 mock update) — updated to reflect the augmented book list and the new "first sharp book" mock convention.
 
 ### Live impact (Fliff Tennis example)
 
@@ -567,7 +567,7 @@ The v2.1.6 release fixed the consensus-preservation bug (the data was being clob
 
 - `lib/screen-parser.js` `extractScreenRows` (`isNormalizedNonProp` branch) — preserve the full lifted odds map on the expanded row as `allBookOdds` before overriding `odds` with the per-book number.
 - `lib/screen-ranker.js` `expandScreenRow` — when `row.selections` is undefined but `row.allBookOdds` is present, reconstruct the `selections: { null: { ...lifted fields, odds: row.allBookOdds } }` shape the existing main path already understands.
-- 3 new regression tests in `test/propprofessor-analysis.test.js` (live-shape fixture mirroring the actual `/screen` payload, v2.1.2 fallback preservation, per-book `odds` contract preserved).
+- 3 new regression tests in `test/ssb-analysis.test.js` (live-shape fixture mirroring the actual `/screen` payload, v2.1.2 fallback preservation, per-book `odds` contract preserved).
 
 ### Live impact
 
@@ -593,7 +593,7 @@ The v2.1.6 release fixed the consensus-preservation bug (the data was being clob
 
 - `< 2` gate in `resolveHistoryForEntity` — correct (you need 2+ points for movement). With consensus now flowing, rows with sparse history rank on consensus + freshness + sport score instead of being silently killed.
 - `freshnessFallbackUsed: true` for the screen call itself — separate upstream timestamp issue.
-- The prop-market `consensusBookCount: 0` tests in `test/propprofessor-analysis.test.js` — intentional, the prop code path uses a real `selections: { a: {...}, b: {...} }` map (non-null defaultKey), so the ranker already has what it needs and these rows are unchanged.
+- The prop-market `consensusBookCount: 0` tests in `test/ssb-analysis.test.js` — intentional, the prop code path uses a real `selections: { a: {...}, b: {...} }` map (non-null defaultKey), so the ranker already has what it needs and these rows are unchanged.
 
 ### Stats
 
@@ -607,23 +607,23 @@ The v2.1.6 release fixed the consensus-preservation bug (the data was being clob
 
 ## 2.1.5
 
-**Vercel 429 self-heal — the MCP refreshes its own access token via Chrome DevTools Protocol when the server-to-server path gets 429'd.** Previously, when Vercel's TLS-fingerprint challenge gated `app.propprofessor.com/api/access-token`, the MCP would return errors to tool calls until the user manually ran `pp-token-watchdog.js`. Now `fetchAccessToken()` in `lib/propprofessor-auth.js` automatically falls back to a browser-context fetch from a logged-in Chrome tab on 429 / 401 / network errors. No cron, no external schedule — the MCP heals itself on the next request that needs a fresh token. The standalone `pp-token-watchdog.js` is preserved as a manual escape hatch for diagnostics and bulk token priming.
+**Vercel 429 self-heal — the MCP refreshes its own access token via Chrome DevTools Protocol when the server-to-server path gets 429'd.** Previously, when Vercel's TLS-fingerprint challenge gated `app.propprofessor.com/api/access-token`, the MCP would return errors to tool calls until the user manually ran `pp-token-watchdog.js`. Now `fetchAccessToken()` in `lib/ssb-auth.js` automatically falls back to a browser-context fetch from a logged-in Chrome tab on 429 / 401 / network errors. No cron, no external schedule — the MCP heals itself on the next request that needs a fresh token. The standalone `pp-token-watchdog.js` is preserved as a manual escape hatch for diagnostics and bulk token priming.
 
 ### Added
 
-- **`fetchAccessTokenViaCDP()` in `lib/propprofessor-auth.js`** — Chrome DevTools Protocol token fetch. Connects to Chrome on `127.0.0.1:9222`, finds or creates a tab on `app.propprofessor.com`, runs `Runtime.evaluate` to `fetch()` the access-token endpoint with `credentials: 'include'`, and returns the parsed body. Reuses an existing PP tab if one is open; creates one if not. All timeouts explicit; failures bubble up cleanly.
+- **`fetchAccessTokenViaCDP()` in `lib/ssb-auth.js`** — Chrome DevTools Protocol token fetch. Connects to Chrome on `127.0.0.1:9222`, finds or creates a tab on `app.propprofessor.com`, runs `Runtime.evaluate` to `fetch()` the access-token endpoint with `credentials: 'include'`, and returns the parsed body. Reuses an existing PP tab if one is open; creates one if not. All timeouts explicit; failures bubble up cleanly.
 - **Automatic fallback in `fetchAccessToken()`** — when the `got-scraping` path throws or returns 429 / 401, the MCP calls `fetchAccessTokenViaCDP()` automatically. The common path is unchanged (fast `got-scraping`); the 429 path costs ~1-2s of CDP overhead and then works for the next 8 minutes. Both paths failing yields a combined error with `err.code === 'TOKEN_REFRESH_FAILED_BOTH_PATHS'`.
 - **`PP_NO_CDP_FALLBACK=1` env var** — disables the CDP fallback for headless / CI environments where Chrome isn't available. Default: fallback enabled.
-- **17 new regression tests** in `test/propprofessor-cdp-fallback.test.js` covering the happy path, error branches, fallback gating, and the combined-error code.
+- **17 new regression tests** in `test/ssb-cdp-fallback.test.js` covering the happy path, error branches, fallback gating, and the combined-error code.
 
 ### Changed
 
-- `lib/propprofessor-api.js` re-exports `fetchAccessTokenViaCDP` alongside `fetchAccessToken` for backward compatibility.
+- `lib/ssb-api.js` re-exports `fetchAccessTokenViaCDP` alongside `fetchAccessToken` for backward compatibility.
 - `scripts/pp-token-watchdog.js` header rewritten to mark it as a manual escape hatch (no longer needed for production). Lint-cleaned.
 
 ### Operator impact
 
-- **No more "refresh token" hand-holding.** When Vercel 429s the access-token endpoint, the next tool call will silently take the CDP path. Users on machines with Chrome open and a PropProfessor tab open won't notice anything.
+- **No more "refresh token" hand-holding.** When Vercel 429s the access-token endpoint, the next tool call will silently take the CDP path. Users on machines with Chrome open and a SSB tab open won't notice anything.
 - **Failure mode shrinks.** The MCP only breaks if BOTH Vercel is gating AND Chrome isn't running with a logged-in PP tab open. In practice that means "I'm not at my Mac."
 - **Watchdog cron is no longer required.** If you previously had a `slash-5 18-23 * * *` cron driving `pp-token-watchdog.js`, you can remove it. The watchdog script itself stays in the repo for manual diagnostics.
 
@@ -639,7 +639,7 @@ The v2.1.6 release fixed the consensus-preservation bug (the data was being clob
 
 ### Fixed
 
-- **v2.1.3 degraded-data warning now actually fires for line-based markets** (`lib/propprofessor-mcp-ranked-screen.js`). The warning check no longer inspects `r.line1` or `r.line` directly. It relies on `r.lineFieldMissingCount > 0` as the primary signal (the backfill code already guards on `fallbackLine !== null`, which is naturally null for moneylines, so the count is naturally 0 there) plus a defense-in-depth `market === "moneyline"` exclusion. Regression test added in `test/propprofessor-mcp-ranked-screen.test.js` that mirrors the live data shape (no `line1` on the row, large `lineFieldMissingCount`).
+- **v2.1.3 degraded-data warning now actually fires for line-based markets** (`lib/ssb-mcp-ranked-screen.js`). The warning check no longer inspects `r.line1` or `r.line` directly. It relies on `r.lineFieldMissingCount > 0` as the primary signal (the backfill code already guards on `fallbackLine !== null`, which is naturally null for moneylines, so the count is naturally 0 there) plus a defense-in-depth `market === "moneyline"` exclusion. Regression test added in `test/ssb-mcp-ranked-screen.test.js` that mirrors the live data shape (no `line1` on the row, large `lineFieldMissingCount`).
 
 ### Stats
 
@@ -649,12 +649,12 @@ The v2.1.6 release fixed the consensus-preservation bug (the data was being clob
 
 ## 2.1.3
 
-**Line-history backfill + degraded-data warning for line-based markets.** The upstream PropProfessor `/odds_history` endpoint does not return a `line` field per entry — only `odds`, `start_ts`, `end_ts`, and `liquidity`. Verified 2026-06-14: 0/874 entries had a `line` field across NHL/MLB/UFC. For line-based markets (Puck Line, Run Line, Point Spread, Total Goals/Runs/Rounds, etc.) the MCP can show the current line but cannot track line movement from history. v2.1.1 + v2.1.2 shipped the spread-alias fix but the underlying line-history data is missing upstream. This release adds a defensive local fallback and surfaces the degraded state honestly.
+**Line-history backfill + degraded-data warning for line-based markets.** The upstream SSB `/odds_history` endpoint does not return a `line` field per entry — only `odds`, `start_ts`, `end_ts`, and `liquidity`. Verified 2026-06-14: 0/874 entries had a `line` field across NHL/MLB/UFC. For line-based markets (Puck Line, Run Line, Point Spread, Total Goals/Runs/Rounds, etc.) the MCP can show the current line but cannot track line movement from history. v2.1.1 + v2.1.2 shipped the spread-alias fix but the underlying line-history data is missing upstream. This release adds a defensive local fallback and surfaces the degraded state honestly.
 
 ### Changed
 
-- **Line values are now backfilled into history entries from the row's current line** (`lib/propprofessor-history.js`, `lib/propprofessor-screen-history.js`). When the upstream response is missing the `line` field, the MCP writes the matched row's current line (`matchedRow.line1` / `line2` / `line`) into each entry. This makes the entries self-consistent and unblocks downstream consumers that read `entry.line` unconditionally. Moneylines (legitimate `line: null`) are not backfilled.
-- **New degraded-data warning** in `resultMeta.warnings` (`lib/propprofessor-mcp-ranked-screen.js`): when non-moneyline rows had line values backfilled, the response now reads `"Line values missing from upstream history for N/M non-moneyline rows (K entries backfilled from current line). Line-movement detection is degraded for this slate."` Users see the degraded state instead of a silent `line: null` everywhere.
+- **Line values are now backfilled into history entries from the row's current line** (`lib/ssb-history.js`, `lib/ssb-screen-history.js`). When the upstream response is missing the `line` field, the MCP writes the matched row's current line (`matchedRow.line1` / `line2` / `line`) into each entry. This makes the entries self-consistent and unblocks downstream consumers that read `entry.line` unconditionally. Moneylines (legitimate `line: null`) are not backfilled.
+- **New degraded-data warning** in `resultMeta.warnings` (`lib/ssb-mcp-ranked-screen.js`): when non-moneyline rows had line values backfilled, the response now reads `"Line values missing from upstream history for N/M non-moneyline rows (K entries backfilled from current line). Line-movement detection is degraded for this slate."` Users see the degraded state instead of a silent `line: null` everywhere.
 
 ### Stats
 
@@ -688,12 +688,12 @@ The v2.1.1 / v2.1.2 release notes claimed a "spread-alias regression fix" that r
 ### Added
 
 - **Fantasy Optimizer tool** — new `fantasy_optimizer` MCP tool for DFS-style fantasy picks (PrizePicks, Underdog, etc.). Requires a paid PropProfessor subscription with Fantasy Optimizer access. Query by league, fantasy app, market, min/max odds/value, and more. 24 total tools now exposed (was 23 in v2.1.0).
-- **Player-name sanitizer for `player_context` xurl escalation** — `sanitizePlayerName()` in `lib/propprofessor-player-context.js` now allowlist-validates player names (Unicode letters/numbers + space + `.'-`) before passing them to the xurl CLI via `cp.execFile`. Rejects empty input, flag-like strings (`--help`), shell metacharacters, emoji, and inputs over 100 chars. Surfaced as a clean `source: "xurl-failed"` response rather than a malformed CLI invocation. June 8 SEC-001 partial fix.
+- **Player-name sanitizer for `player_context` xurl escalation** — `sanitizePlayerName()` in `lib/ssb-player-context.js` now allowlist-validates player names (Unicode letters/numbers + space + `.'-`) before passing them to the xurl CLI via `cp.execFile`. Rejects empty input, flag-like strings (`--help`), shell metacharacters, emoji, and inputs over 100 chars. Surfaced as a clean `source: "xurl-failed"` response rather than a malformed CLI invocation. June 8 SEC-001 partial fix.
 
 ### Fixed
 
-- **Auth file permissions tightened (SEC-003)** — `pp-query login`, `installAuthFile`, and the token cache now write `0o600` (owner read/write only) and `chmod` to enforce on existing files. The auth.json and token-cache.json files previously inherited the system default `0644`, which let any other local user on the box read the bearer token / cookie jar — full account impersonation against PropProfessor. 2 new regression tests cover the new mode bits. Closes the June 8 high-severity finding.
-- **Spread alias wrong for basketball/football/soccer** (`lib/propprofessor-shared-utils.js` + `lib/propprofessor-sharp-books.js`). `MARKET_ALIASES.spread` and `.handicap` resolved to `"Spread"` for NBA/WNBA/NCAAB/NCAAF/NFL/SOCCER, but the live PropProfessor `/screen` endpoint serves those leagues as `"Point Spread"`. Every spread query on those leagues returned an empty payload. Discovered 2026-06-12 when a WNBA `novig_screen` with `markets=["Spread"]` returned 0 candidates but `find_best_price(market="Point Spread")` returned 19 books. Tennis was unaffected because `normalizeTennisMarketQuery()` expands `"Spread"` to `["Game Handicap", "Set Handicap", "Point Spread"]` before the screen call. `ALT_MARKET_BOOKS` keys renamed to match the new canonical name; 4 new regression tests added.
+- **Auth file permissions tightened (SEC-003)** — `pp-query login`, `installAuthFile`, and the token cache now write `0o600` (owner read/write only) and `chmod` to enforce on existing files. The auth.json and token-cache.json files previously inherited the system default `0644`, which let any other local user on the box read the bearer token / cookie jar — full account impersonation against SSB. 2 new regression tests cover the new mode bits. Closes the June 8 high-severity finding.
+- **Spread alias wrong for basketball/football/soccer** (`lib/ssb-shared-utils.js` + `lib/ssb-sharp-books.js`). `MARKET_ALIASES.spread` and `.handicap` resolved to `"Spread"` for NBA/WNBA/NCAAB/NCAAF/NFL/SOCCER, but the live SSB `/screen` endpoint serves those leagues as `"Point Spread"`. Every spread query on those leagues returned an empty payload. Discovered 2026-06-12 when a WNBA `novig_screen` with `markets=["Spread"]` returned 0 candidates but `find_best_price(market="Point Spread")` returned 19 books. Tennis was unaffected because `normalizeTennisMarketQuery()` expands `"Spread"` to `["Game Handicap", "Set Handicap", "Point Spread"]` before the screen call. `ALT_MARKET_BOOKS` keys renamed to match the new canonical name; 4 new regression tests added.
 - **SECURITY.md support matrix** — was reporting v1.0.x as the only supported release (project is at v2.1.x). Now lists 2.0.x / 2.1.x as supported, 1.7.x as security-fixes-only, and pre-1.7 as unsupported. First thing a vuln researcher reads — previously implied the project was abandoned since v1.0.x.
 
 ### Changed
@@ -718,27 +718,27 @@ The v2.1.1 / v2.1.2 release notes claimed a "spread-alias regression fix" that r
 
 ### Added
 
-- `make install` — one-command install: links the `propprofessor-coach` skill into hermes, registers the MCP server, installs the default config
-- `make install-cron` — registers the optional `propprofessor-alerts` sharp-money cron
+- `make install` — one-command install: links the `ssb-coach` skill into hermes, registers the MCP server, installs the default config
+- `make install-cron` — registers the optional `ssb-alerts` sharp-money cron
 - `make uninstall` — reverses both
 - `scripts/install.py` — idempotent Python installer (stdlib only, no pip deps)
 - `scripts/install_helpers.py` + `scripts/test_install_helpers.py` — hermes path/profile resolution helpers with tests
 - `bin/pp` — thin CLI wrapper for `pp hide / unhide / hidden / sync / doctor / today`
 - `config.default.json` — ships sane defaults (league=NBA, bankroll=1000, targetBook=NoVigApp)
-- `pp-query setup` — copies the default config to `~/.propprofessor/config.json`
-- `skills/propprofessor-coach/SKILL.md` — operator-facing coach skill (auto-routes "what should I bet today" to the right tools)
+- `pp-query setup` — copies the default config to `~/.ssb-for-agents/config.json`
+- `skills/ssb-coach/SKILL.md` — operator-facing coach skill (auto-routes "what should I bet today" to the right tools)
 - `docs/cron-prompts/sharp-money-alert.md` — cron prompt template
 - `INSTALL.md` — 60-second quick-start
 
 ### Behavior
 
 - The 23 MCP tools and 784-test suite are unchanged. Pure packaging work.
-- `hermes mcp add propprofessor` is unchanged in shape — the installer just automates the config edit that users previously did manually.
+- `hermes mcp add ssb` is unchanged in shape — the installer just automates the config edit that users previously did manually.
 
 ### Migration
 
 - Existing users: re-running `make install` is a no-op. New install gets the skill symlink + config.
-- The 3 hermes-side `propprofessor-*` skills in `~/.hermes/skills/` are unchanged. The new coach skill ships in the repo and gets linked separately.
+- The 3 hermes-side `ssb-*` skills in `~/.hermes/skills/` are unchanged. The new coach skill ships in the repo and gets linked separately.
 
 ## 2.0.1
 
@@ -749,13 +749,13 @@ Pre-directory polish. The README's polish checklist from v1.6.1 (repo descriptio
 - **FAQ "TIER 1 hit rate"** — updated from the v1.5.5-era 580-play sample to the current 575-play backtest count. Honest framing: hit rate sits around chance (~50%) on a ~575-play synthetic backtest. Numbers drift slightly with the random seed; the round claim is stable.
 - **Status section "Latest release"** — was a generic pointer to the releases page. Now names v2.0.0 specifically with a one-line description of what it was, so directory visitors landing on the README see the most recent release at a glance.
 
-Install path verification: `node scripts/propprofessor-mcp-server.js` boots clean, NDJSON framing works end-to-end, `initialize` + `tools/list` returns all 23 tools, `npm link --dry-run` confirms the `pp-mcp` / `pp-query` binaries would install. No code changes; no behavior change.
+Install path verification: `node scripts/ssb-mcp-server.js` boots clean, NDJSON framing works end-to-end, `initialize` + `tools/list` returns all 23 tools, `npm link --dry-run` confirms the `pp-mcp` / `pp-query` binaries would install. No code changes; no behavior change.
 
 ## 2.0.0
 
 ### Refactor
 
-Lib organization, part 2 of 2. The 23 `createMcpHandlers()` tool implementations (~1,730 lines) are extracted from `scripts/propprofessor-mcp-server.js` into `scripts/server/handlers.js`. The JSON-RPC frame (`createMcpServer`) and the stdio serve loop stay in the entry point; `handlers.js` is a leaf that the entry re-exports from for backward compatibility with existing imports. Algorithm, tier system, and tool surface unchanged. No user-facing behavior changes.
+Lib organization, part 2 of 2. The 23 `createMcpHandlers()` tool implementations (~1,730 lines) are extracted from `scripts/ssb-mcp-server.js` into `scripts/server/handlers.js`. The JSON-RPC frame (`createMcpServer`) and the stdio serve loop stay in the entry point; `handlers.js` is a leaf that the entry re-exports from for backward compatibility with existing imports. Algorithm, tier system, and tool surface unchanged. No user-facing behavior changes.
 
 ### Bug fix
 
@@ -777,7 +777,7 @@ A v1.7.0 leftover from the planned-but-incomplete v2.0.0 refactor: the previous 
 
 Lib organization, part 1 of 2. Structural cleanup with no user-facing behavior changes. The algorithm, tier system, and tool surface are unchanged.
 
-- **Tennis files merged** — `lib/propprofessor-tennis-times.js` and `lib/propprofessor-tennis-names.js` → `lib/propprofessor-tennis.js`. Both files were tennis-specific helpers (player name resolution, ESPN-backed match time correction) that were needlessly split. The merged file has a single `module.exports` exposing the union of the old APIs: `PLAYER_NAMES`, `resolvePlayerName`, `getNameSlug`, `correctTennisTimes`, `fetchEspnMatches`, `nameSimilarity`, `formatCentralTime`, `isPlaceholderTime`. All import sites updated.
+- **Tennis files merged** — `lib/ssb-tennis-times.js` and `lib/ssb-tennis-names.js` → `lib/ssb-tennis.js`. Both files were tennis-specific helpers (player name resolution, ESPN-backed match time correction) that were needlessly split. The merged file has a single `module.exports` exposing the union of the old APIs: `PLAYER_NAMES`, `resolvePlayerName`, `getNameSlug`, `correctTennisTimes`, `fetchEspnMatches`, `nameSimilarity`, `formatCentralTime`, `isPlaceholderTime`. All import sites updated.
 
 ### Stats
 
@@ -814,7 +814,7 @@ Tool surface consolidation. Two of the findings from the June 11 audit, folded i
 
 ### Feature
 
-- **Nitter RSS as primary tweet source in `player_context`** — `player_context` now tries Nitter RSS first (fast, no auth, local instance via `NITTER_BASE` env var, default `http://localhost:8080`). Fallback chain: Nitter RSS → X GraphQL (nitter-session-api) → Google News RSS → ESPN search. New source labels: `nitter-rss`, `nitter-combined`, `news-fallback` (previously only `x-direct`, `combined`, `empty`). New helper: `searchNitterRSS()` in `lib/propprofessor-news-sources.js` with RSS parsing that handles both Google News and Nitter RSS formats (`<dc:creator>` for author).
+- **Nitter RSS as primary tweet source in `player_context`** — `player_context` now tries Nitter RSS first (fast, no auth, local instance via `NITTER_BASE` env var, default `http://localhost:8080`). Fallback chain: Nitter RSS → X GraphQL (nitter-session-api) → Google News RSS → ESPN search. New source labels: `nitter-rss`, `nitter-combined`, `news-fallback` (previously only `x-direct`, `combined`, `empty`). New helper: `searchNitterRSS()` in `lib/ssb-news-sources.js` with RSS parsing that handles both Google News and Nitter RSS formats (`<dc:creator>` for author).
 - **`skipHistory: boolean` param on screen tools** — added to `screen_ranked`, `recommended_bets`, `all_slates`, `staking_plan`, and `sharp_consensus`. When `true`, skips odds history hydration entirely — useful when you only need current odds/edges and don't need movement data. Propagated through all handler call chains: `recommended_bets` → `screen_ranked`, `staking_plan` → `recommended_bets`, `all_slates` → `runLeagueScreen`/`runTennisScreen`, `sharp_consensus` → `screen_ranked`. `sharp_plays` already supported it via `...args` spread in `runSharpPlays` service. Companion to `compact`: `compact` only affects output formatting, not data hydration — use `skipHistory` to skip hydration.
 
 ### Docs
@@ -833,8 +833,8 @@ Tool surface consolidation. Two of the findings from the June 11 audit, folded i
 
 Response-layer cleanup. Three high-impact issues found in the June 11, 2026 code+response audit. The algorithm, tier system, and tool surface are unchanged — only how the data is shaped before it leaves the server.
 
-- **CLI `--verbosity` is now wired through to the MCP handler** (`scripts/query-propprofessor.js`). Before: `--verbosity minimal` was silently dropped on the floor for the `sharp-plays` command, so the CLI always returned the raw 144KB payload regardless of the flag. After: `--verbosity minimal|standard|full` works end-to-end. The MCP server (line 861) was already wired correctly — this is CLI-only.
-- **Response rows are now compacted at extraction** — null, empty-string, empty-array, and empty-object fields are stripped before the formatter runs. Applied to `sharp-plays`, `screen_ranked` (via `buildRankedScreenResponse`), and `find_best_price` (`allPrices`). The new `compactRow` helper lives in `lib/propprofessor-shared-utils.js`. Response payload drops ~96% for typical sharp-plays output (144KB → ~5KB for 3 plays). Empty fields were noise; the data users actually want is unchanged.
+- **CLI `--verbosity` is now wired through to the MCP handler** (`scripts/query-ssb.js`). Before: `--verbosity minimal` was silently dropped on the floor for the `sharp-plays` command, so the CLI always returned the raw 144KB payload regardless of the flag. After: `--verbosity minimal|standard|full` works end-to-end. The MCP server (line 861) was already wired correctly — this is CLI-only.
+- **Response rows are now compacted at extraction** — null, empty-string, empty-array, and empty-object fields are stripped before the formatter runs. Applied to `sharp-plays`, `screen_ranked` (via `buildRankedScreenResponse`), and `find_best_price` (`allPrices`). The new `compactRow` helper lives in `lib/ssb-shared-utils.js`. Response payload drops ~96% for typical sharp-plays output (144KB → ~5KB for 3 plays). Empty fields were noise; the data users actually want is unchanged.
 - **`selections.null` and `defaultKey: "null"` string leaks fixed at extraction** — PropProfessor's API uses the literal string `"null"` as a key to mean "no sub-market" (moneyline, spread, total). Before: that string leaked through to consumers as a real key. After: `normalizeRow` lifts `selections.null.*` to top level for non-prop markets and drops `defaultKey: "null"`. Player-prop selections (which use real player names as keys) are untouched.
 
 ### Stats
@@ -850,7 +850,7 @@ Response-layer cleanup. Three high-impact issues found in the June 11, 2026 code
 
 Pre-directory-submission polish. No code changes — the algorithm, tools, and tests are all unchanged from v1.6.0.
 
-- **Repo description updated** — from "Standalone PropProfessor MCP server and query client" to "MCP server that surfaces sharp-money movement across 36 sportsbooks — signal feed, not betting oracle." This is what `mcp.so`, `awesome-mcp`, and other directory listings display as the first-glance summary.
+- **Repo description updated** — from "Standalone SSB MCP server and query client" to "MCP server that surfaces sharp-money movement across 36 sportsbooks — signal feed, not betting oracle." This is what `mcp.so`, `awesome-mcp`, and other directory listings display as the first-glance summary.
 - **Mermaid architecture diagram added** in the README — shows the data flow from 36 sportsbooks → PropProfessor API → ranking pipeline → 27 MCP tools → your AI agent. Renders natively in GitHub; makes the value prop visual in 5 seconds for directory visitors.
 - **"How the ranking works" section trimmed** — the 5-step methodology (movement grading, risk score weights, tier table, hysteresis, sharp book cross-reference) moved to [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md). The README now has a 1-paragraph summary + link. Reduces README from 397 → 389 lines, makes the visible content more scannable.
 - **FAQ section added** — answers the 5 questions directory visitors ask first: "Does this tell me what to bet?" (no, it surfaces signals), "Do I need an account?" (yes, paid PropProfessor), "What books does it cover?" (36), "Is it free?" (code is MIT, data is paid), "Can I run it without an MCP client?" (yes, `pp-query` CLI).
@@ -905,7 +905,7 @@ This release is a positioning + messaging change, not an algorithm change. The r
 
 - **Synthetic backtest was producing 99% TIER 4 plays** — the scenario generator had two compounding bugs that made the README's "TIER 1 hit rate" claim statistically meaningless:
   1. **Only 7 books** in the scenario — couldn't reach the `consensusBookCount >= 10` bonus needed for TIER 1 in the risk score. Expanded to 12 books (production has ~36; 12 is a representative subset).
-  2. **Per-scenario tier cache and score timeline were not reset** between iterations in the backtest loop. The hysteresis layer in `lib/propprofessor-risk-score.js` is module-level global state — once a play got assigned TIER 4 early in the run, the cache and timeline kept it there for the rest of the backtest. Added `clearTierCache()` + `clearScoreTimeline()` calls at the start of each scenario.
+  2. **Per-scenario tier cache and score timeline were not reset** between iterations in the backtest loop. The hysteresis layer in `lib/ssb-risk-score.js` is module-level global state — once a play got assigned TIER 4 early in the run, the cache and timeline kept it there for the rest of the backtest. Added `clearTierCache()` + `clearScoreTimeline()` calls at the start of each scenario.
 - Added a new `strong_sharp_move` scenario type (15% of the mix) that produces the coordinated sharp-book movement the ranking pipeline needs to assign TIER 1. Updated the scenario mix to: 15% strong_sharp_move / 25% sharp_move / 30% stable_no_edge / 30% adverse. Without this scenario type, the ranking pipeline never had a realistic chance to assign TIER 1.
 
 ### Docs
@@ -937,7 +937,7 @@ This release is a positioning + messaging change, not an algorithm change. The r
 
 ### Chore
 
-- **Added `npm run check:claims`** — automates the pre-release claim-drift checks that the `propprofessor-mcp-release-format` skill documents. Verifies that the README's tool count matches the tool definitions and the OpenAPI spec, that every tool referenced in the "All N tools" section actually exists, that the test count matches `npm test` output, and that the TIER 4 ≤ TIER 2 inversion claim is directionally supported. Runs in 1.1s with `--skip-tests`, 5.2s full. This is the script that would have caught the test-count drift above on the v1.5.3 release — flagging the issue at the source instead of leaking into a shipped README.
+- **Added `npm run check:claims`** — automates the pre-release claim-drift checks that the `ssb-mcp-release-format` skill documents. Verifies that the README's tool count matches the tool definitions and the OpenAPI spec, that every tool referenced in the "All N tools" section actually exists, that the test count matches `npm test` output, and that the TIER 4 ≤ TIER 2 inversion claim is directionally supported. Runs in 1.1s with `--skip-tests`, 5.2s full. This is the script that would have caught the test-count drift above on the v1.5.3 release — flagging the issue at the source instead of leaking into a shipped README.
 - **Deleted 3 stale branches** — `fix/novig-screen-research-and-filtering` (already merged), `release/v1.3.0-market-freshness-overhaul` and `release/v1.4.0-dx-and-cleanup` (long-since shipped release branches). Cleanup only, no code impact.
 
 ### Stats
@@ -1030,7 +1030,7 @@ Scenario generator now creates three distinct scenario types with real edge cond
 
 ### Token refresh mutex
 
-Concurrent requests that trigger 401s now share a single token refresh instead of each independently calling `fetchAccessToken`. The `tokenRefreshPromise` singleton in `createPropProfessorClient` ensures only one refresh happens at a time — subsequent callers wait for the same promise.
+Concurrent requests that trigger 401s now share a single token refresh instead of each independently calling `fetchAccessToken`. The `tokenRefreshPromise` singleton in `createSSBClient` ensures only one refresh happens at a time — subsequent callers wait for the same promise.
 
 - 3 new tests: concurrent refresh dedup, refresh-after-expiry, concurrent invalidation wait
 - Reduces unnecessary API calls to PropProfessor's token endpoint under load
@@ -1118,7 +1118,7 @@ When no TIER 1/2 plays exist, `recommended_bets` now returns 0 plays instead of 
 
 ### Navigable server architecture
 
-`propprofessor-mcp-server.js` handlers grouped into domain sections:
+`ssb-mcp-server.js` handlers grouped into domain sections:
 
 - Screening & Ranking (7 handlers)
 - Sharp Movement (2 handlers)
@@ -1143,7 +1143,7 @@ Full file split into separate modules deferred to v1.5 — cross-handler depende
 | Total  | Total Goals | Total Runs | Total Points | Total Points / Total Goals |
 | Spread | Puck Line   | Run Line   | Spread       | Spread                     |
 
-**New function:** `resolveMarketName(input, league)` in `propprofessor-shared-utils.js`
+**New function:** `resolveMarketName(input, league)` in `ssb-shared-utils.js`
 
 - Returns `{ resolved, wasAliased, original, aliasKey }`
 - Handles case-insensitive input, whitespace, and shorthand (`rl`, `pl`)
@@ -1175,13 +1175,13 @@ Full file split into separate modules deferred to v1.5 — cross-handler depende
 
 ### Freshness Engine (Diagnosed — No Code Change Needed)
 
-Phase 1 investigation found the `freshnessFallbackUsed: true` flag is **not a bug** — the upstream PropProfessor `/screen` API simply doesn't include timestamp fields on rows. The fallback code already handles this correctly:
+Phase 1 investigation found the `freshnessFallbackUsed: true` flag is **not a bug** — the upstream SSB `/screen` API simply doesn't include timestamp fields on rows. The fallback code already handles this correctly:
 
 - Scoring (`edge`/`tier`/`kai`) still populates even in fallback mode
 - `newestAgeMs: 0` / `oldestAgeMs: 0` is the correct response to missing upstream data
 - `timestampSources: { response_received: N }` correctly reports what's available
 
-**G1 goal ("freshnessFallbackUsed: false on healthy responses") is not achievable** without upstream PropProfessor changes.
+**G1 goal ("freshnessFallbackUsed: false on healthy responses") is not achievable** without upstream SSB changes.
 
 ### Notes
 
@@ -1233,7 +1233,7 @@ Makes it transparent when Spread/Total have fewer plays due to upstream data qua
 
 **Automated Auth Flow**
 
-- New `pp-query login` command opens browser, user logs in, auth saves automatically to `~/.propprofessor/auth.json`
+- New `pp-query login` command opens browser, user logs in, auth saves automatically to `~/.ssb-for-agents/auth.json`
 - No more manual cookie export — just run one command
 - Added Playwright as optional dependency for browser automation
 - Health endpoint now reports auth status with clear recovery instructions ("Run: pp-query login")
@@ -1325,8 +1325,8 @@ Makes it transparent when Spread/Total have fewer plays due to upstream data qua
 
 ### Response caching
 
-- In-memory LRU cache with TTL (default 60s, configurable via `PROPPROFESSOR_CACHE_TTL_MS`).
-- Max entries: 50, configurable via `PROPPROFESSOR_CACHE_MAX`.
+- In-memory LRU cache with TTL (default 60s, configurable via `SSB_CACHE_TTL_MS`).
+- Max entries: 50, configurable via `SSB_CACHE_MAX`.
 - Cache hits reported via `resultMeta.cached: true`.
 - Only caches full responses (not compact/fields-filtered).
 
@@ -1349,9 +1349,9 @@ Makes it transparent when Spread/Total have fewer plays due to upstream data qua
 
 ### New analysis modules
 
-- `propprofessor-steam-move.js` — Steam move detection integrated into screen ranking (exposes `steamMove`, `steamBooks`, `steamDirection` per row)
-- `propprofessor-sharp-consensus.js` — Multi-window sharp consensus analysis across 1h/2h/6h/12h/24h/48h windows
-- `propprofessor-best-price.js` — Line shopping: finds best price across all books for a given play
+- `ssb-steam-move.js` — Steam move detection integrated into screen ranking (exposes `steamMove`, `steamBooks`, `steamDirection` per row)
+- `ssb-sharp-consensus.js` — Multi-window sharp consensus analysis across 1h/2h/6h/12h/24h/48h windows
+- `ssb-best-price.js` — Line shopping: finds best price across all books for a given play
 
 ### New MCP tools (6)
 
@@ -1437,7 +1437,7 @@ All MCP tool handlers prefixed with `query_` for consistency:
 
 ## 1.0.4
 
-- Added configurable ranked odds-history lookback defaults via `PROPPROFESSOR_ODDS_HISTORY_LOOKBACK_HOURS`
+- Added configurable ranked odds-history lookback defaults via `SSB_ODDS_HISTORY_LOOKBACK_HOURS`
 - Added per-request ranked lookback overrides through MCP `lookbackHours` and local CLI `--lookback-hours`
 - Kept the default ranked odds-history window at 6 hours across MCP, library helpers, and local export/query scripts
 - Tightened package metadata to describe the screen-first MCP surface and the broader local CLI split
@@ -1463,5 +1463,5 @@ All MCP tool handlers prefixed with `query_` for consistency:
 
 ## 1.0.1
 
-- Initial standalone packaging of the PropProfessor MCP server and query CLI
+- Initial standalone packaging of the SSB MCP server and query CLI
 - Added README, license, binary entrypoints, and GitHub release workflow

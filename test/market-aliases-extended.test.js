@@ -3,9 +3,9 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { MARKET_ALIASES, resolveMarketName } = require('../lib/propprofessor-shared-utils');
+const { MARKET_ALIASES, resolveMarketName } = require('../lib/ssb-shared-utils');
 
-const { getAltMarketBooks, getSharpBookComparisonSet } = require('../lib/propprofessor-sharp-books');
+const { getAltMarketBooks, getSharpBookComparisonSet } = require('../lib/ssb-sharp-books');
 
 const { resolveMarkets } = require('../scripts/server/handlers/handler-utils');
 

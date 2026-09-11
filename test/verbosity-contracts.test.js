@@ -12,7 +12,7 @@ const {
   formatSharpPlaysStandard,
   formatBetsMinimal,
   formatBetsStandard
-} = require('../lib/propprofessor-formatter');
+} = require('../lib/ssb-formatter');
 
 const SAMPLE_RANKED_ROW = {
   game: 'Lakers vs Celtics',

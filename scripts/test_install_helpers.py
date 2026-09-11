@@ -28,6 +28,6 @@ def test_skill_target_path(tmp_path):
     (NOT profiles/<profile>/skills/external/...).
     The profile arg is unused — hermes uses a single global skills dir.
     """
-    target = skill_target_path(str(tmp_path), "default", "propprofessor-coach")
+    target = skill_target_path(str(tmp_path), "default", "ssb-coach")
     # PATCHED: skills go to <HERMES_HOME>/skills/<name>/ (not profiles/<profile>/skills/external/)
-    assert target == tmp_path / "skills" / "propprofessor-coach"
+    assert target == tmp_path / "skills" / "ssb-coach"

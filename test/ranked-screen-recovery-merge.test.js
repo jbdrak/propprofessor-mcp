@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { mergeRecoveredRows } = require('../lib/propprofessor-ranked-screen-recovery-merge');
+const { mergeRecoveredRows } = require('../lib/ssb-ranked-screen-recovery-merge');
 
 describe('mergeRecoveredRows', () => {
   it('hydrates recovery rows, deduplicates canonical IDs, and reports metadata', async () => {

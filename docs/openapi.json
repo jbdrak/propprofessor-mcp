@@ -1,12 +1,12 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "PropProfessor MCP API",
+    "title": "SSB MCP API",
     "version": "2.9.1",
     "description": "Lean, fast odds analysis engine for AI agents. Screens 36+ sportsbooks across NBA, MLB, NHL, NFL, WNBA, UFC, Tennis, Soccer — ranks plays by sharp movement, consensus edge, and steam detection.\n\nSee the README for setup instructions and tool guides by user type.",
     "contact": {
       "name": "James Drake",
-      "url": "https://github.com/jbdrak/propprofessor-mcp"
+      "url": "https://github.com/jbdrak/ssb-for-agents"
     },
     "license": {
       "name": "MIT",
@@ -21,7 +21,7 @@
   ],
   "tags": [
     {
-      "name": "PropProfessor MCP Tools",
+      "name": "SSB MCP Tools",
       "description": "Sports betting odds analysis tools"
     }
   ],
@@ -30,7 +30,7 @@
       "post": {
         "summary": "Query multiple active leagues at once and return a consolidated ranked list. One call instead of 5-6 separate league screens. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "all_slates",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -47,7 +47,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "Specific leagues to query. Default: [NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL] — every league the PropProfessor backend supports."
+                    "description": "Specific leagues to query. Default: [NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL] — every league the SSB backend supports."
                   },
                   "limit": {
                     "type": "number",
@@ -253,7 +253,7 @@
       "post": {
         "summary": "ROUTER — parse a natural language betting query and return parsed components plus a suggested tool and args. Pure parser — no data fetched. Call this when you dont know which tool to use.",
         "operationId": "ask",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -414,7 +414,7 @@
       "post": {
         "summary": "Clear the score timeline cache used for tier trajectory tracking. Resets all historical tier data. Use when starting a new session or after config changes.",
         "operationId": "clear_score_timeline",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -572,7 +572,7 @@
       "post": {
         "summary": "Query the +EV endpoint and return candidate plays for enabled books. Secondary discovery tool. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "ev_candidates",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -871,7 +871,7 @@
       "post": {
         "summary": "Query the Fantasy Optimizer for DFS-style player picks across fantasy apps (PrizePicks, Underdog, etc.). Returns projected values, odds, and risk metrics. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "fantasy_optimizer",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -891,7 +891,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "League filter, e.g., [\"NBA\", \"MLB\"]. Defaults to NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL — every league the PropProfessor backend supports."
+                    "description": "League filter, e.g., [\"NBA\", \"MLB\"]. Defaults to NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL — every league the SSB backend supports."
                   },
                   "market": {
                     "type": "string",
@@ -1091,7 +1091,7 @@
       "post": {
         "summary": "LINE SHOP — check which book has the best price. Shows every book sorted best-to-worst. PITFALL: use get_market_registry first to discover market names.",
         "operationId": "find_best_price",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1285,7 +1285,7 @@
       "post": {
         "summary": "Check for new sharp line movements, steam moves, and significant odds changes since you last checked.",
         "operationId": "get_alerts",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1298,7 +1298,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "Leagues to check for alerts. Default: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL — every league the PropProfessor backend supports."
+                    "description": "Leagues to check for alerts. Default: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL — every league the SSB backend supports."
                   },
                   "lookbackHours": {
                     "type": "number",
@@ -1456,7 +1456,7 @@
       "post": {
         "summary": "REGISTRY — discover available markets for a sport on a specific book. Call before quick_screen to know which markets are available for your league+book combo.",
         "operationId": "get_market_registry",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1621,7 +1621,7 @@
       "post": {
         "summary": "HISTORY — view your logged betting history. Filter by status, league, recency, and limit. Most recent first.",
         "operationId": "get_pick_history",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1794,7 +1794,7 @@
       "post": {
         "summary": "Get your personal betting performance stats: win rate, profit/loss, breakdowns by league and confidence tier.",
         "operationId": "get_pick_stats",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1954,7 +1954,7 @@
       "post": {
         "summary": "DRILL DOWN — get full details (line history, consensus, movement debug) for specific plays. Use after a screen call when you need the raw data behind a ranked play. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "get_play_details",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2165,7 +2165,7 @@
       "post": {
         "summary": "Get the recommended workflow based on use case (casual/intermediate/sharp). Call first to understand which tools to use.",
         "operationId": "get_started",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2342,7 +2342,7 @@
       "post": {
         "summary": "HEALTH CHECK — zero-risk, no backend calls. Check auth freshness and endpoint connectivity. Call first to verify server is responsive before making data calls.",
         "operationId": "health_status",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2512,7 +2512,7 @@
       "post": {
         "summary": "Show current sport-specific ranking presets: sharp books per league, default market bundles, and preferred execution book.",
         "operationId": "league_presets",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2671,7 +2671,7 @@
       "post": {
         "summary": "RECORD — log a bet you placed. Must be called before tip-off. Stores game, league, market, selection, odds, stake, and metadata for your betting history.",
         "operationId": "log_pick",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -2868,7 +2868,7 @@
       "post": {
         "summary": "Manage bet visibility for the /fantasy table. action='list' returns all hidden bets, 'hide' requires bet, 'unhide' requires id, 'clear' removes all.",
         "operationId": "manage_hidden_bets",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3038,7 +3038,7 @@
       "post": {
         "summary": "Get MLB game-level context: starting pitchers, venue/park factor, weather at first pitch, and lineup lock status. Returns riskFlag for weather/park effects.",
         "operationId": "mlb_game_context",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3199,7 +3199,7 @@
       "post": {
         "summary": "EXECUTE — validates then logs the bet in ONE call. Rejects PASS plays up front. Only call after quick_screen identifies a candidate.",
         "operationId": "place_bet",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3388,7 +3388,7 @@
       "post": {
         "summary": "RESEARCH — get recent news, tweets, and risk flag for a player. Use before betting — high riskFlag means downgrade or skip. Use exact spelling from screen rows.",
         "operationId": "player_context",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3581,7 +3581,7 @@
       "post": {
         "summary": "SCAN — one-call sharp-play scanner across leagues × markets. Returns ranked results with tiers, edge, movement, and validation. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "quick_screen",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -3605,7 +3605,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "description": "Leagues to scan, e.g. [\"MLB\", \"NBA\"]. Defaults to every league the PropProfessor backend supports: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL."
+                    "description": "Leagues to scan, e.g. [\"MLB\", \"NBA\"]. Defaults to every league the SSB backend supports: NBA, MLB, NFL, NHL, WNBA, NCAAB, NCAAF, Soccer, Tennis, UFC, NBASL."
                   },
                   "league": {
                     "type": "string",
@@ -3896,7 +3896,7 @@
       "post": {
         "summary": "SETTLE — mark a logged pick as won, lost, or push after the game ends. Updates your personal betting record for accurate stats.",
         "operationId": "resolve_pick",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4062,7 +4062,7 @@
       "post": {
         "summary": "SCAN — simplified one-call sharp-play scanner. Preferred entry point for AI agents. Wraps quick_screen with smart defaults (NoVigApp, all markets, supportive movement only, sorted by edge). Pass `sport` instead of `league` for ergonomics (e.g. sport=\"tennis\").",
         "operationId": "scan",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4274,7 +4274,7 @@
       "post": {
         "summary": "Query /screen and return hydrated ranked rows with consensus, movement, and freshness metadata. Auto-resolves league-specific market names. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "screen_ranked",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4563,7 +4563,7 @@
       "post": {
         "summary": "ALERTS — only verified BET-tier plays, deduped so same plays arent re-alerted. Call when you want fresh sharp plays. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "sharp_alerts",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4617,7 +4617,7 @@
                   },
                   "storePath": {
                     "type": "string",
-                    "description": "Dedup store path. Default ~/.propprofessor/sharp-alerts-store.json."
+                    "description": "Dedup store path. Default ~/.ssb-for-agents/sharp-alerts-store.json."
                   },
                   "dedupWindowMinutes": {
                     "type": "number",
@@ -4772,7 +4772,7 @@
       "post": {
         "summary": "Analyze line history across time windows (1h–48h) to detect sustained sharp-book consensus movement. Shows WHY a play ranks. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "sharp_consensus",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -4975,7 +4975,7 @@
       "post": {
         "summary": "ONE-CALL — evaluate a selection on a book. Returns play details, validation verdict, best price, and staking. For bulk scanning, use quick_screen. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "smart_bet",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -5152,7 +5152,7 @@
       "post": {
         "summary": "Mirror the Smart Money page: surface $ volume (sharp action) and per-side odds range per game/market, sorted by biggest sharp action first. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "smart_money",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -5360,7 +5360,7 @@
       "post": {
         "summary": "Given a bankroll, return stake allocations across recommended bets using fractional Kelly staking. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "staking_plan",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -5590,7 +5590,7 @@
       "post": {
         "summary": "FIRST CALL — daily briefing: top sharp plays, pending picks, and betting stats. Then drill down with quick_screen. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "today",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -5776,7 +5776,7 @@
       "post": {
         "summary": "Query a UFC card and return a shortlist with official plays, best looks, passes, and summary metadata. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "ufc_card",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {
@@ -6005,7 +6005,7 @@
       "post": {
         "summary": "PRE-BET CHECK — run validation on a play. Returns BET/CONSIDER/PASS. Always pass playId from a prior screen row. NOTE: tier/kaiCall/edge/screenScore are signal-quality ratings (what sharp books are doing), NOT win-probability predictions.",
         "operationId": "validate_play",
-        "tags": ["PropProfessor MCP Tools"],
+        "tags": ["SSB MCP Tools"],
         "requestBody": {
           "required": true,
           "content": {

@@ -14,7 +14,7 @@ const path = require('path');
 
 // Stub game-context module BEFORE any handler/server require so recommended_bets'
 // gameContextFn routing doesn't trigger a live curl to stats.nba.com.
-const GC_PATH = path.resolve(__dirname, '../lib/propprofessor-game-context.js');
+const GC_PATH = path.resolve(__dirname, '../lib/ssb-game-context.js');
 require.cache[GC_PATH] = {
   id: GC_PATH,
   filename: GC_PATH,
@@ -35,7 +35,7 @@ require.cache[GC_PATH] = {
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
 const { WNBA_MONEYLINE_LITE_PAYLOAD } = require('./fixtures/screen-payloads-wnba');
 

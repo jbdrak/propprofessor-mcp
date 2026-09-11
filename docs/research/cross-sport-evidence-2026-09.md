@@ -112,7 +112,7 @@ Fair and Oster found that computer ranking systems contain useful information fo
 
 ## Limits
 
-These sources motivate evaluation fields and context gates. They do not prove a positive expected value for a PropProfessor signal, a sportsbook, or a particular market. The repository should require chronological, segment-level validation before changing rank weights or sizing logic.
+These sources motivate evaluation fields and context gates. They do not prove a positive expected value for a SSB signal, a sportsbook, or a particular market. The repository should require chronological, segment-level validation before changing rank weights or sizing logic.
 
 ## Sources
 

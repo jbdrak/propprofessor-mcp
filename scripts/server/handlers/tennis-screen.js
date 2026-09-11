@@ -11,10 +11,10 @@ const {
   getLimit,
   getMaxAgeMs,
   normalizeBookList
-} = require('../../../lib/propprofessor-mcp-ranked-screen');
+} = require('../../../lib/ssb-mcp-ranked-screen');
 const { resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
 const { extractScreenRows } = require('../../../lib/screen-parser');
-const { ALL_SCREEN_BOOKS } = require('../../../lib/propprofessor-sharp-books');
+const { ALL_SCREEN_BOOKS } = require('../../../lib/ssb-sharp-books');
 const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
 const { createSharpOddsHistoryProvider } = require('../../../lib/sharpodds-history-provider');
 const { getLocalTimezone } = require('../../../lib/mcp-runtime-config');
@@ -51,7 +51,7 @@ function getSharedSharpOddsProvider(ctx) {
 }
 
 /**
- * @param {import('../../../lib/propprofessor-api').PropProfessorClient} client
+ * @param {import('../../../lib/ssb-api').SSBClient} client
  * @param {object} deps
  * @param {import('lru-cache')} deps.responseCache
  * @param {number} deps.responseCacheTtlMs

@@ -5,10 +5,10 @@
  * Local-only settlement CLI (Task 5).
  *
  * Settles official bets recorded in the tracker ledger (PP_RECORD_LEDGER,
- * default ~/.propprofessor/tracker/ledger.json) against SUPPLIED result
+ * default ~/.ssb-for-agents/tracker/ledger.json) against SUPPLIED result
  * data. There is NO network code in this script or in lib/record-settlement:
  * the caller must already have fetched results (e.g. an ESPN scoreboard
- * dump) and hand them over as a JSON file. PropProfessor is never touched.
+ * dump) and hand them over as a JSON file. SSB is never touched.
  *
  * Result file contract (required shape):
  *   { "provider": "<non-empty string>", "sourceUrl": "<non-empty string>",

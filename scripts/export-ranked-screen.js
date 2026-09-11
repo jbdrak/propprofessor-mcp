@@ -2,14 +2,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const { createPropProfessorClient } = require('../lib/propprofessor-api');
+const { createSSBClient } = require('../lib/ssb-api');
 const { extractScreenRows } = require('../lib/screen-parser');
 const { rankTennisScreenRows } = require('../lib/screen-tennis');
 const { rankLeagueScreenRows } = require('../lib/screen-ranker');
 const { summarizeFreshness } = require('../lib/screen-summary');
-const { hydrateScreenRowsWithHistory } = require('../lib/propprofessor-screen-history');
+const { hydrateScreenRowsWithHistory } = require('../lib/ssb-screen-history');
 const { getOddsHistoryLookbackHours } = require('../lib/mcp-runtime-config');
-const { getDebugFlag } = require('../lib/propprofessor-mcp-ranked-screen');
+const { getDebugFlag } = require('../lib/ssb-mcp-ranked-screen');
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -140,7 +140,7 @@ async function main(argv = process.argv) {
     payload = localRows;
     rowsLoaded = localRows.length;
   } else {
-    client = createPropProfessorClient();
+    client = createSSBClient();
     const queryFn =
       typeof client.queryScreenOddsBestComps === 'function'
         ? client.queryScreenOddsBestComps.bind(client)
@@ -153,7 +153,7 @@ async function main(argv = process.argv) {
     });
   }
 
-  if (!client) client = createPropProfessorClient();
+  if (!client) client = createSSBClient();
   const rows = extractScreenRows(payload);
   const lookbackHours = getOddsHistoryLookbackHours(opts.lookbackHours);
   const debug = getDebugFlag(opts.debug, true);

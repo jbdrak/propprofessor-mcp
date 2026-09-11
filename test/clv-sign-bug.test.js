@@ -2,9 +2,9 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const { computeClvPct } = require('../lib/propprofessor-sharp-history');
+const { computeClvPct } = require('../lib/ssb-sharp-history');
 
-// Inlined from propprofessor-sharp-history.js:118 — not exported
+// Inlined from ssb-sharp-history.js:118 — not exported
 function directionFromClvPct(value) {
   if (!Number.isFinite(value)) return 'insufficient_history';
   if (value > 0.01) return 'supportive';

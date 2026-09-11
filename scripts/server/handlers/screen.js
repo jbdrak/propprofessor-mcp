@@ -14,19 +14,15 @@ const {
   getIncludeAll,
   getLimit,
   getMaxAgeMs
-} = require('../../../lib/propprofessor-mcp-ranked-screen');
+} = require('../../../lib/ssb-mcp-ranked-screen');
 const { resolveMarkets, filterPayloadByLeagueName, resolveSoccerLeague } = require('./handler-utils');
-const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/propprofessor-sharp-books');
+const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/ssb-sharp-books');
 const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
-const { getGameContext } = require('../../../lib/propprofessor-game-context');
-const { runResearchOnTopRows } = require('../../../lib/propprofessor-research-runner');
-const { formatScreenRankedMinimal, formatScreenRankedStandard } = require('../../../lib/propprofessor-formatter');
-const {
-  filterRowsByKaiCall,
-  filterRowsByMinEV,
-  filterRowsByMovement
-} = require('../../../lib/propprofessor-row-filter');
-const { sortRows } = require('../../../lib/propprofessor-sort-utils');
+const { getGameContext } = require('../../../lib/ssb-game-context');
+const { runResearchOnTopRows } = require('../../../lib/ssb-research-runner');
+const { formatScreenRankedMinimal, formatScreenRankedStandard } = require('../../../lib/ssb-formatter');
+const { filterRowsByKaiCall, filterRowsByMinEV, filterRowsByMovement } = require('../../../lib/ssb-row-filter');
+const { sortRows } = require('../../../lib/ssb-sort-utils');
 
 function createScreenHandlers(client, ctx) {
   /**

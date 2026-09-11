@@ -6,14 +6,14 @@
 //
 // SNAPSHOT-BASED TIER BACKTEST SYSTEM
 //
-// The PropProfessor API doesn't serve historical resolved results, so this
+// The SSB API doesn't serve historical resolved results, so this
 // script takes a snapshot-based approach:
 //
 //   1. `backtest --snapshot [league] [market] --live` — fetches current
 //      screen data, classifies each row by confidence tier, and saves to
 //      backtest-data/YYYY-MM-DD-league-market.json. The `--live` flag is
-//      required: PropProfessor is manual-only, and snapshot capture calls
-//      live PropProfessor endpoints. There is no scheduled/unattended path.
+//      required: SSB is manual-only, and snapshot capture calls
+//      live SSB endpoints. There is no scheduled/unattended path.
 //
 //   2. `backtest [league] [market] [days]` — loads saved snapshots from
 //      the last N days and reports aggregate tier distribution (no outcome
@@ -26,13 +26,13 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { createPropProfessorClient } = require('../lib/propprofessor-api');
+const { createSSBClient } = require('../lib/ssb-api');
 const { extractScreenRows } = require('../lib/screen-parser');
-const { getConfidenceTier } = require('../lib/propprofessor-risk-score');
-const { DEFAULT_LEAGUES } = require('../lib/propprofessor-shared-utils');
-const { computeBacktestMetrics } = require('../lib/propprofessor-backtest-metrics');
+const { getConfidenceTier } = require('../lib/ssb-risk-score');
+const { DEFAULT_LEAGUES } = require('../lib/ssb-shared-utils');
+const { computeBacktestMetrics } = require('../lib/ssb-backtest-metrics');
 
-// Defense-in-depth league guard. PropProfessor is manual-only — snapshot
+// Defense-in-depth league guard. SSB is manual-only — snapshot
 // capture requires an explicit `--live` acknowledgment (see takeSnapshot)
 // and must never run unattended. Anyone calling takeSnapshot() directly —
 // e.g. via `pp-query backtest` or as a library — hits the same gates.
@@ -110,17 +110,17 @@ async function takeSnapshot({ league, market, tag, live }) {
   if (!SUPPORTED_LEAGUES.has(String(league || '').toUpperCase())) {
     throw new Error(`Unsupported league: "${league}". Supported: ${[...SUPPORTED_LEAGUES].sort().join(', ')}`);
   }
-  // Manual-only gate: snapshot capture always calls live PropProfessor
-  // endpoints (createPropProfessorClient → queryScreenOdds). Require an
+  // Manual-only gate: snapshot capture always calls live SSB
+  // endpoints (createSSBClient → queryScreenOdds). Require an
   // explicit --live acknowledgment on every invocation; there is no
   // unattended/scheduled path.
   if (!live) {
     throw new Error(
-      'manual-only: PropProfessor is manual-only — pass --live to acknowledge this snapshot calls live PropProfessor endpoints'
+      'manual-only: SSB is manual-only — pass --live to acknowledge this snapshot calls live SSB endpoints'
     );
   }
   ensureDataDir();
-  const client = createPropProfessorClient();
+  const client = createSSBClient();
   tag = tag || todayTag();
 
   console.log(`Taking snapshot: ${league} ${market} (${tag})...`);

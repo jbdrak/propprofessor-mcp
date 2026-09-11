@@ -17,7 +17,7 @@
 
 const path = require('path');
 
-const GC_PATH = path.resolve(__dirname, '../lib/propprofessor-game-context.js');
+const GC_PATH = path.resolve(__dirname, '../lib/ssb-game-context.js');
 require.cache[GC_PATH] = {
   id: GC_PATH,
   filename: GC_PATH,
@@ -38,9 +38,9 @@ require.cache[GC_PATH] = {
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildMovementWindows, summarizeSharpMovement } = require('../lib/propprofessor-sharp-history');
-const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { buildMovementWindows, summarizeSharpMovement } = require('../lib/ssb-sharp-history');
+const { computeMovementDisposition } = require('../lib/ssb-movement-disposition');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
 
 describe('Bug A: buildMovementWindows nowMs anchors to real time', () => {

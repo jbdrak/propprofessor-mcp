@@ -2,11 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  formatQuickScreenMinimal,
-  formatQuickScreenStandard,
-  formatQuickScreenBets
-} = require('../lib/propprofessor-formatter');
+const { formatQuickScreenMinimal, formatQuickScreenStandard, formatQuickScreenBets } = require('../lib/ssb-formatter');
 
 // Agent-facing parity on a single quick_screen response: the three verbosity
 // formatters must agree on the identity fields agents use to chain tool calls.

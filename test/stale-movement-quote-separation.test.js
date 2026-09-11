@@ -2,8 +2,8 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { mapCandidateRow } = require('../lib/propprofessor-mcp-candidate-mapper');
-const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
+const { mapCandidateRow } = require('../lib/ssb-mcp-candidate-mapper');
+const { computeMovementDisposition } = require('../lib/ssb-movement-disposition');
 
 // Fixed fixture values (no live request).
 // Current NoVig odds -144, side-specific liquidity 232, and an OLD movement

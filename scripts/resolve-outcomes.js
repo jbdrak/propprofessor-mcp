@@ -18,7 +18,7 @@
  *
  *   2. Live settlement (OPTIONAL hook):
  *      Pass `--live` to call an injected/optional `getPlayResult(play)` resolver.
- *      The PropProfessor API does NOT currently expose a settled-results feed,
+ *      The SSB API does NOT currently expose a settled-results feed,
  *      so there is no built-in client method — `liveGetPlayResult` is `null`
  *      by default and must be supplied by the caller (e.g. a future sports-data
  *      adapter). The live path is only attempted when `--live` is passed AND a
@@ -164,7 +164,7 @@ async function resolveOutcomes(opts = {}) {
   // Lazy-load the ESPN resolver only when --espn is passed
   let espnResolver = null;
   if (useEspn) {
-    espnResolver = require('../lib/propprofessor-espn-resolver');
+    espnResolver = require('../lib/ssb-espn-resolver');
   }
 
   const rows = [];

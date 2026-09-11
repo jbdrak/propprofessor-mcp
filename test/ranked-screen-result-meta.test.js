@@ -2,8 +2,8 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { COMPACT_FIELDS } = require('../lib/propprofessor-mcp-ranked-screen');
-const { buildResultMeta } = require('../lib/propprofessor-ranked-screen-meta');
+const { COMPACT_FIELDS } = require('../lib/ssb-mcp-ranked-screen');
+const { buildResultMeta } = require('../lib/ssb-ranked-screen-meta');
 
 describe('buildResultMeta', () => {
   it('builds the ranked-screen metadata without dropping optional fields', () => {

@@ -1,6 +1,6 @@
 'use strict';
 
-const { mapCandidateRow } = require('../../../lib/propprofessor-mcp-candidate-mapper');
+const { mapCandidateRow } = require('../../../lib/ssb-mcp-candidate-mapper');
 
 /**
  * Map a recommended-bets row to the quick_screen field shape and overlay

@@ -36,9 +36,9 @@ def test_install_skill_creates_symlink(fake_hermes_home):
         env={**os.environ, "HERMES_HOME": str(fake_hermes_home), "PATH": f"{fake_hermes_home / 'bin'}:{os.environ.get('PATH', '')}"}
     )
     assert result.returncode == 0, result.stderr
-    target = fake_hermes_home / "skills" / "propprofessor-coach"
+    target = fake_hermes_home / "skills" / "ssb-coach"
     assert target.is_symlink()
-    assert target.resolve() == (REPO_ROOT / "skills" / "propprofessor-coach").resolve()
+    assert target.resolve() == (REPO_ROOT / "skills" / "ssb-coach").resolve()
 
 
 def test_install_skill_idempotent(fake_hermes_home):
@@ -55,10 +55,10 @@ def test_install_skill_idempotent(fake_hermes_home):
         env={**os.environ, "HERMES_HOME": str(fake_hermes_home), "PATH": f"{fake_hermes_home / 'bin'}:{os.environ.get('PATH', '')}"}
     )
     assert result.returncode == 0, result.stderr
-    target = fake_hermes_home / "skills" / "propprofessor-coach"
+    target = fake_hermes_home / "skills" / "ssb-coach"
     assert target.is_symlink()
     # Resolve once — should still be the source, not a nested link.
-    assert target.resolve() == (REPO_ROOT / "skills" / "propprofessor-coach").resolve()
+    assert target.resolve() == (REPO_ROOT / "skills" / "ssb-coach").resolve()
 
 
 def test_install_mcp_calls_hermes(fake_hermes_home, capsys):
@@ -76,15 +76,15 @@ def test_install_mcp_calls_hermes(fake_hermes_home, capsys):
     )
     assert result.returncode == 0, result.stderr
     captured = capsys.readouterr()
-    # The fake hermes stub echoes its args; verify it was called with mcp add propprofessor.
-    assert "fake hermes mcp add propprofessor" in (result.stdout + result.stderr + captured.out)
+    # The fake hermes stub echoes its args; verify it was called with mcp add ssb.
+    assert "fake hermes mcp add ssb" in (result.stdout + result.stderr + captured.out)
 
 
 def test_install_mcp_creates_config(fake_hermes_home, monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))  # redirect ~/.propprofessor
+    monkeypatch.setenv("HOME", str(tmp_path))  # redirect ~/.ssb-for-agents
     subprocess.run([sys.executable, str(INSTALL), "mcp"], check=True,
                    env={**os.environ, "HERMES_HOME": str(fake_hermes_home)})
-    assert (tmp_path / ".propprofessor" / "config.json").exists()
+    assert (tmp_path / ".ssb-for-agents" / "config.json").exists()
 
 
 def test_install_mcp_passes_auth_file_env(fake_hermes_home, monkeypatch, tmp_path):
@@ -94,7 +94,7 @@ def test_install_mcp_passes_auth_file_env(fake_hermes_home, monkeypatch, tmp_pat
     silently overriding users with custom auth paths (e.g. multi-project setups)."""
     monkeypatch.setenv("HOME", str(tmp_path))
     # Use a custom AUTH_FILE path the user might set for a multi-project setup.
-    custom_auth = tmp_path / "shared-secrets" / "my-propprofessor-auth.json"
+    custom_auth = tmp_path / "shared-secrets" / "my-ssb-auth.json"
     custom_auth.parent.mkdir(parents=True)
 
     # Replace the fake hermes stub with one that records its env to a log file.
@@ -131,7 +131,7 @@ def test_install_mcp_passes_auth_file_env(fake_hermes_home, monkeypatch, tmp_pat
 def test_uninstall_removes_skill_link(fake_hermes_home):
     subprocess.run([sys.executable, str(INSTALL), "skill"], check=True,
                    env={**os.environ, "HERMES_HOME": str(fake_hermes_home)})
-    target = fake_hermes_home / "skills" / "propprofessor-coach"
+    target = fake_hermes_home / "skills" / "ssb-coach"
     assert target.is_symlink()
     subprocess.run([sys.executable, str(INSTALL), "uninstall"], check=True,
                    env={**os.environ, "HERMES_HOME": str(fake_hermes_home)})

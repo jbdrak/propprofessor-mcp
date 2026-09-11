@@ -24,7 +24,7 @@ const {
   findMatch,
   nameSimilarity,
   clearCache
-} = require('../lib/propprofessor-espn-resolver');
+} = require('../lib/ssb-espn-resolver');
 
 // ─── ESPN Fixture Data ───────────────────────────────────────────────────────
 

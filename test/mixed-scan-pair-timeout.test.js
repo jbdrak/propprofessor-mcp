@@ -1,23 +1,23 @@
 'use strict';
 
 // Focused coverage for withPairTimeout integration into the mixed-scan fan-out
-// (queryRankedSharpPlayResponses in propprofessor-sharp-plays-service.js).
+// (queryRankedSharpPlayResponses in ssb-sharp-plays-service.js).
 //
 // PAIR_TIMEOUT_MS is read once at module load, so we set the env var and
 // cache-bust the module to exercise the timeout path deterministically.
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { mapCandidateRow } = require('../lib/propprofessor-mcp-candidate-mapper');
+const { mapCandidateRow } = require('../lib/ssb-mcp-candidate-mapper');
 
 function loadServiceWithTimeout(ms) {
   const prev = process.env.PP_PAIR_TIMEOUT_MS;
   process.env.PP_PAIR_TIMEOUT_MS = String(ms);
   // Drop any cached copy so the module-load const picks up the new env.
   for (const key of Object.keys(require.cache)) {
-    if (key.includes('propprofessor-sharp-plays-service')) delete require.cache[key];
+    if (key.includes('ssb-sharp-plays-service')) delete require.cache[key];
   }
-  const svc = require('../lib/propprofessor-sharp-plays-service');
+  const svc = require('../lib/ssb-sharp-plays-service');
   if (prev === undefined) delete process.env.PP_PAIR_TIMEOUT_MS;
   else process.env.PP_PAIR_TIMEOUT_MS = prev;
   return svc.runSharpPlays;

@@ -2,9 +2,9 @@
 'use strict';
 
 /**
- * PropProfessor Auth Watchdog — MANUAL DIAGNOSTIC
+ * SSB Auth Watchdog — MANUAL DIAGNOSTIC
  *
- * Checks cookie session expiry. PropProfessor is manual-only: run this on
+ * Checks cookie session expiry. SSB is manual-only: run this on
  * demand when you want a session-health readout. There is no supported
  * cron, scheduled workflow, or unattended schedule for this script.
  * - Silent when session is healthy (>7 days remaining) — no notification sent.
@@ -15,7 +15,7 @@
  *   node scripts/pp-auth-watchdog.js
  */
 
-const { resolveAuthFile, readAuthState, getCookieExpiryInfo } = require('../lib/propprofessor-api');
+const { resolveAuthFile, readAuthState, getCookieExpiryInfo } = require('../lib/ssb-api');
 
 try {
   const authFile = resolveAuthFile();
@@ -30,7 +30,7 @@ try {
   // Output the warning readout
   const emoji = info.status === 'expired' ? '🔴' : info.status === 'critical' ? '🟡' : '🟠';
   const lines = [
-    `${emoji} PropProfessor Auth: ${info.status.toUpperCase()}`,
+    `${emoji} SSB Auth: ${info.status.toUpperCase()}`,
     '',
     info.warning,
     '',
@@ -44,8 +44,6 @@ try {
   process.exit(0);
 } catch (err) {
   // Auth file missing or unreadable
-  console.log(
-    `🔴 PropProfessor Auth: UNREADABLE\n\nCould not read auth file: ${err.message}\n\nTo fix: pp-query login`
-  );
+  console.log(`🔴 SSB Auth: UNREADABLE\n\nCould not read auth file: ${err.message}\n\nTo fix: pp-query login`);
   process.exit(0);
 }

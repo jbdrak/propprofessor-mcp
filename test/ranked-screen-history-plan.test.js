@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { planPreHistoryHydration } = require('../lib/propprofessor-ranked-screen-history-plan');
+const { planPreHistoryHydration } = require('../lib/ssb-ranked-screen-history-plan');
 
 describe('planPreHistoryHydration', () => {
   it('keeps the full row set when shortlist mode is unavailable or unnecessary', () => {

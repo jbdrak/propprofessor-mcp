@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const cp = require('child_process');
 const path = require('path');
 
-const MODULE_PATH = path.resolve(__dirname, '../lib/propprofessor-basketball-game-context');
+const MODULE_PATH = path.resolve(__dirname, '../lib/ssb-basketball-game-context');
 const { parseScoreboardGames, findLastPlayedGame, getBasketballGameContext } = require(MODULE_PATH);
 
 // ── parseScoreboardGames: missing team fields ──────────────────────────────

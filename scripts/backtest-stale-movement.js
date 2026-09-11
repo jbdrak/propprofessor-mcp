@@ -16,7 +16,7 @@
 const { generateScenario, setRandomSeed, resetRandomSeed } = require('./backtest-synthetic');
 const { extractScreenRows } = require('../lib/screen-parser');
 const { rankLeagueScreenRows } = require('../lib/screen-ranker');
-const { clearTierCache, clearScoreTimeline } = require('../lib/propprofessor-risk-score');
+const { clearTierCache, clearScoreTimeline } = require('../lib/ssb-risk-score');
 
 // ── Targeted scenario: contrarian value ──
 

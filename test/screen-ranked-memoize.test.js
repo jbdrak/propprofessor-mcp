@@ -12,7 +12,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 
 describe('screen_ranked canonical cache memoize path', () => {
   it('invokes runScreenRankedImpl and returns the response object (not the memoized fn)', async () => {

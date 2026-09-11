@@ -6,11 +6,11 @@
  * Calls ctx.handlers.runGetPlayDetailsImpl for the detail re-fetch.
  */
 
-const { normalizeBookList } = require('../../../lib/propprofessor-mcp-ranked-screen');
+const { normalizeBookList } = require('../../../lib/ssb-mcp-ranked-screen');
 const { findBestMatch, findBestMatchGameIdChanged, parseGameIdIdentity } = require('../../../lib/selection-matcher');
-const { findMlbGamePk, getMlbGameContext } = require('../../../lib/propprofessor-mlb-game-context');
-const { getGameContext } = require('../../../lib/propprofessor-game-context');
-const { buildCanonicalPlayId, normalizeSelectionKey } = require('../../../lib/propprofessor-mcp-ranked-screen');
+const { findMlbGamePk, getMlbGameContext } = require('../../../lib/ssb-mlb-game-context');
+const { getGameContext } = require('../../../lib/ssb-game-context');
+const { buildCanonicalPlayId, normalizeSelectionKey } = require('../../../lib/ssb-mcp-ranked-screen');
 const { buildValidationVerdict } = require('./validate-play-verdict');
 
 async function resolveValidationLookups(client, ctx, options) {

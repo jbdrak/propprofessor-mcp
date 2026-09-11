@@ -5,7 +5,7 @@
  *
  * Compares a supplied (--bundle <path>) or deployed (--url <url>) frontend
  * bundle's league/market map against the repo registry
- * (lib/propprofessor-market-registry.js) and runs a fixture-driven deep-link
+ * (lib/ssb-market-registry.js) and runs a fixture-driven deep-link
  * hydration check (missing league / blank selector detection).
  *
  * Safety guarantees:
@@ -39,7 +39,7 @@
 
 const fs = require('node:fs');
 
-const { MARKET_REGISTRY, getMarketsForSport } = require('../lib/propprofessor-market-registry');
+const { MARKET_REGISTRY, getMarketsForSport } = require('../lib/ssb-market-registry');
 
 const EXIT_OK = 0;
 const EXIT_FINDINGS = 1;

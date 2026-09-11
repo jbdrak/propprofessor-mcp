@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * Generate an OpenAPI 3.0 specification from the PropProfessor MCP tool definitions.
+ * Generate an OpenAPI 3.0 specification from the SSB MCP tool definitions.
  *
  * Usage: node scripts/generate-openapi-spec.js > docs/openapi.json
  */
@@ -169,7 +169,7 @@ function generateOpenApiSpec() {
       post: {
         summary: tool.description,
         operationId: toolName,
-        tags: ['PropProfessor MCP Tools'],
+        tags: ['SSB MCP Tools'],
         requestBody: {
           required: true,
           content: {
@@ -225,12 +225,12 @@ function generateOpenApiSpec() {
   const spec = {
     openapi: '3.0.3',
     info: {
-      title: 'PropProfessor MCP API',
+      title: 'SSB MCP API',
       version: require('../package.json').version,
       description: `Lean, fast odds analysis engine for AI agents. Screens 36+ sportsbooks across NBA, MLB, NHL, NFL, WNBA, UFC, Tennis, Soccer — ranks plays by sharp movement, consensus edge, and steam detection.\n\nSee the README for setup instructions and tool guides by user type.`,
       contact: {
         name: 'James Drake',
-        url: 'https://github.com/jbdrak/propprofessor-mcp'
+        url: 'https://github.com/jbdrak/ssb-for-agents'
       },
       license: {
         name: 'MIT',
@@ -245,7 +245,7 @@ function generateOpenApiSpec() {
     ],
     tags: [
       {
-        name: 'PropProfessor MCP Tools',
+        name: 'SSB MCP Tools',
         description: 'Sports betting odds analysis tools'
       }
     ],

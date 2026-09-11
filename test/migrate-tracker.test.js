@@ -10,9 +10,9 @@ const { execFileSync } = require('node:child_process');
 const migrate = require('../scripts/migrate-tracker');
 
 // Task 7 CLI tests: scripts/migrate-tracker.js imports the legacy Python
-// tracker's bets (~/.propprofessor/tracker/bets.json) into the v2 local
+// tracker's bets (~/.ssb-for-agents/tracker/bets.json) into the v2 local
 // ledger without double-counting. All tests run against temp files — the
-// real ~/.propprofessor/tracker/bets.json is never read or written here.
+// real ~/.ssb-for-agents/tracker/bets.json is never read or written here.
 // Dry-run is the default; only --apply writes, and it backs up the
 // destination ledger first. Malformed input never touches any file.
 

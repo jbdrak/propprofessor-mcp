@@ -5,14 +5,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const DEFAULT_AUTH_DIR = path.join(os.homedir(), '.propprofessor');
+const DEFAULT_AUTH_DIR = path.join(os.homedir(), '.ssb-for-agents');
 const DEFAULT_AUTH_FILE = path.join(DEFAULT_AUTH_DIR, 'auth.json');
 const LOGIN_URL = 'https://app.propprofessor.com/login';
 const DASHBOARD_URL_PATTERN = '**/dashboard**';
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for user to log in
 
 /**
- * Launch a headed Chromium browser, navigate to the PropProfessor login page,
+ * Launch a headed Chromium browser, navigate to the SSB login page,
  * wait for the user to log in (detected by navigation to /dashboard), then
  * export storage state (cookies + localStorage) and save it to auth.json.
  *
@@ -43,7 +43,7 @@ async function loginAndSaveAuth(options = {}) {
 
   logger.log('Launching browser...');
   // PP_LOGIN_HEADLESS=true forces headless mode (no visible browser window).
-  // The CLAUDE.md taste rule says: "Don't open Chrome during propprofessor-mcp
+  // The CLAUDE.md taste rule says: "Don't open Chrome during ssb-for-agents
   // work; if a browser step is required, run it headless instead of launching
   // a visible window." Headless is the default in CI; set the env var to
   // opt out only when the user explicitly wants to log in via a visible
@@ -58,7 +58,7 @@ async function loginAndSaveAuth(options = {}) {
     await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
 
     logger.log('');
-    logger.log('Please log in to PropProfessor in the browser window.');
+    logger.log('Please log in to SSB in the browser window.');
     logger.log('The browser will close automatically once login is detected.');
     logger.log(`Timeout: ${Math.round(timeoutMs / 60000)} minutes`);
     logger.log('');
@@ -78,7 +78,7 @@ async function loginAndSaveAuth(options = {}) {
     // Write auth file. 0o600 — owner read/write only. The auth file holds
     // the full cookie jar (June 8 SEC-003): any other local user on the box
     // being able to read these cookies means full account impersonation
-    // against PropProfessor. mkdirSync above may have created the parent dir
+    // against SSB. mkdirSync above may have created the parent dir
     // with the default 0o755, which is fine — the file itself is the
     // sensitive artifact and must be locked down.
     fs.writeFileSync(authFile, JSON.stringify(storageState, null, 2), { mode: 0o600, encoding: 'utf8' });
@@ -106,7 +106,7 @@ async function loginAndSaveAuth(options = {}) {
 async function loginCli(options = {}) {
   const logger = options.logger || console;
 
-  logger.log('PropProfessor Automated Login');
+  logger.log('SSB Automated Login');
   logger.log('=============================');
   logger.log('');
 

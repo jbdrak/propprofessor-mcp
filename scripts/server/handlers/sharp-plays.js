@@ -10,15 +10,11 @@
  * runResearchOnTopRows, clearTierCache). Behavior unchanged.
  */
 
-const { runSharpPlays } = require('../../../lib/propprofessor-sharp-plays-service');
-const { runResearchOnTopRows } = require('../../../lib/propprofessor-research-runner');
-const { formatSharpPlaysMinimal, formatSharpPlaysStandard } = require('../../../lib/propprofessor-formatter');
-const {
-  filterRowsByKaiCall,
-  filterRowsByMinEV,
-  filterRowsByMovement
-} = require('../../../lib/propprofessor-row-filter');
-const { sortRows } = require('../../../lib/propprofessor-sort-utils');
+const { runSharpPlays } = require('../../../lib/ssb-sharp-plays-service');
+const { runResearchOnTopRows } = require('../../../lib/ssb-research-runner');
+const { formatSharpPlaysMinimal, formatSharpPlaysStandard } = require('../../../lib/ssb-formatter');
+const { filterRowsByKaiCall, filterRowsByMinEV, filterRowsByMovement } = require('../../../lib/ssb-row-filter');
+const { sortRows } = require('../../../lib/ssb-sort-utils');
 
 function createSharpPlaysHandlers(client, ctx) {
   return {

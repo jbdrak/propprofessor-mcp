@@ -1,6 +1,6 @@
 # Project status and evaluation roadmap
 
-PropProfessor MCP is a manual-first research and recordkeeping tool. It discovers and ranks market signals; it is not presented as an already validated win-probability model.
+SSB MCP is a manual-first research and recordkeeping tool. It discovers and ranks market signals; it is not presented as an already validated win-probability model.
 
 ## Shipped and reproducible
 

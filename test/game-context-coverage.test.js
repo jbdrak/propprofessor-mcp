@@ -4,7 +4,7 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const cp = require('child_process');
 
-const { parseGameString, getGameContext } = require('../lib/propprofessor-game-context');
+const { parseGameString, getGameContext } = require('../lib/ssb-game-context');
 
 describe('parseGameString — branches', () => {
   it('returns single team as team1 when no separator present', () => {

@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { cmdRank, parseArgs } = require('../bin/pp-cli');
-const { getMarketsForSport } = require('../lib/propprofessor-market-registry');
+const { getMarketsForSport } = require('../lib/ssb-market-registry');
 
 // Capture stdout/stderr and record every screen_ranked invocation so the test
 // can assert which (league, market) pairs the rank command dispatched.

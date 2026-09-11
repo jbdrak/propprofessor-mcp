@@ -7,10 +7,10 @@
  * getSharpBookContext) that aren't easily extractable.
  */
 
-const { getMarketsForSport, getPropMarketsForSport } = require('../../../lib/propprofessor-market-registry');
+const { getMarketsForSport, getPropMarketsForSport } = require('../../../lib/ssb-market-registry');
 
 /**
- * @param {import('../../../lib/propprofessor-api').PropProfessorClient} _client
+ * @param {import('../../../lib/ssb-api').SSBClient} _client
  * @param {import('./handler-context').HandlerContext} _ctx
  */
 function createMetaHandlers(_client, _ctx) {

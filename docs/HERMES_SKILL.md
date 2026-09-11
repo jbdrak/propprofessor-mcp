@@ -1,26 +1,26 @@
 ---
-name: propprofessor-mcp
-description: 'PropProfessor MCP: sports betting analysis for AI agents. Screens 36+ books, ranks by sharp movement, validates with multi-window consensus. Multi-market (ML/Spread/Total), market aliasing, consensus strength scoring.'
+name: ssb-for-agents
+description: 'SSB MCP: sports betting analysis for AI agents. Screens 36+ books, ranks by sharp movement, validates with multi-window consensus. Multi-market (ML/Spread/Total), market aliasing, consensus strength scoring.'
 version: 1.4.0
 author: James Drake
 tags: [sports-betting, mcp, odds-analysis, sharp-movement]
 ---
 
-# PropProfessor MCP — Agent Skill
+# SSB MCP — Agent Skill
 
 ## What It Does
 
-PropProfessor is an odds analysis engine for AI agents. It screens 36+ sportsbooks, ranks plays by sharp-book consensus and multi-window line movement, enriches candidates with player-context research (news + tweets), and outputs tiered recommendations with Kelly-based staking. Supported leagues: NBA, MLB, NHL, WNBA, Tennis, UFC, Soccer, NCAAB, NCAAF, NFL.
+SSB is an odds analysis engine for AI agents. It screens 36+ sportsbooks, ranks plays by sharp-book consensus and multi-window line movement, enriches candidates with player-context research (news + tweets), and outputs tiered recommendations with Kelly-based staking. Supported leagues: NBA, MLB, NHL, WNBA, Tennis, UFC, Soccer, NCAAB, NCAAF, NFL.
 
 ## Mandatory Operating Rules
 
-- PropProfessor is manual-only. Call tools only on demand; never create cron jobs, scheduled workflows, polling loops, watchdogs, or background live scans. Public-only settlement or schedule refresh must not call PropProfessor.
+- SSB is manual-only. Call tools only on demand; never create cron jobs, scheduled workflows, polling loops, watchdogs, or background live scans. Public-only settlement or schedule refresh must not call SSB.
 - Fail closed on incomplete evidence. Do not recommend rows that are unvalidated, skipped, unresolved, or history-degraded. Treat `lookupStatus: "lookup_failed"`, `validatedUnverified: true`, `status: "unresolved"`, `incomplete: true`, `movementDisposition: "unavailable"`, and missing line-history evidence as stale/unverified—not as a negative signal and not as a bet.
 - Use standard main lines. Alternate spreads/totals and expanded Game Handicap lines are non-actionable; honor `altLineFiltered` and TIER 4/PASS. The requested execution book needs a playable price, not necessarily the best price.
 - For NCAAF NoVig scans, use the local `today` window and scan Moneyline, Point Spread, and Total Points. The CLI uses bounded per-market recovery (80 rows per market, 700-row shortlist ceiling) to keep all-market scans inside the request deadline. A broad scan can still summarize unhydrated alternate rows; only exact rows with `matchedRows: 1`, `isLive: false`, a current NoVig quote, and usable movement history are actionable.
 - During quick-screen validation, keep the named execution book first in `books`; comparison books can follow it for consensus context but must not become the requested execution identity.
 - Preserve frontend Tennis tournament scope with exact `leagueName` when supplied. For Soccer, named frontend competitions such as EPL, La Liga, Serie A, Bundesliga, and Ligue 1 are `leagueName` filters over backend league `Soccer`; pass the generic backend league plus the exact competition scope. Tennis defaults are Moneyline / Total Games / Set Handicap; Game Handicap is explicit-only.
-- For repository changes, run focused deterministic tests, `npm run install:verify`, `npm run lint`, `npm run check:types`, and relevant checker/format checks. Keep changes task-scoped, never run live PropProfessor requests as tests, and use a conventional commit with the required co-author trailer only after verification.
+- For repository changes, run focused deterministic tests, `npm run install:verify`, `npm run lint`, `npm run check:types`, and relevant checker/format checks. Keep changes task-scoped, never run live SSB requests as tests, and use a conventional commit with the required co-author trailer only after verification.
 
 ## Quick Start
 
@@ -124,7 +124,7 @@ Each ranked row includes `consensusStrength`: `strong` (3+ books agree), `modera
 
 **Token Persistence**
 
-Auth tokens are cached to `~/.propprofessor/token-cache.json`. Reduces login frequency. If tools return auth errors, tell user to run `pp-query login`.
+Auth tokens are cached to `~/.ssb-for-agents/token-cache.json`. Reduces login frequency. If tools return auth errors, tell user to run `pp-query login`.
 
 ## Common Pitfalls
 

@@ -3,8 +3,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { DEFAULT_LEAGUES, resolveMarketName } = require('../lib/propprofessor-shared-utils');
-const { MARKET_REGISTRY, getMarketsForSport, getPropMarketsForSport } = require('../lib/propprofessor-market-registry');
+const { DEFAULT_LEAGUES, resolveMarketName } = require('../lib/ssb-shared-utils');
+const { MARKET_REGISTRY, getMarketsForSport, getPropMarketsForSport } = require('../lib/ssb-market-registry');
 
 // Intentional exceptions to the "every default league has a registry entry"
 // invariant. Document WHY each league is exceptional so future maintainers

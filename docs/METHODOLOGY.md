@@ -119,7 +119,7 @@ Final score is clamped to **1 (cleanest) to 10 (riskiest)** and rounded.
 
 Plus a **2-hour rolling window** — the returned tier is the mode of all raw tiers observed in the last 2 hours, which captures the trajectory.
 
-**Implementation note:** the tier cache and score timeline are module-level globals in `lib/propprofessor-risk-score.js`. Any batch test (backtest, eval suite) calling the ranking pipeline repeatedly MUST call `clearTierCache()` + `clearScoreTimeline()` per iteration, else the hysteresis carries over and the test converges to TIER 4. (This was the bug behind v1.5.5's "99% TIER 4 plays" symptom.)
+**Implementation note:** the tier cache and score timeline are module-level globals in `lib/ssb-risk-score.js`. Any batch test (backtest, eval suite) calling the ranking pipeline repeatedly MUST call `clearTierCache()` + `clearScoreTimeline()` per iteration, else the hysteresis carries over and the test converges to TIER 4. (This was the bug behind v1.5.5's "99% TIER 4 plays" symptom.)
 
 ---
 
@@ -165,9 +165,9 @@ What you **can't** trust from the system alone: that any flagged play will win. 
 
 ## Source code references
 
-- Tier + risk score: [`lib/propprofessor-risk-score.js`](../lib/propprofessor-risk-score.js)
+- Tier + risk score: [`lib/ssb-risk-score.js`](../lib/ssb-risk-score.js)
 - Ranking logic: [`lib/screen-ranker.js`](../lib/screen-ranker.js)
-- Tool definitions: [`lib/propprofessor-tool-definitions.js`](../lib/propprofessor-tool-definitions.js)
+- Tool definitions: [`lib/ssb-tool-definitions.js`](../lib/ssb-tool-definitions.js)
 - Backtest: [`scripts/backtest-synthetic.js`](../scripts/backtest-synthetic.js)
 - Backtest methodology: [`BACKTESTING.md`](./BACKTESTING.md)
 
@@ -177,7 +177,7 @@ What you **can't** trust from the system alone: that any flagged play will win. 
 
 ### Steam direction contract
 
-The steam move signal (`steamMove`, `steamDirection`) is computed by `detectSteamMove` in `lib/propprofessor-steam-move.js` and consumed by `calculateRiskScore`. The direction is relative to the current pick's selection. `calculateRiskScore` only penalizes steam when `steamDirection === 'adverse'` — null or undefined directions receive no penalty. The contract is implicit (the detector returns `null` when it can't determine direction), not validated by the consumer.
+The steam move signal (`steamMove`, `steamDirection`) is computed by `detectSteamMove` in `lib/ssb-steam-move.js` and consumed by `calculateRiskScore`. The direction is relative to the current pick's selection. `calculateRiskScore` only penalizes steam when `steamDirection === 'adverse'` — null or undefined directions receive no penalty. The contract is implicit (the detector returns `null` when it can't determine direction), not validated by the consumer.
 
 ### Staking: Kelly-inspired, not mathematically rigorous
 

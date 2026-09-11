@@ -5,8 +5,8 @@ const {
   summarizeResults,
   DEFAULT_WINDOWS,
   DEFAULT_SHARP_BOOKS
-} = require('../../../lib/propprofessor-sharp-consensus');
-const { parseGameStartMs } = require('../../../lib/propprofessor-shared-utils');
+} = require('../../../lib/ssb-sharp-consensus');
+const { parseGameStartMs } = require('../../../lib/ssb-shared-utils');
 
 async function runSharpConsensus(ctx, args = {}) {
   const league = String(args.league || 'Tennis').trim();
@@ -65,7 +65,7 @@ async function runSharpConsensus(ctx, args = {}) {
 }
 
 async function runSharpAlerts(ctx, args = {}) {
-  const { loadStore, saveStore, upsert, defaultPath } = require('../../../lib/propprofessor-sharp-alerts-store');
+  const { loadStore, saveStore, upsert, defaultPath } = require('../../../lib/ssb-sharp-alerts-store');
   const storePath = args.storePath || defaultPath();
   const dedupWindowMs =
     (Number.isFinite(Number(args.dedupWindowMinutes)) ? Number(args.dedupWindowMinutes) : 360) * 60000;

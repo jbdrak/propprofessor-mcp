@@ -13,37 +13,33 @@
  * runRecommendedMarket({ handlers: ctx.handlers, ... }) — exactly the prior
  * inline contract.
  *
- * @param {import('../../../lib/propprofessor-api').PropProfessorClient} client
+ * @param {import('../../../lib/ssb-api').SSBClient} client
  * @param {import('./handler-context').HandlerContext} ctx
  * @param {object} deps
  * @param {number} deps.screenTimeoutMs - Bounded per-market stall guard timeout.
  */
 
-const { clearTierCache } = require('../../../lib/propprofessor-risk-score');
-const { getMarketsForSport } = require('../../../lib/propprofessor-market-registry');
+const { clearTierCache } = require('../../../lib/ssb-risk-score');
+const { getMarketsForSport } = require('../../../lib/ssb-market-registry');
 // Local mirror of the original inline getDefaultMarketsForLeague wrapper in
 // handlers.js — resolves default markets for a league via the registry.
 function getDefaultMarketsForLeague(league, _targetBooks) {
   return getMarketsForSport(league, _targetBooks);
 }
-const { mapWithConcurrency } = require('../../../lib/propprofessor-shared-utils');
+const { mapWithConcurrency } = require('../../../lib/ssb-shared-utils');
 const { resolveMarkets, stripVerdictFields } = require('./handler-utils');
 const { runRecommendedMarket } = require('./recommended-market');
 const { selectRecommendedRows } = require('./select-recommended-rows');
 const { computeMarketsBreakdown } = require('./recommended-bets-breakdown');
 const { mapRecommendedPlay } = require('./recommended-play');
-const { getConfidenceTierStable } = require('../../../lib/propprofessor-risk-score');
-const { runResearchOnTopRows } = require('../../../lib/propprofessor-research-runner');
-const { getGameContext } = require('../../../lib/propprofessor-game-context');
-const { formatRecommendedBetsMinimal, formatRecommendedBetsStandard } = require('../../../lib/propprofessor-formatter');
-const {
-  filterRowsByKaiCall,
-  filterRowsByMinEV,
-  filterRowsByMovement
-} = require('../../../lib/propprofessor-row-filter');
-const { sortRows } = require('../../../lib/propprofessor-sort-utils');
-const { categorizeError } = require('../../../lib/propprofessor-mcp-stdio');
-const validationPipeline = require('../../../lib/propprofessor-validation-pipeline');
+const { getConfidenceTierStable } = require('../../../lib/ssb-risk-score');
+const { runResearchOnTopRows } = require('../../../lib/ssb-research-runner');
+const { getGameContext } = require('../../../lib/ssb-game-context');
+const { formatRecommendedBetsMinimal, formatRecommendedBetsStandard } = require('../../../lib/ssb-formatter');
+const { filterRowsByKaiCall, filterRowsByMinEV, filterRowsByMovement } = require('../../../lib/ssb-row-filter');
+const { sortRows } = require('../../../lib/ssb-sort-utils');
+const { categorizeError } = require('../../../lib/ssb-mcp-stdio');
+const validationPipeline = require('../../../lib/ssb-validation-pipeline');
 const {
   applyValidatedFields,
   applyFinalVerdict,
@@ -77,7 +73,7 @@ function resolveRecommendedMarkets(args) {
   return { leagues, allAliasesUsed, resolvedMarketsByLeague, markets };
 }
 
-const { DEFAULT_LEAGUES: DEFAULT_LEAGUES_RB } = require('../../../lib/propprofessor-shared-utils');
+const { DEFAULT_LEAGUES: DEFAULT_LEAGUES_RB } = require('../../../lib/ssb-shared-utils');
 
 // ─── Phase: per-league/market screen fan-out + research + selection ──────────
 

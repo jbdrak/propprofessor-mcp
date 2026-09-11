@@ -53,7 +53,7 @@ it('keeps American odds in the today slate for another book', () => {
 const projectRoot = path.join(__dirname, '..');
 const ppPath = path.join(projectRoot, 'bin', 'pp');
 const backtestPath = path.join(projectRoot, 'bin', 'backtest');
-const queryPath = path.join(projectRoot, 'scripts', 'query-propprofessor.js');
+const queryPath = path.join(projectRoot, 'scripts', 'query-ssb.js');
 
 describe('pp CLI entrypoint', () => {
   it('shows NoVig prices as probabilities in the price-comparison command', async () => {
@@ -99,7 +99,7 @@ describe('pp CLI entrypoint', () => {
       encoding: 'utf8'
     });
 
-    assert.match(result, /pp — PropProfessor CLI/);
+    assert.match(result, /pp — SSB CLI/);
     assert.match(result, /Usage: pp <command> \[args\.\.\.\]/);
     assert.notEqual(result.trim(), '');
   });
@@ -119,7 +119,7 @@ describe('pp CLI entrypoint', () => {
       encoding: 'utf8'
     });
 
-    assert.match(result, /PropProfessor Backtest Runner/);
+    assert.match(result, /SSB Backtest Runner/);
   });
 
   for (const flag of ['--help', '-h']) {
@@ -129,7 +129,7 @@ describe('pp CLI entrypoint', () => {
         encoding: 'utf8'
       });
 
-      assert.match(result, /PropProfessor query CLI/);
+      assert.match(result, /SSB query CLI/);
     });
   }
 

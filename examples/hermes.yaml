@@ -1,8 +1,8 @@
 mcp_servers:
-  propprofessor:
+  ssb:
     command: npx
     args:
       - '-y'
-      - 'propprofessor-mcp'
+      - 'ssb-for-agents'
     env:
-      AUTH_FILE: ~/.propprofessor/auth.json
+      AUTH_FILE: ~/.ssb-for-agents/auth.json

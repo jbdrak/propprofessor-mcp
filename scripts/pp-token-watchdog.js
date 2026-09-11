@@ -2,9 +2,9 @@
 'use strict';
 
 /**
- * PropProfessor Token Watchdog — MANUAL ESCAPE HATCH
+ * SSB Token Watchdog — MANUAL ESCAPE HATCH
  *
- * As of v2.1.5 the PropProfessor MCP self-heals automatically: when the
+ * As of v2.1.5 the SSB MCP self-heals automatically: when the
  * server-to-server access-token fetch hits Vercel's TLS-fingerprint
  * challenge (HTTP 429), the MCP falls back to a Chrome DevTools Protocol
  * fetch from a logged-in browser tab. No external schedule is required.
@@ -16,7 +16,7 @@
  *   node scripts/pp-token-watchdog.js --force  # always refresh
  *
  * This script is manual-only: no cron, scheduled workflow, or unattended
- * schedule drives it. PropProfessor is manual-only — run it when you want
+ * schedule drives it. SSB is manual-only — run it when you want
  * a forced refresh, not on a timer.
  *
  * Why it still exists:
@@ -27,9 +27,9 @@
  *
  * Why this is no longer needed for production use:
  * - The MCP's server-to-server access-token fetch is 429'd by Vercel
- *   (TLS-fingerprint gating — see propprofessor-mcp/references/
+ *   (TLS-fingerprint gating — see ssb-for-agents/references/
  *   vercel-access-token-block.md).
- * - The self-heal in lib/propprofessor-auth.js does this exact CDP fetch
+ * - The self-heal in lib/ssb-auth.js does this exact CDP fetch
  *   on demand, with a got-scraping primary path so the common case is
  *   still fast.
  *
@@ -44,19 +44,19 @@ const os = require('os');
 const { execFileSync } = require('child_process');
 
 const HOME = os.homedir();
-const TOKEN_CACHE = path.join(HOME, '.propprofessor', 'token-cache.json');
+const TOKEN_CACHE = path.join(HOME, '.ssb-for-agents', 'token-cache.json');
 const DEFAULT_CDP_VERSION_URL = 'http://127.0.0.1:9222/json/version';
 const DEFAULT_CHROME_TABS_URL = 'http://127.0.0.1:9222/json/list';
 const ACCESS_TOKEN_URL = 'https://app.propprofessor.com/api/access-token';
 const FRESH_THRESHOLD_SEC = 120; // refresh if < 2 min left
 const FORCE = process.argv.includes('--force');
 
-// Resolve the CDP endpoints, honoring the same PROPPROFESSOR_CDP_VERSION_URL
-// env var used by lib/propprofessor-auth.js. When set, the /json/list URL is
+// Resolve the CDP endpoints, honoring the same SSB_CDP_VERSION_URL
+// env var used by lib/ssb-auth.js. When set, the /json/list URL is
 // derived from the configured version endpoint so this script never retains a
 // separate hardcoded port. Falls back to the historical 9222 defaults.
 function resolveCdpEndpoints() {
-  const envUrl = String(process.env.PROPPROFESSOR_CDP_VERSION_URL || '').trim();
+  const envUrl = String(process.env.SSB_CDP_VERSION_URL || '').trim();
   if (!envUrl) return { versionUrl: DEFAULT_CDP_VERSION_URL, tabsUrl: DEFAULT_CHROME_TABS_URL };
   const base = envUrl.replace(/\/json\/version$/, '');
   return { versionUrl: envUrl, tabsUrl: `${base}/json/list` };
@@ -95,10 +95,10 @@ function writeCache(token, exp, perm) {
   return cache;
 }
 
-function findPropProfessorTabSync() {
+function findSSBTabSync() {
   // Hit the /json/list endpoint synchronously to discover tabs. Returns
   // null if Chrome is not reachable. We pick the first tab whose URL
-  // contains "propprofessor" — that's the logged-in one.
+  // contains "ssb" — that's the logged-in one.
   try {
     const out = execFileSync('curl', ['-sS', '--max-time', '3', CHROME_TABS_URL], { encoding: 'utf8' });
     const tabs = JSON.parse(out);
@@ -184,7 +184,7 @@ async function fetchTokenViaBrowser() {
 }
 
 function findHermesGatewayPid() {
-  // The Hermes gateway is the parent of propprofessor-mcp-server.js.
+  // The Hermes gateway is the parent of ssb-mcp-server.js.
   // We can also just find it by command line: "hermes_cli.main gateway run"
   try {
     const out = execFileSync('pgrep', ['-f', 'hermes_cli.main gateway run'], { encoding: 'utf8' });
@@ -236,8 +236,8 @@ async function main() {
       : `token expires in ${cache ? cache.exp - Math.floor(Date.now() / 1000) : '?'}s — refreshing`
   );
 
-  // Verify Chrome + a PropProfessor tab are reachable before doing anything.
-  const tab = findPropProfessorTabSync();
+  // Verify Chrome + a SSB tab are reachable before doing anything.
+  const tab = findSSBTabSync();
   if (!tab) {
     log('FAIL: no Chrome tab on app.propprofessor.com. Open the site first.');
     process.exit(1);

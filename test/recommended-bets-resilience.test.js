@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 
 describe('recommended_bets default league set', () => {
   it('defaults to all 12 DEFAULT_LEAGUES when none passed', async () => {

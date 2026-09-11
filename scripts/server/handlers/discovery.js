@@ -7,7 +7,7 @@
 
 const { defined } = require('./handler-utils');
 const { validatePositiveEvCandidates } = require('../../../lib/validate-ev-candidates');
-const { DEFAULT_LEAGUES } = require('../../../lib/propprofessor-shared-utils');
+const { DEFAULT_LEAGUES } = require('../../../lib/ssb-shared-utils');
 
 function createDiscoveryHandlers(client, _ctx) {
   return {

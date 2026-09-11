@@ -2,7 +2,7 @@
 
 Updated: 2026-09-06
 
-This document records research inputs for PropProfessor's multi-sport evaluation work. These sources inform fields, gates, and evaluation design. They do **not** prove that a particular strategy is profitable.
+This document records research inputs for SSB's multi-sport evaluation work. These sources inform fields, gates, and evaluation design. They do **not** prove that a particular strategy is profitable.
 
 A separately cited 2026 evidence addendum covers verified basketball, football, and NHL findings: [`cross-sport-evidence-2026-09.md`](./cross-sport-evidence-2026-09.md).
 
@@ -17,7 +17,7 @@ Sports betting models should be evaluated with strictly proper probability metri
 - CEPR Discussion Paper 19486: sports-market efficiency tests depend on correct probability normalization.
   - https://cepr.org/publications/dp19486
 
-**Repo mapping:** `lib/propprofessor-backtest-metrics.js` already contains Brier, log loss, and calibration bins. Evaluation must segment these metrics by sport, market, price band, and book before changing rank weights.
+**Repo mapping:** `lib/ssb-backtest-metrics.js` already contains Brier, log loss, and calibration bins. Evaluation must segment these metrics by sport, market, price band, and book before changing rank weights.
 
 ### CLV is a leading signal, not a guarantee
 

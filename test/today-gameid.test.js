@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
 
 // Raw screen-API shape (game_data + selections), like the real backend.

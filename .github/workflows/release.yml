@@ -118,7 +118,7 @@ jobs:
 
       - name: Publish to npm with trusted publishing
         # Requires a one-time npm trusted-publisher relationship for
-        # jbdrak/propprofessor-mcp + release.yml. No long-lived NPM_TOKEN.
+        # jbdrak/ssb-for-agents + release.yml. No long-lived NPM_TOKEN.
         # npm publish runs prepublishOnly, which re-checks package contents and
         # the clean publish tree using dependency-free repository scripts.
         run: npm publish

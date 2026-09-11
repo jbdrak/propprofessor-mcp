@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { finalizeRankedScreenResponse } = require('../lib/propprofessor-ranked-screen-finalize');
+const { finalizeRankedScreenResponse } = require('../lib/ssb-ranked-screen-finalize');
 
 function stripEmptyFields(row) {
   return { id: row.id };

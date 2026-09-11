@@ -12,7 +12,7 @@ body:
     id: version
     attributes:
       label: Affected version
-      description: Run `npm ls propprofessor-mcp` or check `git describe --tags` and paste the output here.
+      description: Run `npm ls ssb-for-agents` or check `git describe --tags` and paste the output here.
       placeholder: '2.1.10'
     validations:
       required: true

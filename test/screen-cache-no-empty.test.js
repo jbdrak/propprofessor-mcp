@@ -2,8 +2,8 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
-const { createPropProfessorClient } = require('../lib/propprofessor-api');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
+const { createSSBClient } = require('../lib/ssb-api');
 
 // Regression guard for the response-cache behavior on empty slates:
 // the live backend intermittently returns 0 rows. The outer aggregate
@@ -15,7 +15,7 @@ const { createPropProfessorClient } = require('../lib/propprofessor-api');
 // how many times the cache short-circuited versus re-fetched.
 function makeClient() {
   let callCount = 0;
-  const client = createPropProfessorClient();
+  const client = createSSBClient();
   const emptyPayload = { game_data: [] };
   const realPayload = {
     game_data: [

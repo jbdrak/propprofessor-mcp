@@ -1,6 +1,6 @@
 'use strict';
 /**
- * MCP tool handlers (extracted from scripts/propprofessor-mcp-server.js in v2.0.0).
+ * MCP tool handlers (extracted from scripts/ssb-mcp-server.js in v2.0.0).
  *
  * This file owns the createMcpHandlers() factory. The individual tool
  * implementations live in the ./handlers/* modules and are merged in via
@@ -30,10 +30,10 @@ const { createQuickScreenHandlers } = require('./handlers/quick-screen');
 const { createRecommendedBetsHandlers } = require('./handlers/recommended-bets');
 const { createSlatesUfcDetailsHandlers } = require('./handlers/slates-ufc-details');
 const { mergeHandlerModule } = require('./handlers/handler-utils');
-const { createPropProfessorClient } = require('../../lib/propprofessor-api');
-const { DEFAULT_HISTORY_MIN_INTERVAL_MS } = require('../../lib/propprofessor-screen-history');
-const { getGameContext } = require('../../lib/propprofessor-game-context');
-const { mapWithConcurrency } = require('../../lib/propprofessor-shared-utils');
+const { createSSBClient } = require('../../lib/ssb-api');
+const { DEFAULT_HISTORY_MIN_INTERVAL_MS } = require('../../lib/ssb-screen-history');
+const { getGameContext } = require('../../lib/ssb-game-context');
+const { mapWithConcurrency } = require('../../lib/ssb-shared-utils');
 const {
   TIER_RANK,
   applyValidatedFields,
@@ -46,7 +46,7 @@ const {
  * Build the MCP tool-handler dispatch table.
  *
  * @param {Object} [options]
- * @param {import('../../lib/propprofessor-api').PropProfessorClient} [options.client]
+ * @param {import('../../lib/ssb-api').SSBClient} [options.client]
  * @param {Function} [options.gameContextFn]
  * @param {number} [options.recommendedBetsScreenTimeoutMs]
  * @param {number} [options.historyMinIntervalMs]
@@ -54,7 +54,7 @@ const {
  * @returns {Object} handlers keyed by tool name
  */
 function createMcpHandlers({
-  client = createPropProfessorClient(),
+  client = createSSBClient(),
   gameContextFn = getGameContext,
   recommendedBetsScreenTimeoutMs = 25_000,
   historyMinIntervalMs: historyMinIntervalMsOption = DEFAULT_HISTORY_MIN_INTERVAL_MS,
@@ -67,7 +67,7 @@ function createMcpHandlers({
       ? recommendedBetsScreenTimeoutMs
       : 25_000;
   // Test seam for odds-history pacing: the hydration gate in
-  // lib/propprofessor-screen-history.js spaces /odds_history_new calls
+  // lib/ssb-screen-history.js spaces /odds_history_new calls
   // DEFAULT_HISTORY_MIN_INTERVAL_MS apart. Production keeps that default;
   // tests inject 0 to drop the artificial pacing. Negative/NaN values fall
   // back to the production default so a bad injection can never disable

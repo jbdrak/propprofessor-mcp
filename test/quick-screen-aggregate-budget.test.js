@@ -2,10 +2,10 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { runSharpPlays, getAggregateGameBudget } = require('../lib/propprofessor-sharp-plays-service');
-const { buildRankedScreenResponse } = require('../lib/propprofessor-mcp-ranked-screen');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
-const { ODDS_HISTORY_REQUEST_BUDGET } = require('../lib/propprofessor-api');
+const { runSharpPlays, getAggregateGameBudget } = require('../lib/ssb-sharp-plays-service');
+const { buildRankedScreenResponse } = require('../lib/ssb-mcp-ranked-screen');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
+const { ODDS_HISTORY_REQUEST_BUDGET } = require('../lib/ssb-api');
 
 it('wires the extracted tennis screen handler into the production handler map', () => {
   const handlers = createMcpHandlers({ client: {} });
@@ -558,8 +558,8 @@ describe('quick_screen aggregate odds-history budget', () => {
   });
 
   it('per-pair budget shrinks with pair count and floors at one game', async () => {
-    const { getAggregateGameBudget } = require('../lib/propprofessor-sharp-plays-service');
-    const { ODDS_HISTORY_REQUEST_BUDGET } = require('../lib/propprofessor-api');
+    const { getAggregateGameBudget } = require('../lib/ssb-sharp-plays-service');
+    const { ODDS_HISTORY_REQUEST_BUDGET } = require('../lib/ssb-api');
     // Aggregate mode hydrates the strongest side per shortlisted game and
     // reserves 60% of the process budget for initial ranking.
     const allocation = Math.floor(ODDS_HISTORY_REQUEST_BUDGET * 0.6);

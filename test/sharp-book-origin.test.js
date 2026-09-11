@@ -2,11 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  classifySharpBookOrigin,
-  isSharpOriginator,
-  SHARP_BOOK_ORIGIN_TIERS
-} = require('../lib/propprofessor-sharp-books');
+const { classifySharpBookOrigin, isSharpOriginator, SHARP_BOOK_ORIGIN_TIERS } = require('../lib/ssb-sharp-books');
 
 describe('classifySharpBookOrigin (line-movement provenance)', () => {
   it('flags the sharp originators that move first on informed action', () => {

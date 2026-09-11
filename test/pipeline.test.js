@@ -8,7 +8,7 @@ const path = require('node:path');
 
 const { takeDailySnapshot, buildPlayId, normalizePlay } = require('../scripts/daily-snapshot');
 const { resolveOutcomes, ledgerToPlays, toEngineResult } = require('../scripts/resolve-outcomes');
-const { computeBacktestMetrics } = require('../lib/propprofessor-backtest-metrics');
+const { computeBacktestMetrics } = require('../lib/ssb-backtest-metrics');
 
 // Two fake plays from the (mocked) recommended_bets / quick_screen source.
 const FAKE_PLAYS = [

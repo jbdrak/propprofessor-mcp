@@ -19,12 +19,12 @@ describe('pp-login module', () => {
     assert.ok(loginModule.DEFAULT_AUTH_FILE.endsWith('auth.json'));
   });
 
-  it('exports DEFAULT_AUTH_DIR pointing to ~/.propprofessor', () => {
+  it('exports DEFAULT_AUTH_DIR pointing to ~/.ssb-for-agents', () => {
     assert.equal(typeof loginModule.DEFAULT_AUTH_DIR, 'string');
-    assert.ok(loginModule.DEFAULT_AUTH_DIR.endsWith('.propprofessor'));
+    assert.ok(loginModule.DEFAULT_AUTH_DIR.endsWith('.ssb-for-agents'));
   });
 
-  it('exports LOGIN_URL pointing to PropProfessor login page', () => {
+  it('exports LOGIN_URL pointing to SSB login page', () => {
     assert.equal(typeof loginModule.LOGIN_URL, 'string');
     assert.ok(loginModule.LOGIN_URL.includes('propprofessor.com/login'));
   });
@@ -64,7 +64,7 @@ describe('pp-login module', () => {
 
 describe('pp-query login command integration', () => {
   it('login command is registered in the command inventory', () => {
-    const { getCommandInventory } = require('../scripts/query-propprofessor');
+    const { getCommandInventory } = require('../scripts/query-ssb');
     const commands = getCommandInventory();
     const loginCommand = commands.find((c) => c.command === 'login');
     assert.ok(loginCommand, 'login command should be in inventory');
@@ -72,7 +72,7 @@ describe('pp-query login command integration', () => {
   });
 
   it('login --help text mentions the login command', () => {
-    const { buildHelpText } = require('../scripts/query-propprofessor');
+    const { buildHelpText } = require('../scripts/query-ssb');
     const helpText = buildHelpText();
     assert.ok(helpText.includes('login'), 'help text should mention login');
   });

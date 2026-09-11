@@ -11,7 +11,7 @@ const settleCli = require('../scripts/settle-record');
 
 // Task 5 CLI tests: scripts/settle-record.js settles bets from the local
 // ledger (PP_RECORD_LEDGER) against SUPPLIED result data — no network, no
-// PropProfessor. Runs against temp ledgers + temp results files so the
+// SSB. Runs against temp ledgers + temp results files so the
 // user's home directory is never touched. Malformed inputs are rejected
 // without mutating the ledger; --dry-run never writes.
 

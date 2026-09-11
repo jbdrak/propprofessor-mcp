@@ -5,7 +5,7 @@ auth.json
 *.cookies.json
 cookies.json
 token-cache.json
-.propprofessor/
+.ssb-for-agents/
 .archive/
 node_modules
 npm-debug.log*

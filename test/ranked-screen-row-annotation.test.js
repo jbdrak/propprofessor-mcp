@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { annotateRankedRows } = require('../lib/propprofessor-ranked-screen-row-annotation');
+const { annotateRankedRows } = require('../lib/ssb-ranked-screen-row-annotation');
 
 describe('annotateRankedRows', () => {
   it('adds selection and play IDs and refreshes stale rationale', () => {

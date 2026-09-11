@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * README claim drift checker for PropProfessor MCP.
+ * README claim drift checker for SSB MCP.
  *
  * Verifies that the claims in README.md (tool counts, tool names, tier
  * ordering, test count) match the actual codebase state. Designed to be run

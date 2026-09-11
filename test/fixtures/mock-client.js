@@ -28,7 +28,7 @@ const DEFAULT_SCREEN_PAYLOADS = {
 };
 
 /**
- * Create a mock PropProfessor client with realistic fixture data.
+ * Create a mock SSB client with realistic fixture data.
  * @param {Object} [options]
  * @param {Object} [options.screenPayloads] - Override screen payloads by 'league:market' key.
  * @param {Object} [options.historyByGame] - Override odds history by gameId.

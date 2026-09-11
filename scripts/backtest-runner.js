@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * PropProfessor Backtest Runner
+ * SSB Backtest Runner
  *
  * Prints settled-pick performance across a date range.  Does NOT fabricate ROI
  * — if there are no settled picks in range, it says so honestly.
@@ -12,10 +12,10 @@
  *   node scripts/backtest-runner.js --days 30
  *   node scripts/backtest-runner.js --help
  *
- * Reads from ~/.propprofessor/picks.json (logged via `pp log` / `pp picks`).
+ * Reads from ~/.ssb-for-agents/picks.json (logged via `pp log` / `pp picks`).
  */
 
-const { getPickStats, readPicks } = require('../lib/propprofessor-picks');
+const { getPickStats, readPicks } = require('../lib/ssb-picks');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CLI argument parsing
@@ -54,7 +54,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`PropProfessor Backtest Runner
+  console.log(`SSB Backtest Runner
 
 USAGE
   node scripts/backtest-runner.js [options]
@@ -69,7 +69,7 @@ EXAMPLES
   node scripts/backtest-runner.js --days 30
   node scripts/backtest-runner.js --from 2026-06-01 --to 2026-07-20
 
-Reads settled picks from ~/.propprofessor/picks.json.  Picks are logged
+Reads settled picks from ~/.ssb-for-agents/picks.json.  Picks are logged
 via \`pp log <gameId>\` and resolved via the picks tools.
 `);
 }
