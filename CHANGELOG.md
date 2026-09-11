@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **BREAKING: renamed `propprofessor-mcp` → `ssb-for-agents`.** The repository, npm package, module layout, and runtime state directory are renamed to remove a third-party product name from the project. There is no intended behavior change, but several consumer-visible identifiers moved:
+  - **Package / repo:** npm and GitHub are now `ssb-for-agents` (`jbdrak/ssb-for-agents`). The old GitHub URL redirects.
+  - **Command names:** `ssb`, `ssb-query`, `ssb-mcp`, `ssb-backtest` are now installed as canonical names. The existing `pp`, `pp-query`, `pp-mcp`, `pp-backtest` names still work and are unchanged.
+  - **Modules:** `lib/propprofessor-*.js` → `lib/ssb-*.js`. Deep imports such as `lib/propprofessor-api.js` must be updated to `lib/ssb-api.js`.
+  - **Environment variables:** `PROPPROFESSOR_*` → `SSB_*`. The `PP_*` variables are unchanged.
+  - **State directory:** `~/.propprofessor` → `~/.ssb-for-agents`. Existing installs should `mv ~/.propprofessor ~/.ssb-for-agents` (permissions are preserved by a move) or re-run `pp-query login`.
+  - **Deliberately unchanged:** the upstream API hosts (`app.` / `backend.` / `screen.` / `slipgen.propprofessor.com`) and the `pp` / `PP_*` CLI and env names.
+
 - feat: exact selection-scoped **price history can now qualify movement** when historical line fields are absent. `resolveHistoryForEntity` records `priceHistoryUsable` / `priceHistoryScope` / `priceHistorySource` / `priceHistoryPointCount`, and `movementHistoryUsable` is now distinct from `lineHistoryUsable`: odds-only points feed movement while `lineHistoryUsable` stays false, so rows with a real price trail but no historical line values stop collapsing to `insufficient`. Provenance survives ranking (`rankingProvenance`), the candidate mapper, the compact field set, and the formatter, and is stripped from suppressed exact-line rows.
 
 - fix: the ranker no longer throws when `movementHistoryUsable` is true and `clvProxyPct` is null — a legitimate state for a single or flat line-less sharp series (`movementLabel: 'insufficient_history'`). `buildScreenRankingReason` interpolated `clvProxyPct.toFixed(2)` unguarded, which raised a `TypeError` and aborted the entire call, discarding already-completed markets in `rank --all-markets`. The CLV suffix is now `Number.isFinite`-guarded.
