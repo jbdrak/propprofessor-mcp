@@ -229,7 +229,7 @@ Get the recommended workflow based on use case. Call this first to understand wh
 Show the current sport-specific ranking presets — which books count as sharp per league, the default market bundles, and the preferred execution book. Call BEFORE `screen_ranked`, `quick_screen`, or `validate_play` when you want to know which books/markets will be weighted highest, or when debugging unexpected ranking behavior. No arguments needed; result is informational only.
 
 **health_status**
-Check auth freshness and endpoint connectivity. Reports token persistence state: `persistedToDisk` (boolean), `refreshCount` (number of refreshes since startup), and `lastRefreshed` (ISO timestamp). Call FIRST THING on session boot to confirm the MCP server can reach the SSB backend. If `persistedToDisk=false` or `lastRefreshed` is over 1 hour ago, expect auth failures on subsequent tool calls — surface `pp-query login` to the user. No arguments needed.
+Check auth freshness and endpoint connectivity. Reports token persistence state: `persistedToDisk` (boolean), `refreshCount` (number of refreshes since startup), and `lastRefreshed` (ISO timestamp). Call FIRST THING on session boot to confirm the MCP server can reach the PropProfessor backend. If `persistedToDisk=false` or `lastRefreshed` is over 1 hour ago, expect auth failures on subsequent tool calls — surface `pp-query login` to the user. No arguments needed.
 
 **fantasy_optimizer**
-Query the Fantasy Optimizer for DFS-style player picks across fantasy apps (PrizePicks, Underdog, etc.). Returns fantasy plays with projected values, odds, and risk metrics. Requires a paid SSB subscription with Fantasy Optimizer access.
+Query the Fantasy Optimizer for DFS-style player picks across fantasy apps (PrizePicks, Underdog, etc.). Returns fantasy plays with projected values, odds, and risk metrics. Requires a paid PropProfessor subscription with Fantasy Optimizer access.

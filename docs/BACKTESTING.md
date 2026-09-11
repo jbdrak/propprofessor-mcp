@@ -197,7 +197,7 @@ writes a JSONL ledger (`data/snapshots.jsonl`) of every recommended play, then
 attaches settled results so `computeBacktestMetrics` can score an ever-growing
 history.
 
-> **Manual-only.** Snapshot capture calls live SSB endpoints, so it
+> **Manual-only.** Snapshot capture calls live PropProfessor endpoints, so it
 > requires an explicit `--live` acknowledgment and must never run unattended.
 > There is **no snapshot cron**: the dedicated `scripts/backtest-daily-snapshot.js`
 > wrapper was removed, and no cron, scheduled workflow, watcher, or launch
@@ -231,7 +231,7 @@ fully testable without network access.
 
 ### 2. Resolve outcomes (CSV fallback — reliable, no live endpoint needed)
 
-The SSB API does **not** expose a settled-results feed, so the
+The PropProfessor API does **not** expose a settled-results feed, so the
 pipeline is designed around a manual CSV you maintain:
 
 ```bash

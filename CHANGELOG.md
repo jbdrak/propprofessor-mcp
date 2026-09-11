@@ -411,7 +411,7 @@ v2.1.8's perf PR was a one-off; this release codifies the pattern. The shared `m
 
 ## 2.1.9
 
-**Consolidate the default-leagues list into a single source of truth, and add the two leagues the in-progress work missed (NFL, NCAAB, NCAAF).** Until v2.1.8 the default `leagues` argument across `screen_ranked`, `recommended_bets`, `get_alerts`, the `query-ssb.js` CLI, and the `ssb-api.js` default scan was a partial subset of what the SSB backend supports. v2.1.9 picks up where v2.1.8 left off — the in_progress work added the missing leagues but kept them hardcoded inline in 6+ files, which is a footgun for future drift. This release replaces all of those with a single frozen `DEFAULT_LEAGUES` constant exported from `ssb-shared-utils.js` (and derives `SUPPORTED_LEAGUES` from it in `backtest-daily-snapshot.js`).
+**Consolidate the default-leagues list into a single source of truth, and add the two leagues the in-progress work missed (NFL, NCAAB, NCAAF).** Until v2.1.8 the default `leagues` argument across `screen_ranked`, `recommended_bets`, `get_alerts`, the `query-ssb.js` CLI, and the `ssb-api.js` default scan was a partial subset of what the PropProfessor backend supports. v2.1.9 picks up where v2.1.8 left off — the in_progress work added the missing leagues but kept them hardcoded inline in 6+ files, which is a footgun for future drift. This release replaces all of those with a single frozen `DEFAULT_LEAGUES` constant exported from `ssb-shared-utils.js` (and derives `SUPPORTED_LEAGUES` from it in `backtest-daily-snapshot.js`).
 
 ### What changed
 
@@ -687,7 +687,7 @@ The v2.1.1 / v2.1.2 release notes claimed a "spread-alias regression fix" that r
 
 ### Added
 
-- **Fantasy Optimizer tool** — new `fantasy_optimizer` MCP tool for DFS-style fantasy picks (PrizePicks, Underdog, etc.). Requires a paid SSB subscription with Fantasy Optimizer access. Query by league, fantasy app, market, min/max odds/value, and more. 24 total tools now exposed (was 23 in v2.1.0).
+- **Fantasy Optimizer tool** — new `fantasy_optimizer` MCP tool for DFS-style fantasy picks (PrizePicks, Underdog, etc.). Requires a paid PropProfessor subscription with Fantasy Optimizer access. Query by league, fantasy app, market, min/max odds/value, and more. 24 total tools now exposed (was 23 in v2.1.0).
 - **Player-name sanitizer for `player_context` xurl escalation** — `sanitizePlayerName()` in `lib/ssb-player-context.js` now allowlist-validates player names (Unicode letters/numbers + space + `.'-`) before passing them to the xurl CLI via `cp.execFile`. Rejects empty input, flag-like strings (`--help`), shell metacharacters, emoji, and inputs over 100 chars. Surfaced as a clean `source: "xurl-failed"` response rather than a malformed CLI invocation. June 8 SEC-001 partial fix.
 
 ### Fixed
@@ -835,7 +835,7 @@ Response-layer cleanup. Three high-impact issues found in the June 11, 2026 code
 
 - **CLI `--verbosity` is now wired through to the MCP handler** (`scripts/query-ssb.js`). Before: `--verbosity minimal` was silently dropped on the floor for the `sharp-plays` command, so the CLI always returned the raw 144KB payload regardless of the flag. After: `--verbosity minimal|standard|full` works end-to-end. The MCP server (line 861) was already wired correctly — this is CLI-only.
 - **Response rows are now compacted at extraction** — null, empty-string, empty-array, and empty-object fields are stripped before the formatter runs. Applied to `sharp-plays`, `screen_ranked` (via `buildRankedScreenResponse`), and `find_best_price` (`allPrices`). The new `compactRow` helper lives in `lib/ssb-shared-utils.js`. Response payload drops ~96% for typical sharp-plays output (144KB → ~5KB for 3 plays). Empty fields were noise; the data users actually want is unchanged.
-- **`selections.null` and `defaultKey: "null"` string leaks fixed at extraction** — SSB's API uses the literal string `"null"` as a key to mean "no sub-market" (moneyline, spread, total). Before: that string leaked through to consumers as a real key. After: `normalizeRow` lifts `selections.null.*` to top level for non-prop markets and drops `defaultKey: "null"`. Player-prop selections (which use real player names as keys) are untouched.
+- **`selections.null` and `defaultKey: "null"` string leaks fixed at extraction** — PropProfessor's API uses the literal string `"null"` as a key to mean "no sub-market" (moneyline, spread, total). Before: that string leaked through to consumers as a real key. After: `normalizeRow` lifts `selections.null.*` to top level for non-prop markets and drops `defaultKey: "null"`. Player-prop selections (which use real player names as keys) are untouched.
 
 ### Stats
 
@@ -851,14 +851,14 @@ Response-layer cleanup. Three high-impact issues found in the June 11, 2026 code
 Pre-directory-submission polish. No code changes — the algorithm, tools, and tests are all unchanged from v1.6.0.
 
 - **Repo description updated** — from "Standalone SSB MCP server and query client" to "MCP server that surfaces sharp-money movement across 36 sportsbooks — signal feed, not betting oracle." This is what `mcp.so`, `awesome-mcp`, and other directory listings display as the first-glance summary.
-- **Mermaid architecture diagram added** in the README — shows the data flow from 36 sportsbooks → SSB API → ranking pipeline → 27 MCP tools → your AI agent. Renders natively in GitHub; makes the value prop visual in 5 seconds for directory visitors.
+- **Mermaid architecture diagram added** in the README — shows the data flow from 36 sportsbooks → PropProfessor API → ranking pipeline → 27 MCP tools → your AI agent. Renders natively in GitHub; makes the value prop visual in 5 seconds for directory visitors.
 - **"How the ranking works" section trimmed** — the 5-step methodology (movement grading, risk score weights, tier table, hysteresis, sharp book cross-reference) moved to [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md). The README now has a 1-paragraph summary + link. Reduces README from 397 → 389 lines, makes the visible content more scannable.
-- **FAQ section added** — answers the 5 questions directory visitors ask first: "Does this tell me what to bet?" (no, it surfaces signals), "Do I need an account?" (yes, paid SSB), "What books does it cover?" (36), "Is it free?" (code is MIT, data is paid), "Can I run it without an MCP client?" (yes, `pp-query` CLI).
+- **FAQ section added** — answers the 5 questions directory visitors ask first: "Does this tell me what to bet?" (no, it surfaces signals), "Do I need an account?" (yes, paid PropProfessor), "What books does it cover?" (36), "Is it free?" (code is MIT, data is paid), "Can I run it without an MCP client?" (yes, `pp-query` CLI).
 
 ### Verified working (no fix shipped)
 
 - `npm install` clean
-- `pp-query health` returns valid auth token against live SSB API
+- `pp-query health` returns valid auth token against live PropProfessor API
 - Server boots cleanly (1.5s startup, no errors)
 - `node scripts/backtest-synthetic.js` produces expected distribution (575 TIER 1 plays per 3000-scenario run, TIER 4 ≤ TIER 2 holds)
 
@@ -1033,7 +1033,7 @@ Scenario generator now creates three distinct scenario types with real edge cond
 Concurrent requests that trigger 401s now share a single token refresh instead of each independently calling `fetchAccessToken`. The `tokenRefreshPromise` singleton in `createSSBClient` ensures only one refresh happens at a time — subsequent callers wait for the same promise.
 
 - 3 new tests: concurrent refresh dedup, refresh-after-expiry, concurrent invalidation wait
-- Reduces unnecessary API calls to SSB's token endpoint under load
+- Reduces unnecessary API calls to PropProfessor's token endpoint under load
 
 ### Synthetic backtest validation
 

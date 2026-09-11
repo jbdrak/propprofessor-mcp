@@ -15,7 +15,7 @@
 
 SSB MCP is a Model Context Protocol server that lets AI agents see what the sharpest sportsbooks are doing. Its current registry covers 39 screen feeds across 12 league configs, detects coordinated sharp movement, surfaces steam moves and line lags, and explains the consensus — so you can decide what to bet, not be told.
 
-Connect it to Claude Desktop, Cursor, Cline, Hermes, or any MCP client. Requires a [SSB](https://propprofessor.com) account.
+Connect it to Claude Desktop, Cursor, Cline, Hermes, or any MCP client. Requires a [PropProfessor](https://propprofessor.com) account — the **free tier is enough**; no paid subscription needed.
 
 > **Honest scope — no profitability claim:** SSB MCP is a sharp-signal DISCOVERY and RATING tool. `tier` / `kaiCall` / `edge` / `screenScore` are signal-quality ratings, not win-probability predictions. Profitability is UNPROVEN — no settled-results backtest has been published yet. Use it to find candidate plays and validate them yourself; do not treat outputs as a guaranteed winning system. The ranking pipeline surfaces _what sharp books are doing_; the betting decision stays with you.
 
@@ -101,7 +101,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
        args: [--mcp]
    ```
 
-3. **Auth (one-time):** `node scripts/pp-login.js` — opens a browser for SSB login and persists cookies for the server to use.
+3. **Auth (one-time):** `node scripts/pp-login.js` — opens a browser for PropProfessor login and persists cookies for the server to use.
 4. **Ask your agent:** _"What are tonight's sharpest plays on Fliff?"_
 
 That's it — your agent now sees 31 tools.
@@ -284,7 +284,7 @@ flowchart LR
         BN[...33 more]
     end
 
-    API[SSB API]
+    API[PropProfessor API]
 
     subgraph PIPE["Ranking Pipeline"]
         E[Extract odds]
@@ -320,14 +320,14 @@ npm link
 pp-query init          # auth + verification + config — all at once
 ```
 
-`pp-query init` checks Node version, opens SSB login if needed, runs `doctor`, and prints ready-to-paste MCP config for your client. Or do it step by step:
+`pp-query init` checks Node version, opens PropProfessor login if needed, runs `doctor`, and prints ready-to-paste MCP config for your client. Or do it step by step:
 
 ```bash
 pp-query login         # browser login
 pp-query doctor        # verify everything works
 ```
 
-Requires a paid [SSB](https://propprofessor.com) account. That's it — you're ready to connect your AI agent.
+Requires a [PropProfessor](https://propprofessor.com) account — the free tier is sufficient. That's it — you're ready to connect your AI agent.
 
 ### MCP Client Setup
 
@@ -358,11 +358,11 @@ Clone the repository, install dependencies, and point your client at the server 
 { "command": "node", "args": ["/path/to/ssb-for-agents/scripts/ssb-mcp-server.js"] }
 ```
 
-Requires a local clone and a SSB account.
+Requires a local clone and a free PropProfessor account.
 
 **For headless/CI environments (no Chrome):**
 
-Set the `SSB_COOKIES` env var with your SSB cookies exported as JSON. This bypasses the CDP/Chrome auth path entirely:
+Set the `SSB_COOKIES` env var with your PropProfessor cookies exported as JSON. This bypasses the CDP/Chrome auth path entirely:
 
 ```json
 {
@@ -593,7 +593,7 @@ actually differentiates quality:
 node scripts/backtest-synthetic.js
 ```
 
-**2. Real outcome backtest** — snapshot-based, since the SSB API does
+**2. Real outcome backtest** — snapshot-based, since the PropProfessor API does
 not serve historical settled results. Take a pre-game odds snapshot daily, then
 resolve outcomes as games settle:
 
@@ -638,11 +638,11 @@ Still stuck? Run `pp-query doctor` and [open an issue](https://github.com/jbdrak
 
 **Does this tell me what to bet?** No. It surfaces what sharp books are doing. The betting decision is yours.
 
-**Do I need a SSB account?** Yes. Live data requires a paid subscription at [propprofessor.com](https://propprofessor.com).
+**Do I need a PropProfessor account?** Yes, and the **free account is enough**. Live data works on the free tier at [propprofessor.com](https://propprofessor.com) — no paid subscription required.
 
 **What books does it cover?** The code currently registers 39 screen feeds across 12 league configs. Some entries are alternate or specialized feeds rather than distinct sportsbooks. Sharp cross-reference: Pinnacle, Circa, BookMaker, BetOnline.
 
-**Is it free?** Code is MIT-licensed. Data requires a paid SSB subscription. No paid tier of the MCP itself.
+**Is it free?** Code is MIT-licensed, and a free PropProfessor account covers the data. There is no paid tier of the MCP itself.
 
 **Can I run it without an MCP client?** Yes — `pp doctor` is a standalone CLI.
 
@@ -692,4 +692,4 @@ Release: push a `v*` tag → CI runs lint + tests on Node 20 + 22 → publishes 
 
 ## 📝 License
 
-[MIT](LICENSE). SSB is a paid service; this MCP is an unofficial client built by [James Drake](https://github.com/jbdrak), not affiliated with SSB.
+[MIT](LICENSE). PropProfessor offers a free tier; this MCP is an unofficial client built by [James Drake](https://github.com/jbdrak), not affiliated with PropProfessor.
