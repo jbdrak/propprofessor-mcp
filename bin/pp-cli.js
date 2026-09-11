@@ -25,6 +25,7 @@ const { formatScanDiagnostics, normalizeWatchCandidates, summarizeUnresolvedCand
 const { getMarketsForSport } = require(PROJECT + '/lib/propprofessor-market-registry');
 const { getSoccerEventIdentity } = require(PROJECT + '/lib/soccer-event-identity');
 const { correctTennisTimes } = require(PROJECT + '/lib/propprofessor-tennis');
+const { extractEventLinkRows, groupEventLinks } = require(PROJECT + '/lib/propprofessor-event-links');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
 // ── book alias resolution ──────────────────────────────────────
@@ -190,6 +191,7 @@ Commands:
   record-card  Record a reviewed decision card into the tracker ledger
   player     Player context + injury/risk flags
   prices     Compare prices across books
+  links      Get sportsbook event links from PP
   rank       Ranked plays for a league
   card       Today's bet slip (BETs across all markets, kickoff-sorted)
   wallets    Top Polymarket wallets vs a book (bet/pass)
@@ -362,6 +364,19 @@ Flags:
   -l, --league <name>       League (default: NBA)
   -m, --market <name>       Market (default: Moneyline)
   -s, --selection <text>    Selection to filter by
+  -j, --json                Raw JSON output
+`,
+  links: `pp links [leagues...] [flags]
+
+Fetch event links from PropProfessor's EV feed. This is a manual, on-demand
+lookup. By default it returns NoVigApp links for the normal upcoming slate.
+
+Flags:
+  -b, --book <name>         Book to link (default: NoVigApp)
+  -m, --market <name>       Exact market filter (comma-separated)
+  -n, --limit <N>           Max event links. Default: 100
+  --hours <N>               Hours ahead to query. Default: 48
+  --mobile                  Prefer the sportsbook mobile link
   -j, --json                Raw JSON output
 `,
   rank: `pp rank <league> [flags]
@@ -2217,6 +2232,89 @@ async function cmdFantasy(handlers, positional, flags) {
   }
 }
 
+// ── links ───────────────────────────────────────────────────────
+
+async function cmdLinks(client, positional, flags) {
+  const rawLeagues =
+    positional.length > 1
+      ? positional.slice(1)
+      : ['MLB', 'NBA', 'WNBA', 'Tennis', 'UFC', 'NFL', 'NHL', 'Soccer', 'MLS', 'NCAAB', 'NCAAF', 'NBASL'];
+  const leagueNames = new Map([
+    ['mlb', 'MLB'],
+    ['nba', 'NBA'],
+    ['wnba', 'WNBA'],
+    ['tennis', 'Tennis'],
+    ['ufc', 'UFC'],
+    ['nfl', 'NFL'],
+    ['nhl', 'NHL'],
+    ['soccer', 'Soccer'],
+    ['mls', 'MLS'],
+    ['ncaab', 'NCAAB'],
+    ['ncaaf', 'NCAAF'],
+    ['nbasl', 'NBASL']
+  ]);
+  const leagues = rawLeagues.map((league) => leagueNames.get(String(league).trim().toLowerCase()) || league);
+  const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
+  const markets =
+    flags.m || flags.market
+      ? String(flags.m || flags.market)
+          .split(',')
+          .map((value) => value.trim())
+      : [];
+  const limitValue = Number(flags.n || flags.limit || 100);
+  const hoursValue = Number(flags.hours || flags['max-hours-away'] || 48);
+  const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.floor(limitValue) : 100;
+  const maxHoursAway = Number.isFinite(hoursValue) && hoursValue > 0 ? hoursValue : 48;
+  const mobile = Boolean(flags.mobile);
+  const jsonOut = flags.j || flags.json || false;
+
+  console.error(`Fetching ${book} event links for ${leagues.join(', ')}...`);
+  const raw = await client.queryPositiveEV({
+    sportsbooks: [book],
+    leagues,
+    marketTypes: ['Main Lines', 'Player Props', 'Team Totals', 'Game Props'],
+    periodTypes: ['Full Game', 'Single Period'],
+    allowedTiming: ['prematch'],
+    minOdds: -9999,
+    maxOdds: 9999,
+    minEV: -9999,
+    maxEV: 9999,
+    minHoursAway: 0,
+    maxHoursAway,
+    minLiquidity: 0,
+    maxLiquidity: 999999,
+    devig: 'worst',
+    userState: 'tx'
+  });
+
+  const rows = extractEventLinkRows(raw);
+  const events = groupEventLinks(rows, { book, leagues, markets, mobile, limit });
+  const output = { book, leagues, rowCount: rows.length, eventCount: events.length, events };
+
+  if (jsonOut) {
+    console.log(JSON.stringify(output, null, 2));
+    return;
+  }
+
+  if (!events.length) {
+    console.log('No event links found.');
+    return;
+  }
+
+  console.log(`\n${events.length} event link${events.length === 1 ? '' : 's'} (${rows.length} matching rows)\n`);
+  for (const event of events) {
+    const name = [event.awayTeam, event.homeTeam].filter(Boolean).join(' @ ') || event.gameId || 'Unknown event';
+    const marketSummary = event.markets
+      .slice(0, 4)
+      .map((market) => [market.market, market.selection].filter(Boolean).join(': '))
+      .filter(Boolean)
+      .join(' | ');
+    console.log(`${event.league || '?'}  ${name}${event.start ? `  [${event.start}]` : ''}`);
+    if (marketSummary) console.log(`  ${marketSummary}`);
+    console.log(`  ${event.eventLink}`);
+  }
+}
+
 // ── health ──────────────────────────────────────────────────────
 
 async function cmdHealth(handlers) {
@@ -2323,6 +2421,9 @@ async function main() {
     case 'fantasy':
       await cmdFantasy(handlers, positional, flags);
       break;
+    case 'links':
+      await cmdLinks(client, positional, flags);
+      break;
     case 'health':
       await cmdHealth(handlers);
       break;
@@ -2356,6 +2457,7 @@ module.exports = {
   recordScanResults,
   cmdRecordCard,
   cmdRecord,
+  cmdLinks,
   resolveWalletDate,
   parseCardInput,
   formatScan,
