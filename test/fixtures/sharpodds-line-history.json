@@ -1,0 +1,86 @@
+{
+  "_comment": "Redacted SharpOdds (api.tsp.live) line-history contract fixture. Synthetic data only: fictional teams, fictional book, no credentials. Shape mirrors verified live probe: GET /v1/odds?action=linehistory with {meta, markets}; markets.SPREADS/TOTALS/MONEYLINES arrays of {date MM/DD, time, away, home, pub}. Worker fallback endpoint returned empty for the probe and is not a source.",
+  "_endpoint": "GET https://api.tsp.live/v1/odds?action=linehistory&t=SPREAD|TOTAL|ML&d=YYYY-MM-DD&n=<gameId>&s=<sportId>&p=<period>&z=<timezone>&sn=<bookName>&an=<awayTeam>&hn=<homeTeam>&bid=<bookId>&league=<league>",
+  "moneyline": {
+    "meta": {
+      "sportsbook": "ExampleBook",
+      "period": "Game",
+      "away_team": "AWY",
+      "home_team": "HME",
+      "date": "2026-09-01",
+      "updated": "2026-09-01T12:00:00Z"
+    },
+    "markets": {
+      "MONEYLINES": [
+        { "date": "09/01", "time": "9:00 AM", "away": "-150", "home": "+130", "pub": null },
+        { "date": "09/01", "time": "12:00 PM", "away": "-617", "home": "+450", "pub": null }
+      ],
+      "SPREADS": [],
+      "TOTALS": []
+    }
+  },
+  "spread": {
+    "meta": {
+      "sportsbook": "ExampleBook",
+      "period": "Game",
+      "away_team": "AWY",
+      "home_team": "HME",
+      "date": "2026-09-01",
+      "updated": "2026-09-01T12:00:00Z"
+    },
+    "markets": {
+      "SPREADS": [
+        { "date": "09/01", "time": "9:00 AM", "away": "+10.5 -108", "home": "-10.5 -112", "pub": null },
+        { "date": "09/01", "time": "12:00 PM", "away": "+9.5 -110", "home": "-9.5 -110", "pub": null }
+      ],
+      "TOTALS": [],
+      "MONEYLINES": []
+    }
+  },
+  "total": {
+    "meta": {
+      "sportsbook": "ExampleBook",
+      "period": "Game",
+      "away_team": "AWY",
+      "home_team": "HME",
+      "date": "2026-09-01",
+      "updated": "2026-09-01T12:00:00Z"
+    },
+    "markets": {
+      "SPREADS": [],
+      "TOTALS": [
+        { "date": "09/01", "time": "9:00 AM", "away": "o62 -107", "home": "u62 -113", "pub": null },
+        { "date": "09/01", "time": "12:00 PM", "away": "o63.5 -110", "home": "u63.5 -110", "pub": null }
+      ],
+      "MONEYLINES": []
+    }
+  },
+  "empty": {
+    "meta": {
+      "sportsbook": "ExampleBook",
+      "period": "Game",
+      "away_team": "AWY",
+      "home_team": "HME",
+      "date": "2026-09-01",
+      "updated": "2026-09-01T12:00:00Z"
+    },
+    "markets": {
+      "SPREADS": [],
+      "TOTALS": [],
+      "MONEYLINES": []
+    }
+  },
+  "partial": {
+    "meta": {
+      "sportsbook": "ExampleBook",
+      "period": "Game",
+      "away_team": "AWY",
+      "home_team": "HME",
+      "date": "2026-09-01",
+      "updated": "2026-09-01T12:00:00Z"
+    },
+    "markets": {
+      "MONEYLINES": [{ "date": "09/01", "time": "12:00 PM", "away": "-617", "home": "+450", "pub": null }]
+    }
+  }
+}

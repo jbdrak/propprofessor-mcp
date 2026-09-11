@@ -9,6 +9,7 @@ const {
   buildMovementWindows,
   summarizeSharpMovement
 } = require('../lib/propprofessor-sharp-history');
+const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
 
 describe('propprofessor sharp history helpers', () => {
   it('groups line history by book and sorts by timestamp', () => {
@@ -68,7 +69,7 @@ describe('propprofessor sharp history helpers', () => {
     assert.equal(windows.recentWindow.pointCount, 2);
   });
 
-  it('summarizes same-book sharp movement with recent-supportive-only labeling', () => {
+  it('summarizes comparison-book sharp movement with recent-supportive-only labeling', () => {
     const nowMs = Date.UTC(2026, 4, 6, 12, 0, 0);
     const summary = summarizeSharpMovement({
       lineHistory: [
@@ -86,10 +87,44 @@ describe('propprofessor sharp history helpers', () => {
     assert.equal(summary.movementMode, 'comparison_book');
     assert.equal(summary.movementLabel, 'recent_supportive_only');
     assert.equal(summary.lineHistoryUsable, true);
-    assert.equal(summary.movementQuality, 'low');
+    assert.equal(summary.movementQuality, 'high');
     assert.equal(summary.droppedHistoryPointCount, 1);
     assert.equal(typeof summary.clvProxyPct, 'number');
     assert.equal(typeof summary.recentClvPct, 'number');
+  });
+
+  it('uses exact selection price history for movement when line fields are missing', () => {
+    const nowMs = Date.UTC(2026, 4, 6, 12, 0, 0);
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: -120, line: null, time: nowMs - 2 * 60 * 60 * 1000 },
+        { book: 'Pinnacle', odds: -130, line: null, time: nowMs - 60 * 60 * 1000 }
+      ],
+      preferredBook: 'Fliff',
+      sharpBooks: ['Pinnacle'],
+      options: {
+        nowMs,
+        recentWindowHours: 6,
+        lineFieldMissingCount: 2,
+        priceHistoryUsable: true
+      }
+    });
+
+    assert.equal(summary.priceHistoryUsable, true);
+    assert.equal(summary.movementHistoryUsable, true);
+    assert.equal(summary.lineHistoryUsable, false);
+    assert.equal(summary.lineHistoryQuality, 'degraded_line_fields');
+    assert.equal(summary.movementLabel, 'supportive');
+    assert.ok(summary.clvProxyPct > 0);
+    assert.equal(
+      computeMovementDisposition({
+        ...summary,
+        movementGrade: 'yellow',
+        odds: -130,
+        targetBookOdds: -130
+      }),
+      'supportive_bouncy'
+    );
   });
 
   it('exposes lastPointAgeMs as the age of the newest history point', () => {
@@ -164,9 +199,10 @@ describe('propprofessor sharp history helpers', () => {
 
     assert.equal(summary.movementMode, 'mixed_books_fallback');
     assert.equal(summary.movementSourceBook, null);
+    assert.equal(summary.movementQuality, 'low');
   });
 
-  it('downgrades comparison movement when the named book has no history', () => {
+  it('keeps independent comparison movement high when the named book has no history', () => {
     const summary = summarizeSharpMovement({
       lineHistory: [
         { book: 'Pinnacle', odds: -108, time: 1 },
@@ -179,7 +215,7 @@ describe('propprofessor sharp history helpers', () => {
 
     assert.notEqual(summary.movementMode, 'same_book');
     assert.equal(summary.movementSourceBook, 'Pinnacle');
-    assert.notEqual(summary.movementQuality, 'high');
+    assert.equal(summary.movementQuality, 'high');
   });
 
   it('preserves broad sharp-book movement without a named book context', () => {
@@ -210,7 +246,8 @@ describe('propprofessor sharp history helpers', () => {
 
     assert.equal(summary.movementMode, 'mixed_books_fallback');
     assert.equal(summary.movementQuality, 'low');
-    assert.equal(summary.lineHistoryUsable, true);
+    assert.equal(summary.lineHistoryUsable, false);
+    assert.equal(summary.movementLabel, 'insufficient_history');
   });
 
   it('falls back to mixed-book movement when no same-book trail is usable', () => {
@@ -227,7 +264,25 @@ describe('propprofessor sharp history helpers', () => {
 
     assert.equal(summary.movementMode, 'mixed_books_fallback');
     assert.equal(summary.movementQuality, 'low');
-    assert.equal(summary.lineHistoryUsable, true);
+    assert.equal(summary.lineHistoryUsable, false);
+    assert.equal(summary.movementLabel, 'insufficient_history');
+  });
+
+  it('fails closed when line history values were backfilled from the current line', () => {
+    const nowMs = Date.UTC(2026, 4, 7, 12, 0, 0);
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: -110, line: 33.5, time: nowMs - 60 * 60 * 1000 },
+        { book: 'Pinnacle', odds: -125, line: 33.5, time: nowMs }
+      ],
+      preferredBook: 'NoVigApp',
+      sharpBooks: ['Pinnacle'],
+      options: { nowMs, lineFieldMissingCount: 2 }
+    });
+
+    assert.equal(summary.lineHistoryQuality, 'degraded_line_fields');
+    assert.equal(summary.lineHistoryUsable, false);
+    assert.equal(summary.movementLabel, 'insufficient_history');
   });
 
   it('flags V-shaped recovery where endpoints positive but midline adverse', () => {

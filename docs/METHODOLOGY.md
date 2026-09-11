@@ -187,6 +187,23 @@ The `suggestStakes` function uses flat tier multipliers (TIER 1 → 2%, TIER 2 �
 
 The green movement grade gate requires `multiWindowScore >= 0.66` (4/6 windows). The risk score modifier uses graduated brackets (0.0 → +1.5 through 1.0 → −1.5). The gate is intentionally coarser than the risk modifier — a play with 3/6 windows falls to yellow grade but gets no risk penalty, which is correct: the signal is weaker but not actively adverse.
 
+### Movement evidence provenance: `lineHistoryUsable` vs `movementHistoryUsable`
+
+Three fields describe the movement evidence behind a row, and they are not interchangeable:
+
+- **`lineHistoryUsable`** — `true` only when historical **line values** (spread/total numbers) were verified. Standard spread and total movement depends on this.
+- **`priceHistoryUsable`** — `true` when exact selection-scoped **odds** history exists with valid timestamps, even if the upstream history carried no historical line fields. Accompanied by `priceHistoryScope`, `priceHistorySource`, and `priceHistoryPointCount`.
+- **`movementHistoryUsable`** — the movement gate. True when `priceHistoryUsable` is true, the history is not degraded, and the movement source is not a mixed-book fallback.
+
+Why the split exists: some upstream feeds return timestamped odds points but omit the historical line, so a spread or total row can have a real price trail with no usable line history. Before the split that row collapsed to `insufficient` and its genuine price movement was discarded. Now odds-only points can qualify movement while `lineHistoryUsable` stays `false`, which lets a consumer distinguish "movement is real but the line could not be verified" from "there is no movement evidence at all".
+
+Consequences consumers must respect:
+
+- Movement can be usable while `lineHistoryUsable` is `false`. Never gate movement on `lineHistoryUsable`.
+- `clvProxyPct` can be `null` while movement is usable — a single or flat line-less series yields `movementLabel: 'insufficient_history'` with no CLV window. Always null-guard CLV when formatting; `buildScreenRankingReason` previously raised a `TypeError` on exactly this combination and aborted the entire ranking call.
+- Mixed-book fallback is never sharp evidence. It informs consensus but does not qualify as usable movement.
+- Provenance survives ranking (`rankingProvenance`), the candidate mapper, the compact field set, and the formatter, and is stripped from suppressed exact-line rows.
+
 ### kaiCall/tier consistency
 
 The `gradeRiskToTierAndCall` function is the single source of truth for tier and kaiCall assignment. Both `getKaiCall` and `getConfidenceTier` delegate to it, making contradiction between tier and call structurally impossible. The focus-book-missing cap (TIER 4 → TIER 3, PASS → CONSIDER for the kaiCall) is the only divergence — it acknowledges that a non-executable signal is weaker but still informative.

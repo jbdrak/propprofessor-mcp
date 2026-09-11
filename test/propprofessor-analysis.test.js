@@ -267,7 +267,7 @@ describe('tennis screen ranking helpers', () => {
 
     assert.equal(summary.movementSourceBook, 'Pinnacle');
     assert.equal(summary.movementMode, 'comparison_book');
-    assert.equal(summary.movementQuality, 'low');
+    assert.equal(summary.movementQuality, 'high');
     assert.equal(summary.lineHistoryUsable, true);
     assert.equal(summary.droppedHistoryPointCount, 1);
     assert.equal(summary.movementLabel, 'supportive');
@@ -577,7 +577,7 @@ describe('tennis screen ranking helpers', () => {
     assert.equal(ranked[0].screenScore >= ranked[1].screenScore, true);
     assert.equal(typeof ranked[0].screenMarket, 'string');
     assert.equal(typeof ranked[0].scoreBreakdown.total, 'number');
-    assert.equal(ranked[0].lineHistoryUsable, true);
+    assert.equal(ranked[0].lineHistoryUsable, false);
     assert.equal(ranked[0].movementMode, 'mixed_books_fallback');
     assert.equal(ranked[0].movementSourceBook, null);
     assert.equal(typeof ranked[0].recentClvPct, 'number');

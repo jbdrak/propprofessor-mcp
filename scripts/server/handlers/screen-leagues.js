@@ -5,7 +5,7 @@
  * Extracted from createMcpHandlers() in handlers.js.
  */
 
-const { resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
+const { resolveSoccerLeague, resolveMarkets, filterPayloadByLeagueName } = require('./handler-utils');
 const {
   normalizeBookList,
   buildRankedScreenResponse: buildRankedScreenResponseShared,
@@ -19,6 +19,9 @@ const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { buildUfcShortlist } = require('../../../lib/propprofessor-sharp-plays');
 const { validatePositiveEvCandidates } = require('../../../lib/validate-ev-candidates');
 const { buildEvRecoveryRequest, extractEvRows, dedupeEvRows } = require('./ev-recovery');
+const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
+const { createSharpOddsHistoryProvider, DEFAULT_SHARP_BOOKS } = require('../../../lib/sharpodds-history-provider');
+const { getLocalTimezone } = require('../../../lib/mcp-runtime-config');
 
 function buildCacheKey(prefix, args, league) {
   return JSON.stringify({
@@ -34,7 +37,9 @@ function buildCacheKey(prefix, args, league) {
     games: args.games || [],
     participants: args.participants || [],
     leagueName: args.leagueName || null,
-    evFirst: args.evFirst !== false
+    evFirst: args.evFirst !== false,
+    enableSharpOddsHistory: args.enableSharpOddsHistory === true,
+    sharpOddsBooks: normalizeBookList(args.sharpOddsBooks)
   });
 }
 
@@ -50,6 +55,16 @@ function marketMatches(row, market) {
 
 function isPlayerPropMarket(market) {
   return /^(player|pitcher)\b/i.test(String(market || '').trim());
+}
+
+function getSharedSharpOddsProvider(ctx) {
+  if (!ctx.sharpOddsProvider) {
+    ctx.sharpOddsProvider = createSharpOddsHistoryProvider({
+      client: createSharpOddsClient({ fetchImpl: globalThis.fetch, timeoutMs: 12_000 }),
+      timezone: getLocalTimezone()
+    });
+  }
+  return ctx.sharpOddsProvider;
 }
 
 // In aggregate quick_screen mode the main ranked query owns the ENTIRE
@@ -128,18 +143,27 @@ async function runEvFirst(client, args, league, market, requestedBooks) {
 }
 
 async function runLeagueScreen(client, ctx, args = {}, league) {
+  const requestedLeague = String(league || '').trim() || 'Soccer';
+  const soccerResolution = /^(mls|soccer)$/i.test(requestedLeague)
+    ? resolveSoccerLeague(requestedLeague, args.leagueName)
+    : null;
+  const backendLeague = soccerResolution?.league || requestedLeague;
+  const responseLeagueName = soccerResolution?.leagueName || args.leagueName || null;
   const requestedBooks = normalizeBookList(args.books);
-  const marketResolution = resolveMarkets(args, league);
+  const marketResolution = resolveMarkets(args, backendLeague);
   const market = marketResolution.single;
-  const preset = getLeagueRankingPreset(league, market);
+  const preset = getLeagueRankingPreset(backendLeague, market);
   const focusBook = requestedBooks[0] || preset.preferredBooks[0];
 
   const nonMajorLeagues = ['TENNIS', 'SOCCER', 'UFC', 'WNBA', 'NCAAB', 'NCAAF'];
-  const leagueUpper = (league || '').toUpperCase();
-  const sharpBookSet = getSharpBookComparisonSet({ league, market });
+  const leagueUpper = backendLeague.toUpperCase();
+  const sharpBookSet = getSharpBookComparisonSet({ league: backendLeague, market });
+  const sharpOddsBooks =
+    Array.isArray(args.sharpOddsBooks) && args.sharpOddsBooks.length ? args.sharpOddsBooks : DEFAULT_SHARP_BOOKS;
   const augmentedBooks = nonMajorLeagues.includes(leagueUpper)
     ? ALL_SCREEN_BOOKS
     : uniqueBooks([...requestedBooks, ...sharpBookSet]);
+  const sharpOddsProvider = args.enableSharpOddsHistory === true ? getSharedSharpOddsProvider(ctx) : null;
 
   const canCache = !args.compact && !args.fields && !args.include;
   const cacheKey = canCache ? buildCacheKey('league', { ...args, books: augmentedBooks }, league) : null;
@@ -150,26 +174,31 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
     }
   }
 
-  const evResult = await runEvFirst(client, args, league, market, requestedBooks);
-  if (evResult) return evResult;
-
+  // Free-access mode uses the /screen feed directly. The paid EV/sportsbook
+  // discovery pass is intentionally not part of normal league scans.
   const payload = await client.queryScreenOddsBestComps({
     market,
-    league,
+    league: backendLeague,
     games: Array.isArray(args.games) ? args.games : [],
     participants: Array.isArray(args.participants) ? args.participants : [],
     books: augmentedBooks,
     is_live: false
   });
-  const response = buildRankedScreenResponseShared({
+  const response = await buildRankedScreenResponseShared({
     client,
-    payloads: [filterPayloadByLeagueName(payload, args.leagueName)],
-    args: { ...args, historySportsbooks: augmentedBooks },
-    league,
+    payloads: [filterPayloadByLeagueName(payload, responseLeagueName)],
+    args: {
+      ...args,
+      leagueName: responseLeagueName,
+      historySportsbooks: augmentedBooks,
+      sharpOddsBooks
+    },
+    league: backendLeague,
     focusBook,
+    sharpOddsProvider,
     rankRows: (hydratedRows, { debug } = {}) =>
       rankLeagueScreenRows(hydratedRows, {
-        league,
+        league: backendLeague,
         market,
         limit: getLimit(args),
         books: requestedBooks.length ? requestedBooks : undefined,
@@ -181,6 +210,19 @@ async function runLeagueScreen(client, ctx, args = {}, league) {
         playableOnly: args.playableOnly === true
       })
   });
+
+  if (soccerResolution) {
+    response.league = requestedLeague;
+    response.result = Array.isArray(response.result)
+      ? response.result.map((row) => ({ ...row, league: requestedLeague, leagueName: responseLeagueName }))
+      : response.result;
+    response.resultMeta = {
+      ...response.resultMeta,
+      league: requestedLeague,
+      backendLeague,
+      leagueName: responseLeagueName
+    };
+  }
 
   if (marketResolution.aliasesUsed.length) {
     response.resultMeta = {

@@ -47,6 +47,13 @@ describe('buildResultMeta', () => {
       markets_queried: ['Total'],
       coverageGaps: ['NBA:Total'],
       focusBookMissingRowCount: 1,
+      targetBookCoverage: {
+        targetBook: 'NoVigApp',
+        sourceRowCount: null,
+        rankedRowCount: 0,
+        targetBookQuoteCount: 0,
+        missingQuoteCount: 1
+      },
       droppedAltLineCount: 0,
       preHistoryShortlist,
       preHistoryRecovery

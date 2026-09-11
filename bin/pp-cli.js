@@ -918,7 +918,7 @@ async function applyTennisScanFallback({
         const fallbackMeta = tennisPlays.fallbackMeta;
         if (fallbackMeta) {
           console.error(
-            `[tennis-fallback] candidates=${fallbackMeta.totalCandidates} hydratedSides=${fallbackMeta.historyCalls} skipped=${fallbackMeta.skippedEntries} effectiveMax=${fallbackMeta.effectiveMaxHistorySelections} budgetRemaining=${tennisFallbackRemaining}${maxHistorySelections !== undefined ? ` requestedMax=${maxHistorySelections}` : ''}`
+            `[tennis-fallback] screenRows=${fallbackMeta.screenRows} targetBookSelections=${fallbackMeta.targetBookSelections} candidates=${fallbackMeta.totalCandidates} hydratedSides=${fallbackMeta.historyCalls} skipped=${fallbackMeta.skippedEntries} effectiveMax=${fallbackMeta.effectiveMaxHistorySelections} budgetRemaining=${tennisFallbackRemaining}${maxHistorySelections !== undefined ? ` requestedMax=${maxHistorySelections}` : ''}`
           );
         }
         if (tennisPlays.length) {
@@ -1188,6 +1188,7 @@ async function cmdScan(handlers, positional, flags, client) {
   // minFinalTier still controls the onlyBets floor when --tier is explicit.
   const minFinalTier = tier ? (tier === '1' ? 'TIER 1' : tier === '2' ? 'TIER 2' : 'TIER 2') : 'TIER 2';
   const ncaafOnly = leagues.length === 1 && String(leagues[0]).toUpperCase() === 'NCAAF';
+  const singleLeagueScan = leagues.length === 1;
 
   const MOVEMENT_ALIASES = {
     supportive: ['supportive_clean', 'supportive_bouncy'],
@@ -1243,7 +1244,9 @@ async function cmdScan(handlers, positional, flags, client) {
           : ncaafOnly
             ? 80
             : onlyBets
-              ? Math.min(limit, 24)
+              ? singleLeagueScan
+                ? Math.min(limit, 100)
+                : Math.min(limit, 24)
               : Math.min(limit, 50),
       lite: true,
       verbosity: 'bets',
@@ -1254,6 +1257,14 @@ async function cmdScan(handlers, positional, flags, client) {
     });
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
+
+    // Env-gated phase timing (PP_SCAN_TIMING=1). Zero effect when unset.
+    const scanTiming = process.env.PP_SCAN_TIMING === '1';
+    const logPhase = (label, from) => {
+      if (scanTiming) process.stderr.write(`[scan-timing] ${label}=${Date.now() - from}ms\n`);
+      return Date.now();
+    };
+    let phaseMark = logPhase('scan.quick_screen', startTime);
 
     await applyTennisScanFallback({
       res,
@@ -1267,14 +1278,18 @@ async function cmdScan(handlers, positional, flags, client) {
       resolvedMovement,
       targetTiers
     });
+    phaseMark = logPhase('scan.tennis_fallback', phaseMark);
 
     // Polymarket wallet overlay (top traders by P&L). Pure enrichment —
     // never touches ranking/movement/verdict; a failed fetch degrades to a
     // silent no-op. OPT-IN via --wallets [N]: it adds live network calls to
     // Polymarket on every run, so we don't fire them on a plain scan.
     await applyScanWalletOverlay(res, flags);
+    phaseMark = logPhase('scan.wallet_overlay', phaseMark);
 
     renderScanOutput(res, { flags, leagues, marketList, book, targetTiers, cardWindow, limit });
+    logPhase('scan.render', phaseMark);
+    logPhase('scan.total', startTime);
   } catch (e) {
     clearInterval(spinner);
     process.stderr.write('\r' + ' '.repeat(30) + '\r');
@@ -1338,7 +1353,7 @@ async function cmdGame(handlers, positional, flags) {
 
   console.error('Fetching ' + gameId + (selection ? ' [' + selection + ']' : '') + '...');
 
-  const args = { league, market, gameIds: [gameId], books: [book] };
+  const args = { league, market, gameIds: [gameId], books: [book], enableSharpOddsHistory: true };
   if (selection) args.selection = selection;
   if (playId.includes('::')) args.playId = playId;
   // Heartbeat: single-game hydration can take a minute on line markets.
@@ -1402,6 +1417,17 @@ async function cmdGame(handlers, positional, flags) {
       console.log('price: ' + formatExecutionOdds(r.odds ?? r.currentOdds, book) + ' on ' + book);
       if (Number.isFinite(Number(r.liquidityUsd)) && Number(r.liquidityUsd) > 0) {
         console.log('liquidity: $' + Math.round(Number(r.liquidityUsd)).toLocaleString('en-US'));
+      }
+      // Compact price-vs-line distinction: exact selection has timestamped
+      // price history, but verified historical line movement is unavailable.
+      if (r.priceHistoryUsable === true && r.lineHistoryUsable !== true) {
+        console.log(
+          'history: price-only (' +
+            (r.priceHistoryPointCount ?? '?') +
+            ' pts, ' +
+            (r.priceHistoryScope || 'selection_id') +
+            '); line movement unavailable'
+        );
       }
     }
     if (r.selections) {
@@ -2250,7 +2276,7 @@ async function main() {
   }
 
   const client = createPropProfessorClient();
-  const handlers = createMcpHandlers({ client });
+  const handlers = createMcpHandlers({ client, enableSharpOddsHistory: true });
 
   const start = Date.now();
 

@@ -46,7 +46,9 @@ describe('screen-ranker (direct unit tests)', () => {
 
       assert.ok(ranked);
       assert.ok(ranked.clvProxyPct > 0, `expected positive CLV, got ${ranked.clvProxyPct}`);
-      assert.equal(ranked.movementLabel, 'supportive');
+      assert.equal(ranked.movementLabel, 'insufficient_history');
+      assert.equal(ranked.movementDisposition, 'insufficient');
+      assert.equal(ranked.kaiCall, 'PASS');
     });
   });
 

@@ -50,13 +50,15 @@ const {
  * @param {Function} [options.gameContextFn]
  * @param {number} [options.recommendedBetsScreenTimeoutMs]
  * @param {number} [options.historyMinIntervalMs]
+ * @param {boolean} [options.enableSharpOddsHistory]
  * @returns {Object} handlers keyed by tool name
  */
 function createMcpHandlers({
   client = createPropProfessorClient(),
   gameContextFn = getGameContext,
   recommendedBetsScreenTimeoutMs = 25_000,
-  historyMinIntervalMs: historyMinIntervalMsOption = DEFAULT_HISTORY_MIN_INTERVAL_MS
+  historyMinIntervalMs: historyMinIntervalMsOption = DEFAULT_HISTORY_MIN_INTERVAL_MS,
+  enableSharpOddsHistory = false
 } = {}) {
   // Clamp the screen timeout so a bad injected value can never disable the
   // per-market stall guard. Production default stays 25s.
@@ -99,7 +101,11 @@ function createMcpHandlers({
     handlers,
     handlerOwners,
     'tennis-screen',
-    createTennisScreenHandler(client, { responseCache: ctx.responseCache, responseCacheTtlMs: ctx.responseCacheTtlMs })
+    createTennisScreenHandler(client, {
+      responseCache: ctx.responseCache,
+      responseCacheTtlMs: ctx.responseCacheTtlMs,
+      ctx
+    })
   );
   // Core dispatch handlers extracted from the monolithic body below.
   mergeHandlerModule(handlers, handlerOwners, 'screen-ranked', createScreenRankedHandlers(client, ctx));
@@ -139,6 +145,25 @@ function createMcpHandlers({
         : impl;
     const wrapArgs = (impl) =>
       typeof impl === 'function' ? (args = {}, ...rest) => impl(withHistoryMinInterval(args), ...rest) : impl;
+    handlers.runScreenRankedImpl = wrapClientArgs(handlers.runScreenRankedImpl);
+    handlers.runGetPlayDetailsImpl = wrapClientArgs(handlers.runGetPlayDetailsImpl);
+    handlers.runValidatePlayImpl = wrapClientArgs(handlers.runValidatePlayImpl);
+    handlers.runLeagueScreen = wrapArgs(handlers.runLeagueScreen);
+    handlers.runUfcCard = wrapArgs(handlers.runUfcCard);
+    handlers.runTennisScreen = wrapArgs(handlers.runTennisScreen);
+  }
+
+  if (enableSharpOddsHistory === true) {
+    const withSharpOddsFlag = (args = {}) =>
+      args && typeof args === 'object' && args.enableSharpOddsHistory === undefined
+        ? { ...args, enableSharpOddsHistory: true }
+        : args;
+    const wrapClientArgs = (impl) =>
+      typeof impl === 'function'
+        ? (clientArg, args = {}, ...rest) => impl(clientArg, withSharpOddsFlag(args), ...rest)
+        : impl;
+    const wrapArgs = (impl) =>
+      typeof impl === 'function' ? (args = {}, ...rest) => impl(withSharpOddsFlag(args), ...rest) : impl;
     handlers.runScreenRankedImpl = wrapClientArgs(handlers.runScreenRankedImpl);
     handlers.runGetPlayDetailsImpl = wrapClientArgs(handlers.runGetPlayDetailsImpl);
     handlers.runValidatePlayImpl = wrapClientArgs(handlers.runValidatePlayImpl);

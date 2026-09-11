@@ -45,4 +45,27 @@ describe('annotateRankedRows', () => {
     assert.equal(rationaleCalls, 0);
     assert.equal(row.rationale, undefined);
   });
+
+  it('forces PASS/TIER 4 when final movement becomes insufficient', () => {
+    const row = {
+      selection: 'Over 33.5',
+      movementDisposition: 'supportive_bouncy',
+      kaiCall: 'BET',
+      confidenceTier: 'TIER 1',
+      confidenceTierLive: 'TIER 1'
+    };
+
+    annotateRankedRows([row], {
+      normalizeSelectionKey: (value) => value,
+      buildCanonicalPlayId: () => 'play-id',
+      computeMovementDisposition: () => 'insufficient',
+      buildRationale: (value) => `${value.kaiCall}/${value.confidenceTier}`
+    });
+
+    assert.equal(row.movementDisposition, 'insufficient');
+    assert.equal(row.kaiCall, 'PASS');
+    assert.equal(row.confidenceTier, 'TIER 4');
+    assert.equal(row.confidenceTierLive, 'TIER 4');
+    assert.equal(row.rationale, 'PASS/TIER 4');
+  });
 });

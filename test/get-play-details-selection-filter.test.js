@@ -106,6 +106,11 @@ describe('get_play_details exact selection filter', () => {
     assert.equal(result.result[0].liquidityUsd, 46);
     assert.equal(result.result[0].gameId, GAME_ID);
     assert.equal(result.result[0].market, 'Total Games');
+    assert.equal(result.result[0].selections.null, undefined);
+    assert.ok(
+      result.result[0].selections.exact || result.result[0].selections.nestedOnly,
+      'exact nested line remains available under a named key'
+    );
   });
 
   it('uses a direct focus-book query when BestComps lacks the exact quote', async () => {
