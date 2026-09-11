@@ -2229,7 +2229,12 @@ async function cmdLinks(client, positional, flags) {
   ]);
   const leagues = rawLeagues.map((league) => leagueNames.get(String(league).trim().toLowerCase()) || league);
   const book = resolveBookAlias(flags.b || flags.book || 'NoVigApp');
-  const markets = flags.m || flags.market ? String(flags.m || flags.market).split(',').map((value) => value.trim()) : [];
+  const markets =
+    flags.m || flags.market
+      ? String(flags.m || flags.market)
+          .split(',')
+          .map((value) => value.trim())
+      : [];
   const limitValue = Number(flags.n || flags.limit || 100);
   const hoursValue = Number(flags.hours || flags['max-hours-away'] || 48);
   const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.floor(limitValue) : 100;

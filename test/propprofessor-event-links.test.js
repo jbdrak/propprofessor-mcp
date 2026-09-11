@@ -2,11 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {
-  extractEventLinkRows,
-  chooseEventLink,
-  groupEventLinks
-} = require('../lib/propprofessor-event-links');
+const { extractEventLinkRows, chooseEventLink, groupEventLinks } = require('../lib/propprofessor-event-links');
 
 test('extractEventLinkRows reads bets, rows, and array payloads', () => {
   const rows = [{ gameId: 'g1' }];
@@ -73,5 +69,8 @@ test('groupEventLinks applies exact market and limit filters', () => {
     { book: 'NoVigApp', league: 'Tennis', gameId: 'g2', market: 'Total Games', deepLink: 'https://novig.com/events/2' }
   ];
   const events = groupEventLinks(rows, { book: 'NoVigApp', markets: ['Total Games'], limit: 1 });
-  assert.deepEqual(events.map((event) => event.eventLink), ['https://novig.com/events/2']);
+  assert.deepEqual(
+    events.map((event) => event.eventLink),
+    ['https://novig.com/events/2']
+  );
 });
