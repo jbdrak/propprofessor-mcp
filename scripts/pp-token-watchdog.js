@@ -47,7 +47,15 @@ const HOME = os.homedir();
 const TOKEN_CACHE = path.join(HOME, '.ssb-for-agents', 'token-cache.json');
 const DEFAULT_CDP_VERSION_URL = 'http://127.0.0.1:9222/json/version';
 const DEFAULT_CHROME_TABS_URL = 'http://127.0.0.1:9222/json/list';
-const ACCESS_TOKEN_URL = 'https://app.propprofessor.com/api/access-token';
+// Upstream moved the app from app.propprofessor.com to www.propprofessor.com
+// (verified 2026-09-11); app. 30x-redirects there. Both hosts are accepted when
+// looking for a logged-in tab, so the watchdog survives a move back.
+const APP_HOST_ALIASES = ['www.propprofessor.com', 'app.propprofessor.com'];
+const ACCESS_TOKEN_URL = 'https://www.propprofessor.com/api/access-token';
+// Fetch a same-origin relative path: the tab may land on www or app, and an
+// absolute cross-origin URL throws "Failed to fetch" even with valid cookies.
+const ACCESS_TOKEN_PATH = new URL(ACCESS_TOKEN_URL).pathname;
+const APP_ORIGIN_URL = new URL(ACCESS_TOKEN_URL).origin + '/';
 const FRESH_THRESHOLD_SEC = 120; // refresh if < 2 min left
 const FORCE = process.argv.includes('--force');
 
@@ -102,7 +110,7 @@ function findSSBTabSync() {
   try {
     const out = execFileSync('curl', ['-sS', '--max-time', '3', CHROME_TABS_URL], { encoding: 'utf8' });
     const tabs = JSON.parse(out);
-    return tabs.find((t) => t.type === 'page' && (t.url || '').includes('app.propprofessor.com')) || null;
+    return tabs.find((t) => t.type === 'page' && APP_HOST_ALIASES.some((h) => (t.url || '').includes(h))) || null;
   } catch {
     return null;
   }
@@ -142,11 +150,11 @@ async function fetchTokenViaBrowser() {
   try {
     const targets = await send('Target.getTargets');
     let tab = (targets.targetInfos || []).find(
-      (t) => t.type === 'page' && (t.url || '').includes('app.propprofessor.com')
+      (t) => t.type === 'page' && APP_HOST_ALIASES.some((h) => (t.url || '').includes(h))
     );
     let tid = tab && tab.targetId;
     if (!tid) {
-      const created = await send('Target.createTarget', { url: 'https://app.propprofessor.com/' });
+      const created = await send('Target.createTarget', { url: APP_ORIGIN_URL });
       tid = created.targetId;
     }
 
@@ -157,7 +165,7 @@ async function fetchTokenViaBrowser() {
     const result = await send(
       'Runtime.evaluate',
       {
-        expression: `fetch('${ACCESS_TOKEN_URL}', {
+        expression: `fetch('${ACCESS_TOKEN_PATH}', {
         method: 'GET',
         credentials: 'include',
         headers: { 'Accept': 'application/json' }
@@ -239,7 +247,7 @@ async function main() {
   // Verify Chrome + a SSB tab are reachable before doing anything.
   const tab = findSSBTabSync();
   if (!tab) {
-    log('FAIL: no Chrome tab on app.propprofessor.com. Open the site first.');
+    log('FAIL: no Chrome tab on the SSB app origin. Open the site first.');
     process.exit(1);
   }
   log(`found PP tab: ${tab.url.slice(0, 80)}`);
