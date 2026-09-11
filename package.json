@@ -23,9 +23,13 @@
     "./sharp-plays-service": "./lib/ssb-sharp-plays-service.js"
   },
   "bin": {
+    "ssb": "bin/pp",
+    "ssb-mcp": "scripts/ssb-mcp-server.js",
+    "ssb-query": "scripts/query-ssb.js",
+    "ssb-backtest": "bin/backtest",
+    "pp": "bin/pp",
     "pp-mcp": "scripts/ssb-mcp-server.js",
     "pp-query": "scripts/query-ssb.js",
-    "pp": "bin/pp",
     "pp-backtest": "bin/backtest"
   },
   "files": [
