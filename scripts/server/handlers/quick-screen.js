@@ -607,13 +607,7 @@ async function runQuickScreenValidation(
       rows: allCandidates.flatMap((entry) =>
         (entry.candidates || []).map((candidate) => ({ target: candidate, entry }))
       ),
-      isEligible: (candidate) =>
-        Boolean(
-          candidate.gameId &&
-          candidate.selection &&
-          !candidate.altLineFiltered &&
-          (!args.onlyBets || candidate.kaiCall === 'BET')
-        ),
+      isEligible: isCandidateEligibleForValidation,
       isBet: (candidate) => candidate.kaiCall === 'BET',
       selectTargets: (selection) => {
         const ncaafOnly = leagues.length === 1 && String(leagues[0] || '').toLowerCase() === 'ncaaf';
@@ -1124,6 +1118,25 @@ function createQuickScreenHandlers(client, ctx, factoryDeps) {
   };
 }
 
+/**
+ * Decide whether a screen row may be validated.
+ *
+ * IMPORTANT: this must NOT consider the screen-time BET flag (`kaiCall`).
+ * Validation exists to UPGRADE a candidate to BET (and to downgrade one), so
+ * gating eligibility on `kaiCall === 'BET'` is circular: only rows already
+ * flagged BET get validated, anything that would BECOME a BET never does, and
+ * `--only-bets` silently returns a strict subset of the real BETs. That bug was
+ * live until 2026-09-11, where `-B` returned 0 of 2 NCAAF plays and 7 of 11 MLB
+ * plays. The onlyBets filter belongs on the OUTPUT verdict, which the CLI
+ * applies after this pipeline returns.
+ *
+ * @param {Object} candidate - Screen candidate row.
+ * @returns {boolean} True when the row can be validated.
+ */
+function isCandidateEligibleForValidation(candidate) {
+  return Boolean(candidate && candidate.gameId && candidate.selection && !candidate.altLineFiltered);
+}
+
 module.exports = {
   createQuickScreenHandlers,
   // Exported for hermetic rejection-diagnostic tests (see
@@ -1131,5 +1144,8 @@ module.exports = {
   // inputs and owned by this module's reliability patch.
   getValidationFailureReason,
   collectDowngradedWatchCandidates,
-  buildQuickScreenValidationArgs
+  buildQuickScreenValidationArgs,
+  // Exported so the "eligibility must not depend on the screen BET flag"
+  // invariant stays testable (test/quick-screen-onlybets-eligibility.test.js).
+  isCandidateEligibleForValidation
 };
