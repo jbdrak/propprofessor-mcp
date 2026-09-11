@@ -19,15 +19,15 @@ describe('check-no-secrets', () => {
       assert.ok(Array.isArray(FORBIDDEN_PATHS));
       assert.ok(FORBIDDEN_PATHS.includes('auth.json'));
       assert.ok(FORBIDDEN_PATHS.includes('token-cache.json'));
-      assert.ok(FORBIDDEN_PATHS.includes('.ssb'));
+      assert.ok(FORBIDDEN_PATHS.includes('.ssb-for-agents'));
     });
 
-    it('exports patterns that match nested files under .ssb/', () => {
-      const pattern = FORBIDDEN_PATTERNS.find((re) => re.source.startsWith('^\\.ssb'));
-      assert.ok(pattern, 'expected a pattern for .ssb/');
-      assert.ok(pattern.test('.ssb/auth.json'));
-      assert.ok(pattern.test('.ssb/token-cache.json'));
-      assert.ok(pattern.test('.ssb/sub/deep.json'));
+    it('exports patterns that match nested files under .ssb-for-agents/', () => {
+      const pattern = FORBIDDEN_PATTERNS.find((re) => re.source.startsWith('^\\.ssb-for-agents'));
+      assert.ok(pattern, 'expected a pattern for .ssb-for-agents/');
+      assert.ok(pattern.test('.ssb-for-agents/auth.json'));
+      assert.ok(pattern.test('.ssb-for-agents/token-cache.json'));
+      assert.ok(pattern.test('.ssb-for-agents/sub/deep.json'));
       assert.ok(!pattern.test('ssb.json'), 'unrelated names must not match');
     });
   });
@@ -64,13 +64,13 @@ describe('check-no-secrets', () => {
       }
     });
 
-    it('flags .ssb/ directory when it exists', () => {
+    it('flags .ssb-for-agents/ directory when it exists', () => {
       const origCwd = process.cwd();
       process.chdir(tmpDir);
       try {
-        fs.mkdirSync(path.join(tmpDir, '.ssb'), { recursive: true });
+        fs.mkdirSync(path.join(tmpDir, '.ssb-for-agents'), { recursive: true });
         const result = checkWorkingTree();
-        assert.ok(result.includes('.ssb'), `expected .ssb in ${JSON.stringify(result)}`);
+        assert.ok(result.includes('.ssb-for-agents'), `expected .ssb-for-agents in ${JSON.stringify(result)}`);
       } finally {
         process.chdir(origCwd);
       }

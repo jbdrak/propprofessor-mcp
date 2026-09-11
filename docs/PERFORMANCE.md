@@ -78,7 +78,7 @@ mcp_servers:
       - /path/to/ssb-for-agents/scripts/ssb-mcp-server.js
     enabled: true
     env:
-      AUTH_FILE: /path/to/.ssb/auth.json
+      AUTH_FILE: /path/to/.ssb-for-agents/auth.json
       SSB_MCP_NDJSON: 'true'
 ```
 

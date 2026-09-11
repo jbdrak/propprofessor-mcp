@@ -2,7 +2,7 @@
   "$schema": "https://ssb-for-agents.j17drake.com/schemas/config.schema.json",
   "version": 1,
   "auth": {
-    "file": "~/.ssb/auth.json"
+    "file": "~/.ssb-for-agents/auth.json"
   },
   "defaults": {
     "league": "NBA",

@@ -4,19 +4,19 @@ Environment variables and book configuration for the SSB MCP.
 
 ## Environment Variables
 
-| Variable                         | Default                 | Description                                                                                                                                                                     |
-| -------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AUTH_FILE`                      | `~/.ssb/auth.json`      | Path to the auth file (cookies + tokens)                                                                                                                                        |
-| `SSB_MCP_NDJSON`                 | (required)              | Set to `'true'` to enable NDJSON framing (required for stdio MCP)                                                                                                               |
-| `SSB_CACHE_TTL_MS`               | `60000`                 | Response cache TTL in milliseconds                                                                                                                                              |
-| `SSB_CACHE_MAX`                  | `50`                    | Max cache entries (LRU eviction)                                                                                                                                                |
-| `LOCAL_TIMEZONE`                 | `America/Chicago`       | Display timezone for CLI output                                                                                                                                                 |
-| `SSB_DEBUG`                      | (unset)                 | Set to any value to enable debug logging to stderr                                                                                                                              |
-| `SSB_MCP_MODE`                   | `lite`                  | Tool surface mode. `lite` (default) exposes the 15 essentials for agent-friendly workflows. `full` exposes all 31 tools for power users.                                        |
-| `NITTER_BASE`                    | `http://localhost:8080` | Nitter instance for `player_context` tweet lookup                                                                                                                               |
-| `SSB_MCP_STDIO_COALESCE_MS`      | `0`                     | Batch stdout writes (ms). `0` = passthrough (no change). `1`+ buffers and flushes on a timer. Reduces write syscalls during bursty JSON-RPC responses. Requires server restart. |
-| `SSB_CIRCUIT_BREAKER_THRESHOLD`  | `5`                     | Consecutive upstream failures before the circuit opens.                                                                                                                         |
-| `SSB_CIRCUIT_BREAKER_TIMEOUT_MS` | `30000`                 | Ms until the circuit transitions open → half-open for a test request.                                                                                                           |
+| Variable                         | Default                       | Description                                                                                                                                                                     |
+| -------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_FILE`                      | `~/.ssb-for-agents/auth.json` | Path to the auth file (cookies + tokens)                                                                                                                                        |
+| `SSB_MCP_NDJSON`                 | (required)                    | Set to `'true'` to enable NDJSON framing (required for stdio MCP)                                                                                                               |
+| `SSB_CACHE_TTL_MS`               | `60000`                       | Response cache TTL in milliseconds                                                                                                                                              |
+| `SSB_CACHE_MAX`                  | `50`                          | Max cache entries (LRU eviction)                                                                                                                                                |
+| `LOCAL_TIMEZONE`                 | `America/Chicago`             | Display timezone for CLI output                                                                                                                                                 |
+| `SSB_DEBUG`                      | (unset)                       | Set to any value to enable debug logging to stderr                                                                                                                              |
+| `SSB_MCP_MODE`                   | `lite`                        | Tool surface mode. `lite` (default) exposes the 15 essentials for agent-friendly workflows. `full` exposes all 31 tools for power users.                                        |
+| `NITTER_BASE`                    | `http://localhost:8080`       | Nitter instance for `player_context` tweet lookup                                                                                                                               |
+| `SSB_MCP_STDIO_COALESCE_MS`      | `0`                           | Batch stdout writes (ms). `0` = passthrough (no change). `1`+ buffers and flushes on a timer. Reduces write syscalls during bursty JSON-RPC responses. Requires server restart. |
+| `SSB_CIRCUIT_BREAKER_THRESHOLD`  | `5`                           | Consecutive upstream failures before the circuit opens.                                                                                                                         |
+| `SSB_CIRCUIT_BREAKER_TIMEOUT_MS` | `30000`                       | Ms until the circuit transitions open → half-open for a test request.                                                                                                           |
 
 ## Book configuration
 
@@ -76,7 +76,7 @@ mcp_servers:
       - /path/to/ssb-for-agents/scripts/ssb-mcp-server.js
     enabled: true
     env:
-      AUTH_FILE: /path/to/.ssb/auth.json
+      AUTH_FILE: /path/to/.ssb-for-agents/auth.json
       SSB_MCP_NDJSON: 'true'
 ```
 

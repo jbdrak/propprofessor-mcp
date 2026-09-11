@@ -180,11 +180,11 @@ node scripts/backtest-runner.js --from 2026-06-01 --to 2026-07-20
 pp-backtest --days 30
 ```
 
-The runner reads from `~/.ssb/picks.json` — the same file used by `pp log` and `pp picks`. It shows total picks, settled records, win rate, P&L, and breakdowns by tier and league. It never fabricates ROI. If no settled picks exist in the range, it says so honestly.
+The runner reads from `~/.ssb-for-agents/picks.json` — the same file used by `pp log` and `pp picks`. It shows total picks, settled records, win rate, P&L, and breakdowns by tier and league. It never fabricates ROI. If no settled picks exist in the range, it says so honestly.
 
 ## 📒 Record Keeping — legacy tracker migration
 
-The local record ledger (`PP_RECORD_LEDGER`, default `~/.ssb/tracker/ledger.json`) is the v2 source of truth for official bets. To import the old Python tracker's settled bets (`~/.ssb/tracker/bets.json`) into the v2 ledger:
+The local record ledger (`PP_RECORD_LEDGER`, default `~/.ssb-for-agents/tracker/ledger.json`) is the v2 source of truth for official bets. To import the old Python tracker's settled bets (`~/.ssb-for-agents/tracker/bets.json`) into the v2 ledger:
 
 ```bash
 # Preview what would be imported (dry-run is the default — writes nothing)
@@ -233,7 +233,7 @@ Key properties:
 - **`pp record` is local and read-only** — `stats`, `review`, and `pending` modes read the ledger with no network and no writes; `--date` filters by the America/Chicago calendar day of scheduled start, `--json` emits machine-readable output.
 - **Settlement never calls SSB** — `scripts/settle-record.js` (and `lib/record-settlement`) contain no network code. You fetch results yourself (e.g. an ESPN scoreboard dump) and hand them over as a local JSON file; the script matches bets to final scores, computes P&L, and writes the ledger atomically. `--dry-run` reports without writing anything; `--force` re-settles bets that already have a settled status.
 - **Results file provenance is required** — the results file must be an object with non-empty top-level `provider` and `sourceUrl` plus an `events` array; bare event arrays are no longer accepted. A same-ID event never settles on its ID alone: it must also match the bet's participants and fall inside the scheduled date window, and event-specific source URLs are kept only when the top-level provenance is valid. Missing provenance is a CLI usage error (the ledger is never touched), and library callers receive pending records with a precise reason instead of a settlement.
-- **`PP_RECORD_LEDGER` overrides the ledger path** — every command above reads/writes `$PP_RECORD_LEDGER` when set, otherwise the default `~/.ssb/tracker/ledger.json`.
+- **`PP_RECORD_LEDGER` overrides the ledger path** — every command above reads/writes `$PP_RECORD_LEDGER` when set, otherwise the default `~/.ssb-for-agents/tracker/ledger.json`.
 
 ### Offline record → settle → evaluate example
 
@@ -341,7 +341,7 @@ Add to your client's MCP config:
       "args": ["/path/to/ssb-for-agents/scripts/ssb-mcp-server.js"],
       "env": {
         "SSB_MCP_NDJSON": "true",
-        "AUTH_FILE": "/path/to/.ssb/auth.json"
+        "AUTH_FILE": "/path/to/.ssb-for-agents/auth.json"
       }
     }
   }

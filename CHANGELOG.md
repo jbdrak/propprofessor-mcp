@@ -68,7 +68,7 @@
 
 - **`finalVerdict` field.** Every returned candidate now carries a single authoritative bet/no-bet call that merges the raw screen tier and the validation verdict. Resolution rule: prefer `validatedVerdict` (it reflects re-fetched consensus + movement); hard safety override forces a `movement adverse` / `exec bad` flag to PASS (never BET). Also sets `finalConfidenceTier`, `priceDrift` (screen vs validated odds), and `finalWarnings` (`price-drift`, `unknown-game-context`, `validation-failed`).
 - **`onlyBets` / `minFinalTier` filter on `quick_screen`.** Return only `finalVerdict=BET` rows at/above the tier floor in one call.
-- **New `sharp_alerts` tool.** On-demand alert surface (no cron/polling). Returns ONLY `finalVerdict=BET` plays with clean research, deduped against a local store (`~/.ssb/sharp-alerts-store.json`) so the same play isn't re-alerted within the dedup window (default 6h). Response shape: `newAlerts` / `repeatAlerts` / `allBets` + a `message` when nothing is new.
+- **New `sharp_alerts` tool.** On-demand alert surface (no cron/polling). Returns ONLY `finalVerdict=BET` plays with clean research, deduped against a local store (`~/.ssb-for-agents/sharp-alerts-store.json`) so the same play isn't re-alerted within the dedup window (default 6h). Response shape: `newAlerts` / `repeatAlerts` / `allBets` + a `message` when nothing is new.
 
 ### Migration notes
 
@@ -725,7 +725,7 @@ The v2.1.1 / v2.1.2 release notes claimed a "spread-alias regression fix" that r
 - `scripts/install_helpers.py` + `scripts/test_install_helpers.py` — hermes path/profile resolution helpers with tests
 - `bin/pp` — thin CLI wrapper for `pp hide / unhide / hidden / sync / doctor / today`
 - `config.default.json` — ships sane defaults (league=NBA, bankroll=1000, targetBook=NoVigApp)
-- `pp-query setup` — copies the default config to `~/.ssb/config.json`
+- `pp-query setup` — copies the default config to `~/.ssb-for-agents/config.json`
 - `skills/ssb-coach/SKILL.md` — operator-facing coach skill (auto-routes "what should I bet today" to the right tools)
 - `docs/cron-prompts/sharp-money-alert.md` — cron prompt template
 - `INSTALL.md` — 60-second quick-start
@@ -1233,7 +1233,7 @@ Makes it transparent when Spread/Total have fewer plays due to upstream data qua
 
 **Automated Auth Flow**
 
-- New `pp-query login` command opens browser, user logs in, auth saves automatically to `~/.ssb/auth.json`
+- New `pp-query login` command opens browser, user logs in, auth saves automatically to `~/.ssb-for-agents/auth.json`
 - No more manual cookie export — just run one command
 - Added Playwright as optional dependency for browser automation
 - Health endpoint now reports auth status with clear recovery instructions ("Run: pp-query login")

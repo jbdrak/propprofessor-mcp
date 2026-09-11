@@ -44,7 +44,7 @@ const os = require('os');
 const { execFileSync } = require('child_process');
 
 const HOME = os.homedir();
-const TOKEN_CACHE = path.join(HOME, '.ssb', 'token-cache.json');
+const TOKEN_CACHE = path.join(HOME, '.ssb-for-agents', 'token-cache.json');
 const DEFAULT_CDP_VERSION_URL = 'http://127.0.0.1:9222/json/version';
 const DEFAULT_CHROME_TABS_URL = 'http://127.0.0.1:9222/json/list';
 const ACCESS_TOKEN_URL = 'https://app.propprofessor.com/api/access-token';

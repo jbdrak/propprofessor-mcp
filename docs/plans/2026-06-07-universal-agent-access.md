@@ -59,7 +59,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const DEFAULT_AUTH_FILE = path.join(os.homedir(), '.ssb', 'auth.json');
+const DEFAULT_AUTH_FILE = path.join(os.homedir(), '.ssb-for-agents', 'auth.json');
 const LOGIN_URL = 'https://app.propprofessor.com/login';
 
 async function loginAndSaveAuth({ headless = false, timeout = 60000 } = {}) {

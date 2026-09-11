@@ -10,12 +10,12 @@ const { spawnSync } = require('child_process');
 const { installAuthFile } = require('../lib/ssb-api');
 
 const repoRoot = path.join(__dirname, '..');
-const expectedUserAuthFile = path.join(os.homedir(), '.ssb', 'auth.json');
+const expectedUserAuthFile = path.join(os.homedir(), '.ssb-for-agents', 'auth.json');
 const expectedRepoAuthFile = path.join(repoRoot, 'auth.json');
 
 describe('ssb API auth file resolution', () => {
   it('defaults auth.json to the user-level path when AUTH_FILE is unset', () => {
-    const script = `const fs = require('fs'); const os = require('os'); const path = require('path'); const originalExistsSync = fs.existsSync; fs.existsSync = file => String(file) === path.join(os.homedir(), '.ssb', 'auth.json'); const { DEFAULT_AUTH_FILE } = require(${JSON.stringify(path.join(repoRoot, 'lib', 'ssb-api'))}); console.log(DEFAULT_AUTH_FILE); fs.existsSync = originalExistsSync;`;
+    const script = `const fs = require('fs'); const os = require('os'); const path = require('path'); const originalExistsSync = fs.existsSync; fs.existsSync = file => String(file) === path.join(os.homedir(), '.ssb-for-agents', 'auth.json'); const { DEFAULT_AUTH_FILE } = require(${JSON.stringify(path.join(repoRoot, 'lib', 'ssb-api'))}); console.log(DEFAULT_AUTH_FILE); fs.existsSync = originalExistsSync;`;
     const result = spawnSync(process.execPath, ['-e', script], {
       cwd: '/tmp',
       encoding: 'utf8',
@@ -54,7 +54,7 @@ describe('ssb API auth file resolution', () => {
   it('can install a saved auth file into the user-level default location', () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pp-auth-install-'));
     const sourceFile = path.join(tempDir, 'source-auth.json');
-    const destinationFile = path.join(tempDir, '.ssb', 'auth.json');
+    const destinationFile = path.join(tempDir, '.ssb-for-agents', 'auth.json');
     fs.writeFileSync(
       sourceFile,
       JSON.stringify({ cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'abc' }] }),

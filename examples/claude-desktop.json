@@ -4,7 +4,7 @@
       "command": "npx",
       "args": ["-y", "ssb-for-agents"],
       "env": {
-        "AUTH_FILE": "~/.ssb/auth.json"
+        "AUTH_FILE": "~/.ssb-for-agents/auth.json"
       }
     }
   }

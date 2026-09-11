@@ -4617,7 +4617,7 @@
                   },
                   "storePath": {
                     "type": "string",
-                    "description": "Dedup store path. Default ~/.ssb/sharp-alerts-store.json."
+                    "description": "Dedup store path. Default ~/.ssb-for-agents/sharp-alerts-store.json."
                   },
                   "dedupWindowMinutes": {
                     "type": "number",

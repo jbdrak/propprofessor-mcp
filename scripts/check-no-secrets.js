@@ -7,7 +7,7 @@
  * tracked by git:
  *   - auth.json (SSB session cookies)
  *   - token-cache.json (cached JWT)
- *   - anything under .ssb/ (runtime credentials/config)
+ *   - anything under .ssb-for-agents/ (runtime credentials/config)
  *
  * Run from package.json scripts:
  *   - "precommit:secrets" — fast, working tree only
@@ -32,9 +32,9 @@ const { execSync } = require('node:child_process');
 
 const repoRoot = process.cwd();
 
-const FORBIDDEN_PATHS = ['auth.json', 'token-cache.json', '.ssb'];
+const FORBIDDEN_PATHS = ['auth.json', 'token-cache.json', '.ssb-for-agents', '.propprofessor', '.ssb'];
 
-const FORBIDDEN_PATTERNS = [/^auth\.json$/, /^token-cache\.json$/, /^\.ssb\//];
+const FORBIDDEN_PATTERNS = [/^auth\.json$/, /^token-cache\.json$/, /^\.ssb-for-agents\//];
 
 function listTrackedFiles() {
   try {
@@ -84,8 +84,8 @@ function main() {
     console.error('\nThese files contain session cookies, JWTs, or runtime credentials.');
     console.error('They are gitignored but should also be removed from your local working tree:');
     console.error('  rm -f auth.json token-cache.json');
-    console.error('  rm -rf .ssb');
-    console.error('The actual credentials live outside the repo in $HOME/.ssb/ —');
+    console.error('  rm -rf .ssb-for-agents');
+    console.error('The actual credentials live outside the repo in $HOME/.ssb-for-agents/ —');
     console.error('re-run `pp-query login` to regenerate them in the right location.');
     failures += workingTreeViolations.length;
   }

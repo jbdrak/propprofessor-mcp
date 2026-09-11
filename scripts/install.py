@@ -30,7 +30,7 @@ SKILL_NAME = "ssb-coach"
 SKILL_SOURCE = REPO_ROOT / "skills" / SKILL_NAME
 MCP_NAME = "ssb"
 MCP_SERVER_PATH = REPO_ROOT / "scripts" / "ssb-mcp-server.js"
-AUTH_FILE_DEFAULT = Path.home() / ".ssb" / "auth.json"
+AUTH_FILE_DEFAULT = Path.home() / ".ssb-for-agents" / "auth.json"
 
 
 def install_skill() -> None:
@@ -63,7 +63,7 @@ def install_mcp() -> None:
         raise SystemExit(f"MCP server not found: {MCP_SERVER_PATH}")
 
     # Install default config first. The `pp-query setup` command is idempotent
-    # — it only writes the default config if `~/.ssb/config.json`
+    # — it only writes the default config if `~/.ssb-for-agents/config.json`
     # doesn't exist. We parse the JSON output so the user sees "created" vs
     # "exists" rather than a raw JSON blob.
     import json
@@ -92,7 +92,7 @@ def install_mcp() -> None:
     hermes_home = resolve_hermes_home()
     # Honor AUTH_FILE env var if set — the doctor/install-auth commands respect
     # it, and the install shouldn't silently override a user's existing path.
-    # Falls back to the standard ~/.ssb/auth.json default.
+    # Falls back to the standard ~/.ssb-for-agents/auth.json default.
     auth_file = Path(os.environ.get("AUTH_FILE", "").strip()).expanduser() \
         if os.environ.get("AUTH_FILE", "").strip() \
         else AUTH_FILE_DEFAULT

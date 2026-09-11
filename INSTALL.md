@@ -25,7 +25,7 @@ This exposes the `pp`, `pp-mcp`, `pp-query`, and `pp-backtest` binaries.
 pp-query login
 ```
 
-This stores your SSB credentials locally under `~/.ssb/` (auth files are written with owner-only permissions). Logging in is a one-time, manual action — there is no automated login or scheduled polling.
+This stores your SSB credentials locally under `~/.ssb-for-agents/` (auth files are written with owner-only permissions). Logging in is a one-time, manual action — there is no automated login or scheduled polling.
 
 ## Verify the install
 
@@ -61,7 +61,7 @@ SSB endpoints are manual-only. The package contains no cron jobs, scheduled work
 npm uninstall -g ssb-for-agents
 ```
 
-Local data under `~/.ssb/` is left in place.
+Local data under `~/.ssb-for-agents/` is left in place.
 
 ## Troubleshooting
 

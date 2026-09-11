@@ -81,10 +81,10 @@ def test_install_mcp_calls_hermes(fake_hermes_home, capsys):
 
 
 def test_install_mcp_creates_config(fake_hermes_home, monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))  # redirect ~/.ssb
+    monkeypatch.setenv("HOME", str(tmp_path))  # redirect ~/.ssb-for-agents
     subprocess.run([sys.executable, str(INSTALL), "mcp"], check=True,
                    env={**os.environ, "HERMES_HOME": str(fake_hermes_home)})
-    assert (tmp_path / ".ssb" / "config.json").exists()
+    assert (tmp_path / ".ssb-for-agents" / "config.json").exists()
 
 
 def test_install_mcp_passes_auth_file_env(fake_hermes_home, monkeypatch, tmp_path):

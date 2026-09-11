@@ -194,7 +194,7 @@ quick_screen(mode: 'sharp') (Fliff, NBA Moneyline): 3 candidates
 **Call `sharp_alerts` when the user asks "any new sharp plays?" or "alert me on sharp plays."** It is the alert surface — NOT a cron.
 
 - Returns ONLY `finalVerdict=BET` plays with clean research (`riskFlag` not `high`), at/above `minFinalTier` (default TIER 1).
-- Deduped against a local store (`~/.ssb/sharp-alerts-store.json`): the same play is not re-alerted within the dedup window (default 6h). Response splits into `newAlerts` vs `repeatAlerts` so you only surface fresh ones.
+- Deduped against a local store (`~/.ssb-for-agents/sharp-alerts-store.json`): the same play is not re-alerted within the dedup window (default 6h). Response splits into `newAlerts` vs `repeatAlerts` so you only surface fresh ones.
 - If `newAlerts` is empty, say "No new sharp plays right now." — do not force recommendations.
 
 **`finalVerdict` is the field to trust.** It merges the raw screen tier and the validation verdict into one authoritative `BET`/`CONSIDER`/`PASS` call. Validation wins; a `movement adverse` or `exec bad` flag forces PASS. Read `finalVerdict`, not the raw `displayTier` — that is exactly the trap that produced the Djokovic-ML false positive this project hit.
@@ -369,7 +369,7 @@ If `health_status` returns `auth.valid: false` or any tool returns an auth error
 2. Do not attempt to retry the failed call — it will fail again until auth is refreshed.
 3. After the user confirms they've re-logged in, call `health_status` to verify before proceeding.
 
-The auth file lives at `~/.ssb/auth.json` by default. If the user has set `AUTH_FILE` env var, it may be elsewhere.
+The auth file lives at `~/.ssb-for-agents/auth.json` by default. If the user has set `AUTH_FILE` env var, it may be elsewhere.
 
 ---
 

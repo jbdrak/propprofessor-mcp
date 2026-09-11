@@ -7,7 +7,7 @@ This file is for release and maintenance workflow details that should not clutte
 SSB is manual-only. There are no automated schedules, cron jobs, or
 CI-driven live smoke tests. To run a live smoke check:
 
-1. Ensure you have a valid `auth.json` in `~/.ssb/`
+1. Ensure you have a valid `auth.json` in `~/.ssb-for-agents/`
 2. Run from the CLI: `pp-query doctor`
 3. Or invoke individual MCP tools via Hermes: `quick_screen`, `validate_play`, etc.
 

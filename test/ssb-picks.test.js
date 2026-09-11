@@ -24,7 +24,7 @@ const {
 
 describe('Pick Tracking', () => {
   before(() => {
-    fs.mkdirSync(path.join(tmpDir, '.ssb'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, '.ssb-for-agents'), { recursive: true });
   });
 
   after(() => {
@@ -124,7 +124,7 @@ describe('Alert Checkpoint', () => {
   });
 
   it('survives corrupt checkpoint file', () => {
-    const picksFile = path.join(tmpDir, '.ssb', 'picks.json');
+    const picksFile = path.join(tmpDir, '.ssb-for-agents', 'picks.json');
     fs.writeFileSync(picksFile, '{corrupt', 'utf8');
     const result = getPickHistory();
     assert.equal(result.ok, true);

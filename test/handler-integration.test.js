@@ -1012,7 +1012,7 @@ describe('composite handlers: registry-driven market defaults', () => {
   });
 
   it('get_alerts fans out per-league registry markets via screen_ranked', async () => {
-    const checkpointPath = path.join(os.homedir(), '.ssb', 'alerts-checkpoint.json');
+    const checkpointPath = path.join(os.homedir(), '.ssb-for-agents', 'alerts-checkpoint.json');
     const prevCheckpoint = fs.existsSync(checkpointPath) ? fs.readFileSync(checkpointPath, 'utf8') : null;
 
     try {

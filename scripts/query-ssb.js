@@ -41,7 +41,7 @@ const LEAGUE_ALIASES = {
 
 function getCommandInventory() {
   return [
-    { command: 'setup', description: 'Install default config to ~/.ssb/config.json (idempotent)' },
+    { command: 'setup', description: 'Install default config to ~/.ssb-for-agents/config.json (idempotent)' },
     { command: 'opinion', description: 'Analyze a single prop from sportsbook rows' },
     { command: 'sportsbook', description: 'Fetch sportsbook +EV rows' },
     { command: 'smart', description: 'Fetch smart money rows' },
@@ -113,14 +113,14 @@ function buildHelpText() {
     '',
     'Auth file lookup order:',
     '  1. AUTH_FILE',
-    `  2. ${os.homedir()}/.ssb/auth.json`,
+    `  2. ${os.homedir()}/.ssb-for-agents/auth.json`,
     '  3. ./auth.json in this repo',
     '',
     'If you are new here, install your browser session with:',
     '  pp-query install-auth --source /path/to/auth.json',
     '',
     'Default auth location:',
-    `  ${os.homedir()}/.ssb/auth.json`
+    `  ${os.homedir()}/.ssb-for-agents/auth.json`
   ].join('\n');
 }
 
@@ -506,7 +506,7 @@ async function runInitCommand({ opts, client, logger }) {
         args: [scriptPath],
         env: {
           SSB_MCP_NDJSON: 'true',
-          AUTH_FILE: authInfo.authFilePath || path.join(os.homedir(), '.ssb', 'auth.json')
+          AUTH_FILE: authInfo.authFilePath || path.join(os.homedir(), '.ssb-for-agents', 'auth.json')
         }
       }
     }
@@ -865,7 +865,7 @@ async function main({ argv = process.argv, client = createSSBClient(), logger = 
     }
 
   if (command === 'setup') {
-    const CONFIG_DIR = path.join(os.homedir(), '.ssb');
+    const CONFIG_DIR = path.join(os.homedir(), '.ssb-for-agents');
     const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
     const DEFAULT_PATH = path.join(__dirname, '..', 'config.default.json');
 

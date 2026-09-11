@@ -124,7 +124,7 @@ Each ranked row includes `consensusStrength`: `strong` (3+ books agree), `modera
 
 **Token Persistence**
 
-Auth tokens are cached to `~/.ssb/token-cache.json`. Reduces login frequency. If tools return auth errors, tell user to run `pp-query login`.
+Auth tokens are cached to `~/.ssb-for-agents/token-cache.json`. Reduces login frequency. If tools return auth errors, tell user to run `pp-query login`.
 
 ## Common Pitfalls
 

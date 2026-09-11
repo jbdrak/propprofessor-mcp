@@ -222,7 +222,7 @@ Flags:
   --validate-all            Full validation on all candidates (slow)
   --tz <IANA>                Timezone for display (default: America/Chicago). Overrides LOCALTIMEZONE env var.
   --no-tennis-fallback       Disable fallback recovery when tennis scan returns 0 plays
-  --record-scan              Record scan + normalized candidates to the tracker ledger (PP_RECORD_LEDGER, default ~/.ssb/tracker/ledger.json)
+  --record-scan              Record scan + normalized candidates to the tracker ledger (PP_RECORD_LEDGER, default ~/.ssb-for-agents/tracker/ledger.json)
   --props                   Include player prop markets (Player Points, etc.) in the scan
   --wallets [N]             Overlay top Polymarket wallets' live positions on plays (default off; N = number of wallets, default 20)
   --no-wallets              Explicitly disable the wallet overlay (only meaningful with --wallets)
@@ -296,7 +296,7 @@ Flags:
   'record-card': `pp record-card <card.json> [flags]
 
 Record a reviewed decision card into the tracker ledger (PP_RECORD_LEDGER,
-default ~/.ssb/tracker/ledger.json). Promotes explicit BET cards
+default ~/.ssb-for-agents/tracker/ledger.json). Promotes explicit BET cards
 into official bet records; LEAN/PASS update the candidate without creating
 a bet. Idempotent — re-importing an already recorded card is a no-op.
 
@@ -326,7 +326,7 @@ Exit status:
   record: `pp record <stats|review|pending> [flags]
 
 Review official bets, P&L, and raw candidates from the tracker ledger
-(PP_RECORD_LEDGER, default ~/.ssb/tracker/ledger.json). Local and
+(PP_RECORD_LEDGER, default ~/.ssb-for-agents/tracker/ledger.json). Local and
 read-only — no network, no ledger writes.
 
 Modes:

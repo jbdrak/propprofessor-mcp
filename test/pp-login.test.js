@@ -19,9 +19,9 @@ describe('pp-login module', () => {
     assert.ok(loginModule.DEFAULT_AUTH_FILE.endsWith('auth.json'));
   });
 
-  it('exports DEFAULT_AUTH_DIR pointing to ~/.ssb', () => {
+  it('exports DEFAULT_AUTH_DIR pointing to ~/.ssb-for-agents', () => {
     assert.equal(typeof loginModule.DEFAULT_AUTH_DIR, 'string');
-    assert.ok(loginModule.DEFAULT_AUTH_DIR.endsWith('.ssb'));
+    assert.ok(loginModule.DEFAULT_AUTH_DIR.endsWith('.ssb-for-agents'));
   });
 
   it('exports LOGIN_URL pointing to SSB login page', () => {

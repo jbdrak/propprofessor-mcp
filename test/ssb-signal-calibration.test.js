@@ -29,7 +29,7 @@ test('PP_SIGNAL_CALIBRATION_FILE overrides the default calibration path', () => 
     market: 'Moneyline'
   });
 
-  // The module must write to the override path, not ~/.ssb
+  // The module must write to the override path, not ~/.ssb-for-agents
   const written = JSON.parse(fs.readFileSync(path.join(tmpDir, 'signal-calibration.json'), 'utf8'));
   assert.equal(written['TIER 1:green:NBA:Moneyline'].wins, 1);
 });

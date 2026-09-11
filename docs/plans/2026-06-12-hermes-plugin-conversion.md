@@ -11,7 +11,7 @@
 **Non-Goals (YAGNI):**
 
 - Do NOT convert to a Python `pip install`-able plugin with entry_points. Apollo's pattern is Python-specific and would require maintaining two repos.
-- Do NOT add a `~/.hermes/ssb.db` local store. Auth already lives at `~/.ssb/auth.json`; if we add storage later, it goes there.
+- Do NOT add a `~/.hermes/ssb.db` local store. Auth already lives at `~/.ssb-for-agents/auth.json`; if we add storage later, it goes there.
 - Do NOT change the MCP tool surface (23 tools, 784 tests passing). Pure packaging work.
 
 ---
@@ -211,7 +211,7 @@ For bankroll-based stake allocation, call `mcp_ssb_staking_plan` with `bankroll`
 
 ## Coverage / privacy guardrails
 
-- The MCP server needs an active SSB auth file at `~/.ssb/auth.json`. If you see auth errors, tell the user to run `pp-query login` (or `pp doctor` to diagnose).
+- The MCP server needs an active SSB auth file at `~/.ssb-for-agents/auth.json`. If you see auth errors, tell the user to run `pp-query login` (or `pp doctor` to diagnose).
 - Don't share pick UUIDs externally — they're tied to the user's local bet log.
 ```
 
@@ -499,9 +499,9 @@ git commit -m "feat(install): add Makefile with install/uninstall targets"
 - `pp hide <bet-id>` — hide a bet from the fantasy table
 - `pp unhide <id>` — restore visibility
 - `pp hidden` — list currently hidden bets
-- `pp sync` — run a full sync (calls `pp-query health` + a re-fetch of recommended_bets; caches to `~/.ssb/sync-cache.json`)
+- `pp sync` — run a full sync (calls `pp-query health` + a re-fetch of recommended_bets; caches to `~/.ssb-for-agents/sync-cache.json`)
 - `pp doctor` — alias for `pp-query doctor` (already exists)
-- `pp today` — alias for `pp-query sport nba` with the default user's league preference (reads from `~/.ssb/config.json`)
+- `pp today` — alias for `pp-query sport nba` with the default user's league preference (reads from `~/.ssb-for-agents/config.json`)
 
 **Step 2:** All of these are sub-3-second shellouts to existing `pp-query` commands. No new logic in the MCP server.
 
@@ -738,7 +738,7 @@ SKILL_NAME = "ssb-coach"
 SKILL_SOURCE = REPO_ROOT / "skills" / SKILL_NAME
 MCP_NAME = "ssb"
 MCP_SERVER_PATH = REPO_ROOT / "scripts" / "ssb-mcp-server.js"
-AUTH_FILE_DEFAULT = Path.home() / ".ssb" / "auth.json"
+AUTH_FILE_DEFAULT = Path.home() / ".ssb-for-agents" / "auth.json"
 
 
 def install_skill() -> None:
@@ -1027,13 +1027,13 @@ ls -la ~/.hermes/skills/external/ssb-coach 2>/dev/null \
 
 ## Phase 4: Default config + first-run experience
 
-> The `~/.ssb/config.json` file gives users a place to set their default league, bankroll, and target book. Today there's no such file — settings are per-call.
+> The `~/.ssb-for-agents/config.json` file gives users a place to set their default league, bankroll, and target book. Today there's no such file — settings are per-call.
 
 ### Task 4.1: Design the config schema
 
 **Files:**
 
-- Create: `config.default.json` (shipped, copied to `~/.ssb/config.json` on first install)
+- Create: `config.default.json` (shipped, copied to `~/.ssb-for-agents/config.json` on first install)
 
 **Step 1:** Write the default
 
@@ -1042,7 +1042,7 @@ ls -la ~/.hermes/skills/external/ssb-coach 2>/dev/null \
   "$schema": "https://ssb-for-agents.j17drake.com/schemas/config.schema.json",
   "version": 1,
   "auth": {
-    "file": "~/.ssb/auth.json"
+    "file": "~/.ssb-for-agents/auth.json"
   },
   "defaults": {
     "league": "NBA",
@@ -1100,7 +1100,7 @@ grep -n "if (command === '" scripts/query-ssb.js | head -20
 
 ```javascript
 if (command === 'setup') {
-  const CONFIG_DIR = path.join(os.homedir(), '.ssb');
+  const CONFIG_DIR = path.join(os.homedir(), '.ssb-for-agents');
   const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
   const DEFAULT_PATH = path.join(__dirname, '..', 'config.default.json');
 
@@ -1123,7 +1123,7 @@ if (command === 'setup') {
 **Step 3:** Add to `getCommandInventory()`
 
 ```javascript
-{ command: 'setup', description: 'Install default config to ~/.ssb/config.json (idempotent)' },
+{ command: 'setup', description: 'Install default config to ~/.ssb-for-agents/config.json (idempotent)' },
 ```
 
 **Step 4:** Test
@@ -1132,7 +1132,7 @@ if (command === 'setup') {
 node scripts/query-ssb.js setup
 ```
 
-**Expected:** `{ "command": "setup", "status": "created", "path": "/Users/jamesdrake/.ssb/config.json" }`.
+**Expected:** `{ "command": "setup", "status": "created", "path": "/Users/jamesdrake/.ssb-for-agents/config.json" }`.
 
 **Step 5:** Re-run, verify idempotency
 
@@ -1180,9 +1180,9 @@ def install_mcp() -> None:
 
 ```python
 def test_install_mcp_creates_config(fake_hermes_home, monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))  # redirect ~/.ssb
+    monkeypatch.setenv("HOME", str(tmp_path))  # redirect ~/.ssb-for-agents
     subprocess.run([sys.executable, str(INSTALL), "mcp"], check=True)
-    assert (tmp_path / ".ssb" / "config.json").exists()
+    assert (tmp_path / ".ssb-for-agents" / "config.json").exists()
 ```
 
 **Step 3:** Run the new test
@@ -1240,7 +1240,7 @@ If there are TIER 1 plays:
 2. For each play, call `mcp_ssb_player_context` to check the risk flag.
 3. Format the top 3 plays as a tier table.
 4. Deliver to the user's home telegram channel.
-5. Include the bankroll-stake for each play via `mcp_ssb_staking_plan` if a bankroll is set in `~/.ssb/config.json`.
+5. Include the bankroll-stake for each play via `mcp_ssb_staking_plan` if a bankroll is set in `~/.ssb-for-agents/config.json`.
 
 ## Schedule
 
@@ -1418,7 +1418,7 @@ make install
 
 1. Links the `ssb-coach` skill into `~/.hermes/skills/external/`
 2. Registers the MCP server with hermes (`hermes mcp add ssb ...`)
-3. Installs the default config to `~/.ssb/config.json`
+3. Installs the default config to `~/.ssb-for-agents/config.json`
 
 Then authenticate:
 
@@ -1492,11 +1492,11 @@ pp-query doctor
 
 ## What `make install` does
 
-| Step                                              | Command                            | Reversible?        |
-| ------------------------------------------------- | ---------------------------------- | ------------------ |
-| 1. Symlink `ssb-coach` skill                      | `python3 scripts/install.py skill` | ✓ `make uninstall` |
-| 2. Register MCP server with hermes                | `python3 scripts/install.py mcp`   | ✓ `make uninstall` |
-| 3. Install default config to `~/.ssb/config.json` | runs as part of step 2             | ✓ delete the file  |
+| Step                                                         | Command                            | Reversible?        |
+| ------------------------------------------------------------ | ---------------------------------- | ------------------ |
+| 1. Symlink `ssb-coach` skill                                 | `python3 scripts/install.py skill` | ✓ `make uninstall` |
+| 2. Register MCP server with hermes                           | `python3 scripts/install.py mcp`   | ✓ `make uninstall` |
+| 3. Install default config to `~/.ssb-for-agents/config.json` | runs as part of step 2             | ✓ delete the file  |
 
 ## What `make install-cron` adds
 
@@ -1554,7 +1554,7 @@ head -40 CHANGELOG.md
 - `scripts/install_helpers.py` + `scripts/test_install_helpers.py` — hermes path/profile resolution helpers with tests
 - `bin/pp` — thin CLI wrapper for `pp hide / unhide / hidden / sync / doctor / today`
 - `config.default.json` — ships sane defaults (league=NBA, bankroll=1000, targetBook=NoVigApp)
-- `pp-query setup` — copies the default config to `~/.ssb/config.json`
+- `pp-query setup` — copies the default config to `~/.ssb-for-agents/config.json`
 - `skills/ssb-coach/SKILL.md` — operator-facing coach skill (auto-routes "what should I bet today" to the right tools)
 - `docs/cron-prompts/sharp-money-alert.md` — cron prompt template
 - `INSTALL.md` — 60-second quick-start
@@ -1694,7 +1694,7 @@ git push origin v2.1.0
 | 1     | Coach skill + Makefile | 2 new, 1 modify | Low — pure additive                      |
 | 2     | `pp` wrapper           | 1 new, 1 modify | Low — pass-through only                  |
 | 3     | `install.py`           | 1 new, 1 modify | Med — touches hermes config (idempotent) |
-| 4     | Default config         | 2 new, 2 modify | Low — additive to `~/.ssb/`              |
+| 4     | Default config         | 2 new, 2 modify | Low — additive to `~/.ssb-for-agents/`   |
 | 5     | Cron template          | 1 new, 1 modify | Low — opt-in                             |
 | 6     | Uninstall tests        | 1 modify        | Low                                      |
 | 7     | Docs + CHANGELOG       | 4 modify, 1 new | Low                                      |

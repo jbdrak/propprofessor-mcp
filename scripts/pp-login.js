@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const DEFAULT_AUTH_DIR = path.join(os.homedir(), '.ssb');
+const DEFAULT_AUTH_DIR = path.join(os.homedir(), '.ssb-for-agents');
 const DEFAULT_AUTH_FILE = path.join(DEFAULT_AUTH_DIR, 'auth.json');
 const LOGIN_URL = 'https://app.propprofessor.com/login';
 const DASHBOARD_URL_PATTERN = '**/dashboard**';

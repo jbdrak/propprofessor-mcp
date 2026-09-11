@@ -5,8 +5,8 @@
  * One-time legacy tracker migration (Task 7).
  *
  * Imports settled bets from the old Python tracker
- * (~/.ssb/tracker/bets.json by default) into the v2 local ledger
- * (PP_RECORD_LEDGER, default ~/.ssb/tracker/ledger.json) without
+ * (~/.ssb-for-agents/tracker/bets.json by default) into the v2 local ledger
+ * (PP_RECORD_LEDGER, default ~/.ssb-for-agents/tracker/ledger.json) without
  * double-counting. The legacy file is READ-ONLY input: it is never
  * overwritten, and the script refuses to run when source and ledger resolve
  * to the same path.
@@ -21,9 +21,9 @@
  *   node scripts/migrate-tracker.js [--source bets.json] [--ledger ledger.json]
  *                                   [--apply] [--json]
  *
- *   --source <file>  legacy tracker file (default ~/.ssb/tracker/bets.json)
+ *   --source <file>  legacy tracker file (default ~/.ssb-for-agents/tracker/bets.json)
  *   --ledger <file>  destination v2 ledger (default PP_RECORD_LEDGER or
- *                    ~/.ssb/tracker/ledger.json)
+ *                    ~/.ssb-for-agents/tracker/ledger.json)
  *   --apply          actually write. DRY-RUN IS THE DEFAULT: without --apply
  *                    nothing is read or written except the source file.
  *   --json           machine-readable JSON on stdout
@@ -50,7 +50,7 @@ const EVENT_DATE_FIELDS = ['eventDate', 'start', 'startTime', 'startAt', 'gameTi
 const MIGRATION_SOURCE = 'legacy_tracker_bets_json';
 
 function defaultSourcePath() {
-  return pathModule.join(os.homedir(), '.ssb', 'tracker', 'bets.json');
+  return pathModule.join(os.homedir(), '.ssb-for-agents', 'tracker', 'bets.json');
 }
 
 function parseArgs(argv) {

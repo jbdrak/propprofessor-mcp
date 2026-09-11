@@ -14,7 +14,7 @@ token-cache.json
 ranked-screen-rows.json
 circuit-cache.json
 lib/tennis-schedule-data/flashscore-cache.json
-.ssb/
+.ssb-for-agents/
 
 # scratch / dev-time scripts — never ship
 scripts/scan-*

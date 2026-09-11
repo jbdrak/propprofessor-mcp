@@ -486,7 +486,7 @@ describe('query-ssb CLI command execution', () => {
     const { logger, lines } = createLogger();
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pp-cli-install-auth-'));
     const sourceFile = path.join(tempDir, 'source-auth.json');
-    const destinationFile = path.join(tempDir, '.ssb', 'auth.json');
+    const destinationFile = path.join(tempDir, '.ssb-for-agents', 'auth.json');
     fs.writeFileSync(
       sourceFile,
       JSON.stringify({ cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'abc' }] }),
