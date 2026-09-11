@@ -119,7 +119,7 @@ describe('fetchAccessToken', () => {
       assert.equal(result.perm.sportsbook, true);
       assert.equal(calls.length, 1);
       assert.match(calls[0].headers.Cookie, /__Secure-next-auth\.session-token=abc/);
-      assert.equal(calls[0].url, 'https://app.propprofessor.com/api/access-token');
+      assert.equal(calls[0].url, 'https://www.propprofessor.com/api/access-token');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

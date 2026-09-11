@@ -149,12 +149,37 @@ describe('fetchAccessTokenViaCDP', () => {
     // The URL must appear as a JSON-stringified literal (with surrounding
     // double quotes), NOT as a bare concatenation that could be hijacked.
     assert.ok(
-      expr.includes('"https://app.propprofessor.com/api/access-token"'),
-      `Runtime.evaluate expression should JSON-escape the URL; got: ${expr}`
+      expr.includes('"/api/access-token"'),
+      `Runtime.evaluate expression should JSON-escape the same-origin token path; got: ${expr}`
     );
     assert.ok(
-      !expr.includes("'https://app.propprofessor.com/api/access-token'"),
+      !expr.includes("'api/access-token'"),
       `Runtime.evaluate expression should not use the old single-quoted interpolation; got: ${expr}`
+    );
+  });
+
+  it('fetches a same-origin relative path, not an absolute cross-origin URL', async () => {
+    // Regression: the upstream app moved from app.propprofessor.com to
+    // www.propprofessor.com. Fetching the absolute app. URL from a page that
+    // lands on www is cross-origin and dies with "Failed to fetch" even with
+    // valid cookies. The path must therefore be relative.
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/abc' })
+    });
+    const responses = [
+      { id: 1, result: { targetInfos: [{ type: 'page', url: 'https://www.propprofessor.com/', targetId: 'T1' }] } },
+      { id: 2, result: { sessionId: 'S' } },
+      { id: 3, result: { result: { value: JSON.stringify({ token: 'www-jwt', exp: 9999, perm: {} }) } } }
+    ];
+    const { StubWebSocket, sent } = makeStubWebSocket(responses);
+    const result = await fetchAccessTokenViaCDP({ fetchImpl, WebSocketImpl: StubWebSocket });
+    assert.equal(result.token, 'www-jwt');
+    const evalCall = sent.find((m) => m.method === 'Runtime.evaluate');
+    assert.ok(
+      evalCall.params.expression.includes('fetch("/api/access-token"'),
+      'must fetch a same-origin relative path'
     );
   });
 
@@ -346,7 +371,7 @@ describe('fetchAccessTokenViaCDP', () => {
     }
   });
 
-  it('waits for a newly created target to settle on app.propprofessor.com before the in-page fetch', async () => {
+  it('waits for a newly created target to settle on the app origin before the in-page fetch', async () => {
     const fetchImpl = async () => ({
       ok: true,
       status: 200,
@@ -384,7 +409,7 @@ describe('fetchAccessTokenViaCDP', () => {
     assert.ok(evals[0].params.expression.includes('location.href'), 'poll 1 checks page location');
     assert.ok(evals[1].params.expression.includes('location.href'), 'poll 2 checks page location');
     assert.ok(
-      evals[2].params.expression.includes('"https://app.propprofessor.com/api/access-token"'),
+      evals[2].params.expression.includes('"/api/access-token"'),
       'the fetch eval must run only after the page settled on the app origin'
     );
     const fetchSentIdx = sent.findIndex(
@@ -421,7 +446,7 @@ describe('fetchAccessTokenViaCDP', () => {
         cdpTimeoutMs: 1000,
         runtimeTimeoutMs: 250
       }),
-      /did not settle on app\.propprofessor\.com/
+      /did not settle on the SSB app origin/
     );
   });
 
@@ -756,13 +781,10 @@ describe('fetchAccessTokenViaEgo', () => {
       'should use the named default task space (ego creates it on first use)'
     );
     assert.ok(
-      script.includes("openOrReuseTab('https://app.propprofessor.com/'"),
-      'should open/reuse a same-origin tab before browserFetch'
+      script.includes('openOrReuseTab("https://www.propprofessor.com/"'),
+      'should open/reuse a same-origin tab on the app origin before browserFetch'
     );
-    assert.ok(
-      script.includes('"https://app.propprofessor.com/api/access-token"'),
-      'should embed the JSON-escaped access-token URL'
-    );
+    assert.ok(script.includes('"/api/access-token"'), 'should embed the JSON-escaped same-origin token path');
     assert.ok(script.includes('process.stdout.write'), 'should emit the response via process.stdout.write');
     assert.ok(!script.includes(EGO_FAKE_JWT), 'the script itself must not contain the token');
   });
