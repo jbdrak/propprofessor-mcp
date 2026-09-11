@@ -167,7 +167,7 @@ What you **can't** trust from the system alone: that any flagged play will win. 
 
 - Tier + risk score: [`lib/ssb-risk-score.js`](../lib/ssb-risk-score.js)
 - Ranking logic: [`lib/screen-ranker.js`](../lib/screen-ranker.js)
-- Tool definitions: [`lib/ssb-tool-definitions.js`](../lib/ssb-tool-definitions.js)
+- Tool definitions: [`lib/tool-definitions/`](../lib/tool-definitions/)
 - Backtest: [`scripts/backtest-synthetic.js`](../scripts/backtest-synthetic.js)
 - Backtest methodology: [`BACKTESTING.md`](./BACKTESTING.md)
 
