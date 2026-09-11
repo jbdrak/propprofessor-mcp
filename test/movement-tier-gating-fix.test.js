@@ -90,7 +90,7 @@ describe('Quote/history freshness fail-closed regressions', () => {
     assert.equal(result.lastPointAgeMs, 60 * 60 * 1000);
   });
 
-  it('keeps timestamped selection-specific backfilled history usable with degraded provenance', () => {
+  it('fails closed when timestamped backfilled history has degraded provenance', () => {
     const backfilled = summarizeSharpMovement({
       lineHistory: [
         { book: 'Pinnacle', odds: 110, time: 1782551782005, line: -1 },
@@ -100,9 +100,9 @@ describe('Quote/history freshness fail-closed regressions', () => {
       sharpBooks: ['Pinnacle'],
       options: { lineFieldMissingCount: 2, historyMatchedBy: 'selectionId' }
     });
-    assert.equal(backfilled.lineHistoryUsable, true);
+    assert.equal(backfilled.lineHistoryUsable, false);
     assert.equal(backfilled.lineHistoryQuality, 'degraded_line_fields');
-    assert.notEqual(
+    assert.equal(
       computeMovementDisposition({
         ...backfilled,
         movementGrade: 'green',

@@ -258,7 +258,7 @@ PropProfessor MCP follows a layered data pipeline:
 ### Ranking Pipeline (Node.js)
 
 - **Extract** — parse raw odds payloads from the screen API, expand multi-book selections
-- **Hydrate** — enrich each row with 12-hour odds history via the backend API (cached cross-call with 5-min TTL)
+- **Hydrate** — use SharpOdds as the primary movement-history source, with the authenticated PP history path as a fail-closed fallback; cache board/history reads within the bounded request
 - **Rank** — score by consensus edge (% advantage over sharp consensus), CLV proxy (opening vs current line movement), and league-specific market priorities
 - **Tier** — assign TIER 1–4 based on movement grade (green/yellow/red) × risk score (1–10) × sharp book confirmation, with hysteresis to prevent thrashing
 - **Format** — output at three verbosity levels: `minimal` (plain English), `standard` (tier/edge/risk/rationale), `full` (raw movement data)

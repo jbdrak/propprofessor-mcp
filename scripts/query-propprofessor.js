@@ -532,7 +532,7 @@ async function runOpinionCommand({ opts, client, logger }) {
 
 async function runMiscCommands({ command, opts, client, logger }) {
   if (command === 'ufc-card') {
-    const handlers = createMcpHandlers({ client });
+    const handlers = createMcpHandlers({ client, enableSharpOddsHistory: true });
     const result = await handlers.ufc_card({
       book: opts.book || opts.targetBook,
       targetBook: opts.targetBook || opts.book,
@@ -637,7 +637,7 @@ async function runSharpPlaysCommand({ opts, client, logger, lookbackHours, debug
     market: opts.market
   });
   const { createMcpHandlers } = require('./propprofessor-mcp-server');
-  const handlers = createMcpHandlers({ client });
+  const handlers = createMcpHandlers({ client, enableSharpOddsHistory: true });
   const result = await handlers.sharp_plays({
     book: targetBook,
     leagues,
@@ -685,7 +685,8 @@ async function runTennisCommand({ opts, payloads, client, logger, lookbackHours,
       includeAll: true,
       maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : null,
       lookbackHours,
-      debug
+      debug,
+      enableSharpOddsHistory: true
     },
     league: 'Tennis',
     focusBook: preferredBookName,
@@ -792,7 +793,8 @@ async function runScreenCommand({ opts, client, logger, lookbackHours, debug, co
       includeAll: true,
       maxAgeMs: opts.maxAgeMs ? Number(opts.maxAgeMs) : null,
       lookbackHours,
-      debug
+      debug,
+      enableSharpOddsHistory: true
     },
     league: screenCommand.league,
     focusBook: screenBooks[0] || 'NoVigApp',

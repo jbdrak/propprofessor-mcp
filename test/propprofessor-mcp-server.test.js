@@ -1240,7 +1240,9 @@ describe('propprofessor MCP server stdio contract', () => {
       passReasonCounts: {
         consensus_book_count_below_1: 2,
         movement_mode_mixed_books_fallback: 2,
-        missing_movement_source_book: 2
+        missing_movement_source_book: 2,
+        movement_not_supportive_insufficient_history: 2,
+        no_usable_line_history: 2
       }
     });
     assert.ok(result.resultMeta.emptyState);
@@ -1249,7 +1251,9 @@ describe('propprofessor MCP server stdio contract', () => {
     assert.deepEqual(result.resultMeta.emptyState.failureBreakdown, {
       consensus_book_count_below_1: 2,
       movement_mode_mixed_books_fallback: 2,
-      missing_movement_source_book: 2
+      missing_movement_source_book: 2,
+      movement_not_supportive_insufficient_history: 2,
+      no_usable_line_history: 2
     });
     assert.equal(result.resultMeta.emptyState.topNearMisses.length, 2);
     assert.equal(result.resultMeta.emptyState.topNearMisses[0].movementSourceBook, null);

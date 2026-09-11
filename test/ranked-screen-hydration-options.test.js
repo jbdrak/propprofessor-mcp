@@ -19,6 +19,7 @@ describe('buildRankedHydrationOptions', () => {
         lookbackHours: 6,
         preferredBook: 'NoVigApp',
         sharpBooks: ['Pinnacle'],
+        sharpOddsBooks: ['Pinnacle', 'Circa', 'BetOnline'],
         historySportsbooks: ['Pinnacle'],
         enableLineFallback: false,
         minIntervalMs: 0
@@ -40,6 +41,7 @@ describe('buildRankedHydrationOptions', () => {
         lookbackHours: 3,
         preferredBook: null,
         sharpBooks: [],
+        sharpOddsBooks: ['Pinnacle', 'Circa', 'BetOnline'],
         historySportsbooks: [],
         enableLineFallback: true
       }

@@ -54,7 +54,7 @@ const TOOL_MODE = (() => {
 })();
 
 function createMcpServer({
-  handlers = createMcpHandlers(),
+  handlers = createMcpHandlers({ enableSharpOddsHistory: true }),
   toolDefinitions = buildToolDefinitions({ mode: TOOL_MODE }),
   rateLimiter = new RateLimiter({
     maxCalls: Number(process.env.PROPPROFESSOR_RATE_LIMIT || 25),

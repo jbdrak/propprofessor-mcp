@@ -20,16 +20,12 @@ function makeHandler(client) {
 }
 
 describe('Tennis screen handler fallback', () => {
-  it('returns a truthful empty response when screen and +EV have no tennis rows', async () => {
+  it('returns a truthful empty response from the free screen when no tennis rows exist', async () => {
     const calls = [];
     const handlers = makeHandler({
       queryScreenOdds: async (args) => {
         calls.push(['screen', args]);
         return { game_data: [] };
-      },
-      querySportsbook: async (args) => {
-        calls.push(['ev', args]);
-        return [];
       }
     });
 
@@ -39,9 +35,8 @@ describe('Tennis screen handler fallback', () => {
     assert.deepEqual(result.result, []);
     assert.equal(result.resultMeta.source, 'fallback_empty');
     assert.match(result.warning, /no tennis candidates in the requested card window/i);
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 1);
     assert.equal(calls[0][0], 'screen');
-    assert.equal(calls[1][0], 'ev');
   });
 
   it('filters screen rows by the requested tournament name', async () => {

@@ -16,7 +16,13 @@ const EXACT_LINE_HISTORY_FIELDS = [
   'historyMatchKey',
   'historyGameId',
   'lineVariantUsed',
-  'exactLineHistorySuppressed'
+  'exactLineHistorySuppressed',
+  // Native PP selection-scoped price-history provenance: scoped to the exact
+  // selectionId, never a substitute for verified line movement.
+  'priceHistoryUsable',
+  'priceHistoryScope',
+  'priceHistorySource',
+  'priceHistoryPointCount'
 ];
 
 /**
