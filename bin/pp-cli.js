@@ -24,6 +24,7 @@ const { formatScanDiagnostics, normalizeWatchCandidates, summarizeUnresolvedCand
 );
 const { getMarketsForSport } = require(PROJECT + '/lib/propprofessor-market-registry');
 const { getSoccerEventIdentity } = require(PROJECT + '/lib/soccer-event-identity');
+const { resolveScanLimit } = require(PROJECT + '/lib/propprofessor-scan-limit');
 const { correctTennisTimes } = require(PROJECT + '/lib/propprofessor-tennis');
 const { extractEventLinkRows, groupEventLinks } = require(PROJECT + '/lib/propprofessor-event-links');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
@@ -217,6 +218,7 @@ Flags:
   --asc                     Sort ascending (default: descending)
   -j, --json                Raw JSON output
   --fast                    Quick scan (5 fastest leagues)
+  --deep                    Deepen multi-league BET-only history hydration (opt-in; PP_SCAN_DEEP=1)
   --validate-all            Full validation on all candidates (slow)
   --tz <IANA>                Timezone for display (default: America/Chicago). Overrides LOCALTIMEZONE env var.
   --no-tennis-fallback       Disable fallback recovery when tennis scan returns 0 plays
@@ -1204,6 +1206,7 @@ async function cmdScan(handlers, positional, flags, client) {
   const minFinalTier = tier ? (tier === '1' ? 'TIER 1' : tier === '2' ? 'TIER 2' : 'TIER 2') : 'TIER 2';
   const ncaafOnly = leagues.length === 1 && String(leagues[0]).toUpperCase() === 'NCAAF';
   const singleLeagueScan = leagues.length === 1;
+  const deepScan = flags.deep || process.env.PP_SCAN_DEEP === '1';
 
   const MOVEMENT_ALIASES = {
     supportive: ['supportive_clean', 'supportive_bouncy'],
@@ -1256,13 +1259,7 @@ async function cmdScan(handlers, positional, flags, client) {
         Number.isFinite(Number(flags['scan-limit'] || flags.scanLimit)) &&
         Number(flags['scan-limit'] || flags.scanLimit) > 0
           ? Number(flags['scan-limit'] || flags.scanLimit)
-          : ncaafOnly
-            ? 80
-            : onlyBets
-              ? singleLeagueScan
-                ? Math.min(limit, 100)
-                : Math.min(limit, 24)
-              : Math.min(limit, 50),
+          : resolveScanLimit({ onlyBets, singleLeagueScan, ncaafOnly, deepScan, limit }),
       lite: true,
       verbosity: 'bets',
       validate: validateAll ? true : undefined,
