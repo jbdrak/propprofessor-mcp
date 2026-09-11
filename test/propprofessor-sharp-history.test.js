@@ -9,6 +9,7 @@ const {
   buildMovementWindows,
   summarizeSharpMovement
 } = require('../lib/propprofessor-sharp-history');
+const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
 
 describe('propprofessor sharp history helpers', () => {
   it('groups line history by book and sorts by timestamp', () => {
@@ -90,6 +91,40 @@ describe('propprofessor sharp history helpers', () => {
     assert.equal(summary.droppedHistoryPointCount, 1);
     assert.equal(typeof summary.clvProxyPct, 'number');
     assert.equal(typeof summary.recentClvPct, 'number');
+  });
+
+  it('uses exact selection price history for movement when line fields are missing', () => {
+    const nowMs = Date.UTC(2026, 4, 6, 12, 0, 0);
+    const summary = summarizeSharpMovement({
+      lineHistory: [
+        { book: 'Pinnacle', odds: -120, line: null, time: nowMs - 2 * 60 * 60 * 1000 },
+        { book: 'Pinnacle', odds: -130, line: null, time: nowMs - 60 * 60 * 1000 }
+      ],
+      preferredBook: 'Fliff',
+      sharpBooks: ['Pinnacle'],
+      options: {
+        nowMs,
+        recentWindowHours: 6,
+        lineFieldMissingCount: 2,
+        priceHistoryUsable: true
+      }
+    });
+
+    assert.equal(summary.priceHistoryUsable, true);
+    assert.equal(summary.movementHistoryUsable, true);
+    assert.equal(summary.lineHistoryUsable, false);
+    assert.equal(summary.lineHistoryQuality, 'degraded_line_fields');
+    assert.equal(summary.movementLabel, 'supportive');
+    assert.ok(summary.clvProxyPct > 0);
+    assert.equal(
+      computeMovementDisposition({
+        ...summary,
+        movementGrade: 'yellow',
+        odds: -130,
+        targetBookOdds: -130
+      }),
+      'supportive_bouncy'
+    );
   });
 
   it('exposes lastPointAgeMs as the age of the newest history point', () => {

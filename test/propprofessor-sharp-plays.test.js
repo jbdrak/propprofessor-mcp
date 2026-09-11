@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   buildSharpPlaysFromRankedRows,
   buildUfcShortlist,
+  classifySharpPlay,
   filterUfcRowsForCard,
   parseRowStartMs,
   resolveSharpPlayMarkets,
@@ -153,6 +154,32 @@ describe('UFC card/date filtering helpers', () => {
 });
 
 describe('sharp play target book helpers', () => {
+  it('accepts exact selection price history without certifying line history', () => {
+    const result = classifySharpPlay(
+      {
+        market: 'Point Spread',
+        book: 'Fliff',
+        odds: -110,
+        targetBookOdds: -110,
+        executionQuality: 'playable',
+        consensusBookCount: 3,
+        consensusEdge: 1.5,
+        gatePassed: true,
+        movementSourceBook: 'Pinnacle',
+        movementMode: 'comparison_book',
+        movementLabel: 'supportive',
+        movementHistoryUsable: true,
+        priceHistoryUsable: true,
+        lineHistoryUsable: false,
+        movementQualityScore: 0.8
+      },
+      { targetBook: 'Fliff' }
+    );
+
+    assert.equal(result.verdict, 'Bet candidate');
+    assert.equal(result.passReasons.includes('no_usable_line_history'), false);
+  });
+
   it('resolves multiple target books while preserving legacy single-book fallback', () => {
     assert.deepEqual(resolveTargetBooks({ targetBooks: ['Fliff', 'Novig', 'NoVigApp', ''] }), ['Fliff', 'NoVigApp']);
     assert.deepEqual(resolveTargetBooks({ targetBooksCsv: 'Fliff,NoVig' }), ['Fliff', 'NoVigApp']);

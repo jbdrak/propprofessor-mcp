@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- feat: exact selection-scoped **price history can now qualify movement** when historical line fields are absent. `resolveHistoryForEntity` records `priceHistoryUsable` / `priceHistoryScope` / `priceHistorySource` / `priceHistoryPointCount`, and `movementHistoryUsable` is now distinct from `lineHistoryUsable`: odds-only points feed movement while `lineHistoryUsable` stays false, so rows with a real price trail but no historical line values stop collapsing to `insufficient`. Provenance survives ranking (`rankingProvenance`), the candidate mapper, the compact field set, and the formatter, and is stripped from suppressed exact-line rows.
+
+- fix: the ranker no longer throws when `movementHistoryUsable` is true and `clvProxyPct` is null — a legitimate state for a single or flat line-less sharp series (`movementLabel: 'insufficient_history'`). `buildScreenRankingReason` interpolated `clvProxyPct.toFixed(2)` unguarded, which raised a `TypeError` and aborted the entire call, discarding already-completed markets in `rank --all-markets`. The CLV suffix is now `Number.isFinite`-guarded.
+
+- fix: SharpOdds event matching now separates a **coverage gap** from a genuine identity conflict. When no event matches but a candidate shares both participants the result stays `event_mismatch`; when nothing on the board shares the participants the provider returns `event_not_covered` instead of implying a league/time conflict. The time tolerance is never widened.
+
+- fix: `get_play_details` resolves the **exact nested side and line** for the odds matrix (`findExactNestedSide` / `buildExactOddsMatrix`) instead of taking the first nested quote, which can belong to an alternate line or the opposite side. `sportsbookData` is used only to fill a book the nested selection did not supply. Tennis start times are corrected before history hydration so the SharpOdds event matcher observes the corrected start.
+
+- fix: the tennis fallback normalizes non-`game_data` response envelopes and object-keyed row maps, queries `ALL_SCREEN_BOOKS` and filters the requested execution book locally, and reports `screenRows` / `targetBookSelections` alongside the existing hydration counters so upstream book coverage is separable from local extraction failures.
+
+- feat: `PP_SCAN_TIMING=1` emits per-phase scan timings to stderr (`[scan-timing] <phase>=<ms>`). Default-off and hermetic; used to attribute scan wall clock across probe / hydrate / card-window / validate / research / tennis-fallback / render.
+
 ## 2.10.0
 
 - fix: scan-sourced validation trusts the screen snapshot for fast Novig markets. The validation re-fetch confirms the line is still there instead of re-grading it: consensus wobbles, exec-quality flips, and movement-label flips between two fetches seconds apart no longer downgrade a screen BET. Only material changes downgrade — line gone (lookup_failed) or a big price move (30+ pts American, 5+ pts NoVig percentage → CONSIDER). Direct `validate_play` calls without a screen snapshot keep the legacy strict behavior. Validated prices now carry `quoteAsOf` + `liquidityUsd` so every quote has an age — confirm the live number in-app at tap time.

@@ -9,7 +9,7 @@ const {
   normalizeMarketType,
   normalizeSegment,
   normalizeSide,
-  matchSharpOddsEvent,
+  matchSharpOddsEvent
 } = require('../lib/sharpodds-match');
 
 const START = '2026-09-01T19:05:00Z';
@@ -21,7 +21,7 @@ function request(overrides = {}) {
     league: 'MLB',
     startTime: START,
     market: { type: 'total', segment: 'full-game', side: 'over', line: 8.5 },
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -32,10 +32,10 @@ function candidate(overrides = {}) {
       homeTeam: 'Los Angeles Dodgers',
       awayTeam: 'New York Yankees',
       league: 'MLB',
-      startTime: START,
+      startTime: START
     },
     market: { type: 'total', segment: 'full-game', side: 'over', line: 8.5 },
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -43,6 +43,7 @@ describe('sharpodds-match normalizers', () => {
   it('normalizes team names for comparison', () => {
     assert.equal(normalizeTeamName('  Los Angeles Dodgers '), 'los angeles dodgers');
     assert.equal(normalizeTeamName('St. Louis Cardinals'), 'st louis cardinals');
+    assert.equal(normalizeTeamName('Miami FL'), 'miami florida');
     assert.equal(normalizeTeamName(''), null);
     assert.equal(normalizeTeamName(null), null);
   });
@@ -78,14 +79,14 @@ describe('sharpodds-match event identity', () => {
         homeTeam: 'Florida A&M',
         awayTeam: 'Miami FL',
         league: 'NCAAF',
-        startTime: '2026-09-11T00:00:00.000Z',
+        startTime: '2026-09-11T00:00:00.000Z'
       },
       {
         id: 714430,
         homeTeam: 'Miami Florida',
         awayTeam: 'Florida A&M',
         league: 'NCAAF',
-        startTime: '2026-09-11T00:00:00.000Z',
+        startTime: '2026-09-11T00:00:00.000Z'
       }
     );
     assert.equal(result.matched, true);
@@ -95,7 +96,15 @@ describe('sharpodds-match event identity', () => {
   it('matches by stable numeric SharpOdds event ID', () => {
     const result = matchSharpOddsEvent(
       request({ sharpOddsEventId: '98765' }),
-      candidate({ event: { id: 98765, homeTeam: 'Los Angeles Dodgers', awayTeam: 'New York Yankees', league: 'MLB', startTime: START } })
+      candidate({
+        event: {
+          id: 98765,
+          homeTeam: 'Los Angeles Dodgers',
+          awayTeam: 'New York Yankees',
+          league: 'MLB',
+          startTime: START
+        }
+      })
     );
     assert.equal(result.matched, true);
     assert.equal(result.matchStrength, 'exact-id');
@@ -117,8 +126,8 @@ describe('sharpodds-match event identity', () => {
           homeTeam: 'New York Yankees',
           awayTeam: 'Los Angeles Dodgers',
           league: 'MLB',
-          startTime: START,
-        },
+          startTime: START
+        }
       })
     );
     assert.equal(result.matched, true);
@@ -133,9 +142,9 @@ describe('sharpodds-match event identity', () => {
         homeTeam: 'New York Yankees',
         awayTeam: 'Los Angeles Dodgers',
         league: 'MLB',
-        startTime: START,
+        startTime: START
       },
-      market: { type: 'spread', segment: 'full-game', side: 'home', line: 1.5 },
+      market: { type: 'spread', segment: 'full-game', side: 'home', line: 1.5 }
     });
     const result = matchSharpOddsEvent(req, cand);
     assert.equal(result.matched, true);
@@ -150,8 +159,8 @@ describe('sharpodds-match event identity', () => {
           homeTeam: 'LA Dodgers',
           awayTeam: 'NY Yankees',
           league: 'MLB',
-          startTime: START,
-        },
+          startTime: START
+        }
       })
     );
     assert.equal(result.matched, true);
@@ -166,8 +175,8 @@ describe('sharpodds-match event identity', () => {
           homeTeam: 'Los Angeles Dodgers',
           awayTeam: 'Boston Red Sox',
           league: 'MLB',
-          startTime: START,
-        },
+          startTime: START
+        }
       })
     );
     assert.equal(result.matched, false);
@@ -182,8 +191,8 @@ describe('sharpodds-match event identity', () => {
           homeTeam: 'Dodgers',
           awayTeam: 'Yankees',
           league: 'MLB',
-          startTime: START,
-        },
+          startTime: START
+        }
       })
     );
     assert.equal(result.matched, false);
@@ -197,8 +206,8 @@ describe('sharpodds-match event identity', () => {
           homeTeam: 'Los Angeles Dodgers',
           awayTeam: 'New York Yankees',
           league: 'MLB',
-          startTime: '2026-09-01T20:00:00Z',
-        },
+          startTime: '2026-09-01T20:00:00Z'
+        }
       })
     );
     assert.equal(within.matched, true);
@@ -211,8 +220,8 @@ describe('sharpodds-match event identity', () => {
           homeTeam: 'Los Angeles Dodgers',
           awayTeam: 'New York Yankees',
           league: 'MLB',
-          startTime: '2026-09-01T23:00:00Z',
-        },
+          startTime: '2026-09-01T23:00:00Z'
+        }
       })
     );
     assert.equal(outside.matched, false);
@@ -226,8 +235,8 @@ describe('sharpodds-match event identity', () => {
         event: {
           homeTeam: 'Los Angeles Dodgers',
           awayTeam: 'New York Yankees',
-          league: 'MLB',
-        },
+          league: 'MLB'
+        }
       })
     );
     assert.equal(missing.matched, false);
@@ -239,14 +248,17 @@ describe('sharpodds-match event identity', () => {
   });
 
   it('rejects league mismatches', () => {
-    const result = matchSharpOddsEvent(request({ league: 'MLB' }), candidate({
-      event: {
-        homeTeam: 'Los Angeles Dodgers',
-        awayTeam: 'New York Yankees',
-        league: 'NFL',
-        startTime: START,
-      },
-    }));
+    const result = matchSharpOddsEvent(
+      request({ league: 'MLB' }),
+      candidate({
+        event: {
+          homeTeam: 'Los Angeles Dodgers',
+          awayTeam: 'New York Yankees',
+          league: 'NFL',
+          startTime: START
+        }
+      })
+    );
     assert.equal(result.matched, false);
     assert.ok(result.reasons.includes('league_mismatch'));
   });
@@ -307,7 +319,7 @@ describe('sharpodds-match market identity', () => {
   it('passes the line check for moneylines with null lines', () => {
     const req = request({ market: { type: 'moneyline', segment: 'full-game', side: 'away', line: null } });
     const cand = candidate({
-      market: { type: 'moneyline', segment: 'full-game', side: 'away', line: null },
+      market: { type: 'moneyline', segment: 'full-game', side: 'away', line: null }
     });
     const result = matchSharpOddsEvent(req, cand);
     assert.equal(result.matched, true);

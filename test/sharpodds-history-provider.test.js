@@ -46,7 +46,13 @@ function totalHistoryPayload() {
   };
 }
 
-function fakeClient({ board = [boardEvent()], history = totalHistoryPayload(), onBoard, onHistory, historyError } = {}) {
+function fakeClient({
+  board = [boardEvent()],
+  history = totalHistoryPayload(),
+  onBoard,
+  onHistory,
+  historyError
+} = {}) {
   return {
     fetchBoard: async (...args) => {
       if (onBoard) onBoard(args);
@@ -141,7 +147,14 @@ describe('sharpodds-history-provider resolve', () => {
 
   it('resolves a moneyline row through the away column', async () => {
     const history = {
-      meta: { sportsbook: 'Pinnacle', period: 'Game', away_team: 'NYY', home_team: 'LAD', date: '2026-09-01', updated: '2026-09-01T12:00:00Z' },
+      meta: {
+        sportsbook: 'Pinnacle',
+        period: 'Game',
+        away_team: 'NYY',
+        home_team: 'LAD',
+        date: '2026-09-01',
+        updated: '2026-09-01T12:00:00Z'
+      },
       markets: {
         MONEYLINES: [
           { date: '09/01', time: '9:00 AM', away: '-150', home: '+130', pub: null },
@@ -150,7 +163,9 @@ describe('sharpodds-history-provider resolve', () => {
       }
     };
     const provider = createSharpOddsHistoryProvider({ client: fakeClient({ history }), timezone: TZ });
-    const result = await provider.resolve(totalRow({ market: 'Moneyline', pick: 'New York Yankees', selection: 'New York Yankees' }));
+    const result = await provider.resolve(
+      totalRow({ market: 'Moneyline', pick: 'New York Yankees', selection: 'New York Yankees' })
+    );
     assert.equal(result.lineHistoryAvailable, true);
     assert.equal(result.lineHistory[0].odds, -150);
   });
@@ -172,9 +187,7 @@ describe('sharpodds-history-provider resolve', () => {
         ]
       }
     };
-    const board = [
-      boardEvent({ homeTeam: 'New York Yankees', awayTeam: 'Los Angeles Dodgers' })
-    ];
+    const board = [boardEvent({ homeTeam: 'New York Yankees', awayTeam: 'Los Angeles Dodgers' })];
     const provider = createSharpOddsHistoryProvider({ client: fakeClient({ board, history }), timezone: TZ });
     const result = await provider.resolve(
       totalRow({ market: 'Moneyline', pick: 'Los Angeles Dodgers', selection: 'Los Angeles Dodgers' })
@@ -235,7 +248,11 @@ describe('sharpodds-history-provider resolve', () => {
   it('returns unavailable for unsupported markets without fetching history', async () => {
     let historyCalls = 0;
     const provider = createSharpOddsHistoryProvider({
-      client: fakeClient({ onHistory: () => { historyCalls += 1; } }),
+      client: fakeClient({
+        onHistory: () => {
+          historyCalls += 1;
+        }
+      }),
       timezone: TZ
     });
     const result = await provider.resolve(totalRow({ market: 'Grand Salami', pick: 'Over 100' }));
@@ -253,13 +270,34 @@ describe('sharpodds-history-provider resolve', () => {
     assert.equal(result.historyReason, 'segment_unsupported');
   });
 
-  it('returns event_mismatch when no board event matches', async () => {
+  it('returns event_not_covered when no board event shares both teams', async () => {
     let historyCalls = 0;
     const provider = createSharpOddsHistoryProvider({
-      client: fakeClient({ onHistory: () => { historyCalls += 1; } }),
+      client: fakeClient({
+        onHistory: () => {
+          historyCalls += 1;
+        }
+      }),
       timezone: TZ
     });
     const result = await provider.resolve(totalRow({ homeTeam: 'Boston Red Sox', awayTeam: 'Chicago Cubs' }));
+    assert.equal(result.lineHistoryAvailable, false);
+    assert.equal(result.historyReason, 'event_not_covered');
+    assert.equal(historyCalls, 0);
+  });
+
+  it('keeps event_mismatch for same-teams time conflicts', async () => {
+    let historyCalls = 0;
+    const provider = createSharpOddsHistoryProvider({
+      client: fakeClient({
+        onHistory: () => {
+          historyCalls += 1;
+        }
+      }),
+      timezone: TZ
+    });
+    // Same teams as the board event but a start far outside tolerance.
+    const result = await provider.resolve(totalRow({ start: '2026-09-10T19:05:00Z' }));
     assert.equal(result.lineHistoryAvailable, false);
     assert.equal(result.historyReason, 'event_mismatch');
     assert.equal(historyCalls, 0);
@@ -269,7 +307,14 @@ describe('sharpodds-history-provider resolve', () => {
     let boardCalls = 0;
     let historyCalls = 0;
     const provider = createSharpOddsHistoryProvider({
-      client: fakeClient({ onBoard: () => { boardCalls += 1; }, onHistory: () => { historyCalls += 1; } }),
+      client: fakeClient({
+        onBoard: () => {
+          boardCalls += 1;
+        },
+        onHistory: () => {
+          historyCalls += 1;
+        }
+      }),
       timezone: TZ
     });
     const [over, under] = await Promise.all([
@@ -314,20 +359,28 @@ describe('sharpodds-history-provider resolve', () => {
         {
           league: 'NFL',
           games: [
-            { id: '111', homeTeam: 'Dallas Cowboys', awayTeam: 'Philadelphia Eagles', startTime: '2026-09-01T20:00:00Z' }
+            {
+              id: '111',
+              homeTeam: 'Dallas Cowboys',
+              awayTeam: 'Philadelphia Eagles',
+              startTime: '2026-09-01T20:00:00Z'
+            }
           ]
         },
         {
           league: 'MLB',
-          games: [
-            { id: '98765', homeTeam: 'Los Angeles Dodgers', awayTeam: 'New York Yankees', startTime: START }
-          ]
+          games: [{ id: '98765', homeTeam: 'Los Angeles Dodgers', awayTeam: 'New York Yankees', startTime: START }]
         }
       ],
       books: { 0: { id: 25, name: 'Pinnacle' }, 1: { id: 31, name: 'BetOnline' } }
     };
     const provider = createSharpOddsHistoryProvider({
-      client: fakeClient({ board, onHistory: (params) => { seenParams = params; } }),
+      client: fakeClient({
+        board,
+        onHistory: (params) => {
+          seenParams = params;
+        }
+      }),
       timezone: TZ
     });
     const result = await provider.resolve(totalRow());
@@ -344,7 +397,11 @@ describe('sharpodds-history-provider resolve', () => {
   it('converts America/Chicago to the DST-aware numeric offset (September)', async () => {
     let seenParams;
     const provider = createSharpOddsHistoryProvider({
-      client: fakeClient({ onHistory: (params) => { seenParams = params; } }),
+      client: fakeClient({
+        onHistory: (params) => {
+          seenParams = params;
+        }
+      }),
       timezone: 'America/Chicago'
     });
     const result = await provider.resolve(totalRow());
@@ -356,7 +413,14 @@ describe('sharpodds-history-provider resolve', () => {
   it('converts America/Chicago to standard time in January', async () => {
     const janStart = '2026-01-15T19:05:00Z';
     const history = {
-      meta: { sportsbook: 'Pinnacle', period: 'Game', away_team: 'NYY', home_team: 'LAD', date: '2026-01-15', updated: '2026-01-15T12:00:00Z' },
+      meta: {
+        sportsbook: 'Pinnacle',
+        period: 'Game',
+        away_team: 'NYY',
+        home_team: 'LAD',
+        date: '2026-01-15',
+        updated: '2026-01-15T12:00:00Z'
+      },
       markets: {
         TOTALS: [
           { date: '01/15', time: '9:00 AM', away: 'o8.5 -110', home: 'u8.5 -110', pub: null },
@@ -369,7 +433,9 @@ describe('sharpodds-history-provider resolve', () => {
       client: fakeClient({
         board: [boardEvent({ startTime: janStart })],
         history,
-        onHistory: (params) => { seenParams = params; }
+        onHistory: (params) => {
+          seenParams = params;
+        }
       }),
       timezone: 'America/Chicago'
     });
@@ -382,7 +448,11 @@ describe('sharpodds-history-provider resolve', () => {
   it('fails closed on an unconvertible IANA timezone', async () => {
     let boardCalls = 0;
     const provider = createSharpOddsHistoryProvider({
-      client: fakeClient({ onBoard: () => { boardCalls += 1; } }),
+      client: fakeClient({
+        onBoard: () => {
+          boardCalls += 1;
+        }
+      }),
       timezone: 'Mars/Olympus_Mons'
     });
     const result = await provider.resolve(totalRow());
@@ -395,7 +465,11 @@ describe('sharpodds-history-provider resolve', () => {
     if (process.env.LOCAL_TIMEZONE) return;
     let seenParams;
     const provider = createSharpOddsHistoryProvider({
-      client: fakeClient({ onHistory: (params) => { seenParams = params; } })
+      client: fakeClient({
+        onHistory: (params) => {
+          seenParams = params;
+        }
+      })
     });
     const result = await provider.resolve(totalRow());
     assert.equal(result.lineHistoryAvailable, true);
@@ -407,7 +481,16 @@ describe('sharpodds-history-provider resolve', () => {
     const empty = { meta: { date: '2026-09-01' }, markets: { SPREADS: [], TOTALS: [], MONEYLINES: [] } };
     const provider = createSharpOddsHistoryProvider({
       client: {
-        fetchBoard: async () => ({ data: [boardEvent({ books: [{ id: 7, name: 'Pinnacle' }, { id: 41, name: 'Circa' }] })] }),
+        fetchBoard: async () => ({
+          data: [
+            boardEvent({
+              books: [
+                { id: 7, name: 'Pinnacle' },
+                { id: 41, name: 'Circa' }
+              ]
+            })
+          ]
+        }),
         fetchHistory: async (params) => {
           calls.push(params.bookName);
           if (params.bookName === 'Pinnacle') return { data: empty };
@@ -430,8 +513,17 @@ describe('sharpodds-history-provider resolve', () => {
     let seenParams;
     const provider = createSharpOddsHistoryProvider({
       client: fakeClient({
-        board: [boardEvent({ books: [{ id: 9, name: 'BetOnline' }, { id: 7, name: 'Pinnacle' }] })],
-        onHistory: (params) => { seenParams = params; }
+        board: [
+          boardEvent({
+            books: [
+              { id: 9, name: 'BetOnline' },
+              { id: 7, name: 'Pinnacle' }
+            ]
+          })
+        ],
+        onHistory: (params) => {
+          seenParams = params;
+        }
       }),
       timezone: TZ
     });
@@ -494,7 +586,9 @@ describe('sharpodds-history-provider resolve', () => {
     };
     const client = createSharpOddsClient({ fetchImpl });
     const provider = createSharpOddsHistoryProvider({ client, timezone: TZ });
-    const result = await provider.resolve(totalRow({ market: 'Run Line', pick: 'New York Yankees +1.5', selection: 'New York Yankees +1.5' }));
+    const result = await provider.resolve(
+      totalRow({ market: 'Run Line', pick: 'New York Yankees +1.5', selection: 'New York Yankees +1.5' })
+    );
     assert.equal(result.lineHistoryAvailable, true);
     const query = new URL(seenUrl).searchParams;
     assert.equal(query.get('action'), 'linehistory');

@@ -71,6 +71,28 @@ function isStandardTotalsMarket(market) {
   );
 }
 
+// ─── Phase: env-gated scan timing ─────────────────────────────────────────────
+// PP_SCAN_TIMING=1 emits one stderr line per phase with elapsed ms. Read at call
+// time (not module load) so tests can toggle it. Zero effect when unset.
+function scanTimingEnabled() {
+  return process.env.PP_SCAN_TIMING === '1';
+}
+
+/**
+ * Emit an elapsed-time line for one scan phase and return the current
+ * timestamp for chaining into the next phase.
+ * @param {string} label - Phase label, e.g. 'fanout.probe'.
+ * @param {number} startedAt - Date.now() from the previous phase boundary.
+ * @returns {number} Date.now() after emitting.
+ */
+function scanTiming(label, startedAt) {
+  const now = Date.now();
+  if (scanTimingEnabled()) {
+    process.stderr.write(`[scan-timing] ${label}=${now - startedAt}ms\n`);
+  }
+  return now;
+}
+
 // ─── Phase: resolve markets per league (incl. includeProps augmentation) ───────
 
 function resolveQuickScreenMarkets(leagues, markets, targetBooks, includeProps) {
@@ -112,6 +134,7 @@ async function runQuickScreenFanout(
     }
   }
 
+  const fanoutStart = Date.now();
   const activeLeagueMarketPairs = await probeActivePairs(ctx, leagueMarketPairs, {
     targetBooks,
     scanLimit,
@@ -119,6 +142,10 @@ async function runQuickScreenFanout(
     emptySlate,
     cardWindow
   });
+  const probeDone = scanTiming(
+    `fanout.probe pairs=${leagueMarketPairs.length} active=${activeLeagueMarketPairs.length}`,
+    fanoutStart
+  );
   const activeAggregatePairCount = Math.max(1, activeLeagueMarketPairs.length);
 
   await mapWithConcurrency(
@@ -144,6 +171,7 @@ async function runQuickScreenFanout(
     },
     { concurrency: 8 }
   );
+  scanTiming(`fanout.hydrate pairs=${activeLeagueMarketPairs.length}`, probeDone);
 
   return { allCandidates, unresolvedCandidates, emptySlate };
 }
@@ -986,6 +1014,7 @@ async function runQuickScreen(deps, args = {}) {
     lite
   } = plan;
 
+  const qsStart = Date.now();
   const { resolvedMarketsByLeague, allAliasesUsed } = resolveQuickScreenMarkets(
     leagues,
     markets,
@@ -1004,6 +1033,7 @@ async function runQuickScreen(deps, args = {}) {
     limit,
     args
   });
+  let phaseMark = scanTiming('quick_screen.fanout', qsStart);
 
   const { cardWindowFallthrough, nextDayMerged } = applyQuickScreenCardWindow(
     allCandidates,
@@ -1012,6 +1042,7 @@ async function runQuickScreen(deps, args = {}) {
       .trim()
       .toLowerCase()
   );
+  phaseMark = scanTiming('quick_screen.card_window', phaseMark);
 
   // Strip alternate-line candidates (resolveAlternateLines TIER 4 downgrades).
   for (const entry of allCandidates) {
@@ -1039,6 +1070,7 @@ async function runQuickScreen(deps, args = {}) {
     requestedValidateTop,
     leagues
   });
+  phaseMark = scanTiming('quick_screen.validate', phaseMark);
 
   const verbosity = applyQuickScreenFilters(allCandidates, emptySlate, args);
   void verbosity;
@@ -1048,6 +1080,7 @@ async function runQuickScreen(deps, args = {}) {
     args,
     gameContextFn
   });
+  scanTiming('quick_screen.research', phaseMark);
 
   applyQuickScreenTopPick(allCandidates, topPick);
 

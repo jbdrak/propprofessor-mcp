@@ -195,6 +195,74 @@ function createMockClient(history = TENNIS_HISTORY) {
   return client;
 }
 
+describe('recoverTennisFromScreen — response and history recovery', () => {
+  it('hydrates Fliff rows from a rows envelope using sharp-book history', async () => {
+    const gameId = 'Tennis:PREMATCH:FliffPlayer:SharpPlayer:1786017600';
+    const historyCalls = [];
+    const screenCalls = [];
+    const client = {
+      queryScreenOdds: async (args) => {
+        screenCalls.push(args);
+        return {
+          rows: [
+            {
+              gameId,
+              awayTeam: 'FliffPlayer',
+              homeTeam: 'SharpPlayer',
+              start: '2026-07-30T18:00:00Z',
+              selections: {
+                ml: {
+                  selection1: 'FliffPlayer',
+                  selection1Id: 'Moneyline:FliffPlayer',
+                  selection2: 'SharpPlayer',
+                  selection2Id: 'Moneyline:SharpPlayer',
+                  odds: {
+                    Fliff: { odds1: 110, odds2: -130 }
+                  }
+                }
+              }
+            }
+          ]
+        };
+      },
+      queryOddsHistory: async (args) => {
+        historyCalls.push(args);
+        return {
+          Pinnacle: [
+            { odds: -110, start_ts: NOW_SEC - 6 * HOUR },
+            { odds: -150, start_ts: NOW_SEC }
+          ],
+          Circa: [
+            { odds: -108, start_ts: NOW_SEC - 6 * HOUR },
+            { odds: -148, start_ts: NOW_SEC }
+          ]
+        };
+      }
+    };
+
+    const plays = await recoverTennisFromScreen({
+      client,
+      book: 'Fliff',
+      markets: ['Moneyline'],
+      maxHistorySelections: 1,
+      skipTimeCorrection: true
+    });
+
+    assert.equal(plays.length, 1);
+    assert.equal(plays.fallbackMeta.screenRows, 1);
+    assert.equal(plays.fallbackMeta.targetBookSelections, 1);
+    assert.equal(screenCalls.length, 1);
+    assert.ok(screenCalls[0].books.includes('Pinnacle'));
+    assert.ok(screenCalls[0].books.includes('Fliff'));
+    assert.equal(historyCalls.length, 1);
+    assert.ok(historyCalls[0].sportsbooks.includes('Pinnacle'));
+    assert.equal(plays[0].movementSourceBook, 'Pinnacle');
+    assert.ok(plays[0].clvProxyPct > 0);
+    assert.notEqual(plays[0].movementDisposition, 'insufficient');
+    assert.equal(plays[0].book, 'Fliff');
+  });
+});
+
 describe('recoverTennisFromScreen — canonical identity', () => {
   it('preserves the exact side identity separately from the display start', async () => {
     const gameId = 'Tennis:PREMATCH:Kessler:Mcnally:1786017600';

@@ -20,6 +20,7 @@ const { filterPlayDetailsRows } = require('./filter-play-details-rows');
 const { recoverPlayDetailsRows } = require('./recover-play-details-rows');
 const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
 const { createSharpOddsHistoryProvider } = require('../../../lib/sharpodds-history-provider');
+const { correctTennisTimes } = require('../../../lib/propprofessor-tennis');
 const { getLocalTimezone } = require('../../../lib/mcp-runtime-config');
 
 // Parse source values before coercion: unknown is not zero liquidity or odds.
@@ -95,6 +96,69 @@ function normalizePayloadRows(payload) {
     if (Array.isArray(payload?.[key])) return payload[key];
   }
   return [];
+}
+
+/**
+ * Find the nested side represented by a row's own exact selection.
+ * Alternate lines and the opposite side must never be used as a fallback.
+ */
+function findExactNestedSide(row, nested) {
+  if (!nested || typeof nested !== 'object') return null;
+  const rowSelectionId = normalizeSelectionText(row?.selectionId);
+  const rowLabel = row?.selection || row?.pick || row?.participant || '';
+  const rowLabelWithLine = row?.line != null && rowLabel ? `${rowLabel} ${row.line}` : '';
+  const sides = [
+    { index: 1, label: nested.selection1, id: nested.selection1Id, line: nested.line1 },
+    { index: 2, label: nested.selection2, id: nested.selection2Id, line: nested.line2 }
+  ];
+  return (
+    sides.find((side) => {
+      const sideId = normalizeSelectionText(side.id);
+      if (rowSelectionId && sideId && rowSelectionId === sideId) return true;
+      const sideLabel = normalizeSelectionText(side.label);
+      if (
+        rowLabelWithLine &&
+        normalizeSelectionText(`${side.label} ${side.line}`) === normalizeSelectionText(rowLabelWithLine)
+      ) {
+        return true;
+      }
+      return Boolean(rowLabel && sideLabel && sideLabel === normalizeSelectionText(rowLabel) && row?.line == null);
+    }) || null
+  );
+}
+
+/**
+ * Build per-book odds for the row's exact line and side.
+ * Returns only quotes that can be tied to that exact nested selection.
+ */
+function buildExactOddsMatrix(row) {
+  const matrix = {};
+  const selections = row?.selections && typeof row.selections === 'object' ? row.selections : {};
+
+  for (const nested of Object.values(selections)) {
+    const side = findExactNestedSide(row, nested);
+    if (!side) continue;
+    const oddsMap = nested?.odds && typeof nested.odds === 'object' ? nested.odds : {};
+    for (const [book, quote] of Object.entries(oddsMap)) {
+      const rawOdds = quote && typeof quote === 'object' ? quote[`odds${side.index}`] : quote;
+      const odds = finiteQuoteValue(rawOdds);
+      if (book && odds !== null) matrix[book] = odds;
+    }
+  }
+
+  // Some non-nested rows expose the exact selected quote through sportsbookData.
+  // Use it only when the nested exact selection did not provide that book.
+  if (Array.isArray(row?.sportsbookData)) {
+    for (const entry of row.sportsbookData) {
+      const book = String(entry?.book || '').trim();
+      const odds = finiteQuoteValue(entry?.odds ?? entry?.noVigOdds);
+      if (book && odds !== null && !Object.prototype.hasOwnProperty.call(matrix, book)) {
+        matrix[book] = odds;
+      }
+    }
+  }
+
+  return matrix;
 }
 
 function rowContainsExactBookQuote(row, selectionFilter, requestedBook) {
@@ -226,7 +290,14 @@ function materializeExactSelectionRows(rows, selectionFilter, requestedBook) {
         'normalizedSelectionId',
         'historyMatchKey',
         'historyGameId',
-        'lineVariantUsed'
+        'lineVariantUsed',
+        // Native PP selection-scoped price-history provenance: suppressed
+        // alongside line history when the row was materialized for a
+        // different nested selection.
+        'priceHistoryUsable',
+        'priceHistoryScope',
+        'priceHistorySource',
+        'priceHistoryPointCount'
       ];
       const sourceSelectionId = String(row?.selectionId || '').trim();
       const responseSelectionKey = key === 'null' ? 'exact' : key;
@@ -331,29 +402,21 @@ function finalizePlayDetailsResponse({ response, merged, args, gameIds, relaxedG
       'historyMatchKey',
       'historyGameId',
       'lineVariantUsed',
-      'exactLineHistorySuppressed'
+      'exactLineHistorySuppressed',
+      // Price-history provenance is selection-scoped: drop it with line
+      // history on suppressed (non-exact) rows so it can never leak across
+      // sides. Exact rows keep it via the spread above.
+      'priceHistoryUsable',
+      'priceHistoryScope',
+      'priceHistorySource',
+      'priceHistoryPointCount'
     ]) {
       delete row[field];
     }
   }
 
   for (const row of response.result) {
-    const matrix = {};
-    const sb = Array.isArray(row?.sportsbookData) ? row.sportsbookData : [];
-    for (const entry of sb) {
-      const book = String(entry?.book || '').trim();
-      const odds = Number(entry?.odds ?? entry?.noVigOdds);
-      if (book && Number.isFinite(odds)) matrix[book] = odds;
-    }
-    const selections = row?.selections && typeof row.selections === 'object' ? row.selections : {};
-    for (const sel of Object.values(selections)) {
-      const oddsMap = sel?.odds && typeof sel.odds === 'object' ? sel.odds : {};
-      for (const [book, v] of Object.entries(oddsMap)) {
-        if (!matrix[book] && Number.isFinite(Number(v?.odds1 ?? v))) {
-          matrix[book] = Number(v.odds1 ?? v);
-        }
-      }
-    }
+    const matrix = buildExactOddsMatrix(row);
     if (Object.keys(matrix).length) row.oddsMatrix = matrix;
   }
 
@@ -461,6 +524,19 @@ async function queryPlayDetailsResponse({
           sharpBooks: getSharpBookComparisonSet({ league, market })
         })
       : null;
+  // Tennis schedule correction BEFORE history hydration: raw PP rows carry a
+  // stale `start` while Flashscore is authoritative. SharpOdds/native history
+  // must see the corrected row.start before buildRankedScreenResponseShared
+  // runs (the SharpOdds event matcher gates on start-time agreement).
+  // normalizePayloadRows returns the live row array, so this mutates
+  // currentPayload in place and preserves its envelope.
+  if (String(league || '').toLowerCase() === 'tennis') {
+    try {
+      await correctTennisTimes(normalizePayloadRows(currentPayload));
+    } catch {
+      // Correction is best-effort; hydration proceeds on raw times.
+    }
+  }
   let response;
   try {
     const propHistoryLookback =
