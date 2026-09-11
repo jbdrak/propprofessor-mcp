@@ -38,7 +38,8 @@ const SOCCER_COMPETITIONS = new Set([
 function resolveSoccerLeague(league, leagueName) {
   const requested = String(league || '').trim();
   const named = String(leagueName || '').trim();
-  if (requested.toUpperCase() === 'MLS' || named.toUpperCase() === 'MLS') return { league: 'Soccer', leagueName: 'MLS' };
+  if (requested.toUpperCase() === 'MLS' || named.toUpperCase() === 'MLS')
+    return { league: 'Soccer', leagueName: 'MLS' };
   const competition = SOCCER_COMPETITIONS.has(requested) ? requested : SOCCER_COMPETITIONS.has(named) ? named : null;
   if (competition) return { league: 'Soccer', leagueName: competition };
   return { league: requested || 'Soccer', leagueName: named || null };

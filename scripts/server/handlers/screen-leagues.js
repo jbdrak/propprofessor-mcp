@@ -20,10 +20,7 @@ const { buildUfcShortlist } = require('../../../lib/propprofessor-sharp-plays');
 const { validatePositiveEvCandidates } = require('../../../lib/validate-ev-candidates');
 const { buildEvRecoveryRequest, extractEvRows, dedupeEvRows } = require('./ev-recovery');
 const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
-const {
-  createSharpOddsHistoryProvider,
-  DEFAULT_SHARP_BOOKS
-} = require('../../../lib/sharpodds-history-provider');
+const { createSharpOddsHistoryProvider, DEFAULT_SHARP_BOOKS } = require('../../../lib/sharpodds-history-provider');
 const { getLocalTimezone } = require('../../../lib/mcp-runtime-config');
 
 function buildCacheKey(prefix, args, league) {
@@ -147,7 +144,9 @@ async function runEvFirst(client, args, league, market, requestedBooks) {
 
 async function runLeagueScreen(client, ctx, args = {}, league) {
   const requestedLeague = String(league || '').trim() || 'Soccer';
-  const soccerResolution = /^(mls|soccer)$/i.test(requestedLeague) ? resolveSoccerLeague(requestedLeague, args.leagueName) : null;
+  const soccerResolution = /^(mls|soccer)$/i.test(requestedLeague)
+    ? resolveSoccerLeague(requestedLeague, args.leagueName)
+    : null;
   const backendLeague = soccerResolution?.league || requestedLeague;
   const responseLeagueName = soccerResolution?.leagueName || args.leagueName || null;
   const requestedBooks = normalizeBookList(args.books);

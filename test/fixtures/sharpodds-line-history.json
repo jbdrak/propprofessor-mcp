@@ -80,9 +80,7 @@
       "updated": "2026-09-01T12:00:00Z"
     },
     "markets": {
-      "MONEYLINES": [
-        { "date": "09/01", "time": "12:00 PM", "away": "-617", "home": "+450", "pub": null }
-      ]
+      "MONEYLINES": [{ "date": "09/01", "time": "12:00 PM", "away": "-617", "home": "+450", "pub": null }]
     }
   }
 }

@@ -4,11 +4,7 @@
  * Tennis screen handler — extracted from createMcpHandlers() in handlers.js.
  */
 
-const {
-  correctTennisTimes,
-  normalizeTennisMarketQuery,
-  rankTennisScreenRows
-} = require('../../../lib/screen-tennis');
+const { correctTennisTimes, normalizeTennisMarketQuery, rankTennisScreenRows } = require('../../../lib/screen-tennis');
 const {
   buildRankedScreenResponse: buildRankedScreenResponseShared,
   getIncludeAll,

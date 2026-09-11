@@ -52,19 +52,21 @@ describe('buildBoardUrl', () => {
 
 describe('buildHistoryUrl', () => {
   it('constructs the exact verified line-history query', () => {
-    const url = new URL(client.buildHistoryUrl({
-      market: 'SPREAD',
-      date: '2026-09-01',
-      gameId: 123,
-      sportId: 4,
-      period: 'Game',
-      timezone: 'America/Chicago',
-      bookName: 'Pinnacle',
-      awayTeam: 'AWY',
-      homeTeam: 'HME',
-      bookId: 7,
-      league: 'NFL',
-    }));
+    const url = new URL(
+      client.buildHistoryUrl({
+        market: 'SPREAD',
+        date: '2026-09-01',
+        gameId: 123,
+        sportId: 4,
+        period: 'Game',
+        timezone: 'America/Chicago',
+        bookName: 'Pinnacle',
+        awayTeam: 'AWY',
+        homeTeam: 'HME',
+        bookId: 7,
+        league: 'NFL'
+      })
+    );
     assert.equal(`${url.origin}${url.pathname}`, 'https://api.tsp.live/v1/odds');
     const q = url.searchParams;
     assert.equal(q.get('action'), 'linehistory');
@@ -89,13 +91,15 @@ describe('buildHistoryUrl', () => {
   });
 
   it('URL-encodes team and book names', () => {
-    const q = new URL(client.buildHistoryUrl({
-      market: 'ML',
-      date: '2026-09-01',
-      gameId: 1,
-      bookName: 'Foo & Bar',
-      awayTeam: 'St Louis',
-    })).searchParams;
+    const q = new URL(
+      client.buildHistoryUrl({
+        market: 'ML',
+        date: '2026-09-01',
+        gameId: 1,
+        bookName: 'Foo & Bar',
+        awayTeam: 'St Louis'
+      })
+    ).searchParams;
     assert.equal(q.get('sn'), 'Foo & Bar');
     assert.equal(q.get('an'), 'St Louis');
   });
@@ -142,7 +146,13 @@ describe('fetchBoard', () => {
   });
 
   it('throws a structured error on malformed JSON', async () => {
-    const fetchImpl = async () => ({ ok: true, status: 200, json: async () => { throw new Error('bad json'); } });
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error('bad json');
+      }
+    });
     try {
       await client.fetchBoard(fetchImpl);
       assert.fail('expected throw');
@@ -153,22 +163,23 @@ describe('fetchBoard', () => {
   });
 
   it('aborts on timeout via AbortSignal', async () => {
-    const fetchImpl = (url, options) => new Promise((resolve, reject) => {
-      const signal = options && options.signal;
-      if (signal && signal.aborted) {
-        const err = new Error('aborted');
-        err.name = 'AbortError';
-        reject(err);
-        return;
-      }
-      if (signal) {
-        signal.addEventListener('abort', () => {
-          const err = new Error('This operation was aborted');
+    const fetchImpl = (url, options) =>
+      new Promise((resolve, reject) => {
+        const signal = options && options.signal;
+        if (signal && signal.aborted) {
+          const err = new Error('aborted');
           err.name = 'AbortError';
           reject(err);
-        });
-      }
-    });
+          return;
+        }
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            const err = new Error('This operation was aborted');
+            err.name = 'AbortError';
+            reject(err);
+          });
+        }
+      });
     try {
       await client.fetchBoard(fetchImpl, { timeoutMs: 20 });
       assert.fail('expected timeout');
@@ -210,7 +221,13 @@ describe('fetchHistory', () => {
   });
 
   it('throws a structured error on malformed history JSON', async () => {
-    const fetchImpl = async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('Unexpected token'); } });
+    const fetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('Unexpected token');
+      }
+    });
     try {
       await client.fetchHistory(fetchImpl, { market: 'ML', date: '2026-09-01', gameId: 1 });
       assert.fail('expected throw');
@@ -225,7 +242,10 @@ describe('fetchHistory', () => {
       called = true;
       return okResponse({});
     };
-    await assert.rejects(() => client.fetchHistory(fetchImpl, { market: 'NOPE', date: '2026-09-01', gameId: 1 }), /market/);
+    await assert.rejects(
+      () => client.fetchHistory(fetchImpl, { market: 'NOPE', date: '2026-09-01', gameId: 1 }),
+      /market/
+    );
     assert.equal(called, false);
   });
 });

@@ -46,10 +46,7 @@ describe('sharpodds line-history contract (fixture only)', () => {
   it('restricts markets to the known market keys', () => {
     for (const key of ['moneyline', 'spread', 'total', 'empty', 'partial']) {
       for (const marketKey of Object.keys(fixture[key].markets)) {
-        assert.ok(
-          SAFE_MARKET_KEYS.includes(marketKey),
-          `${key}.markets has unexpected key "${marketKey}"`
-        );
+        assert.ok(SAFE_MARKET_KEYS.includes(marketKey), `${key}.markets has unexpected key "${marketKey}"`);
       }
     }
   });
@@ -110,7 +107,10 @@ describe('sharpodds line-history contract (fixture only)', () => {
 
   it('accepts pub:null on history points', () => {
     const points = fixture.moneyline.markets.MONEYLINES;
-    assert.ok(points.some((p) => p.pub === null), 'at least one point should carry pub:null');
+    assert.ok(
+      points.some((p) => p.pub === null),
+      'at least one point should carry pub:null'
+    );
   });
 
   it('covers an empty response and a partial (moneylines-only) response', () => {

@@ -39,7 +39,7 @@ test('routes MLS through the Soccer backend and scopes the response to MLS', asy
     start: new Date(Date.now() + 3600000).toISOString(),
     defaultKey: '2.5',
     selections: {
-      '2.5': {
+      2.5: {
         selection1: 'Over 2.5',
         selection2: 'Under 2.5',
         selection1Id: 'Total_Goals:Over_2.5',
@@ -57,7 +57,10 @@ test('routes MLS through the Soccer backend and scopes the response to MLS', asy
     }
   };
   const ctx = { responseCache: { get: () => null, set: () => {} }, responseCacheTtlMs: 1000 };
-  const { runLeagueScreen } = require('../scripts/server/handlers/screen-leagues').createScreenLeaguesHandlers(client, ctx);
+  const { runLeagueScreen } = require('../scripts/server/handlers/screen-leagues').createScreenLeaguesHandlers(
+    client,
+    ctx
+  );
   const result = await runLeagueScreen(
     { market: 'Total Goals', books: ['NoVigApp'], compact: true, skipHistory: true },
     'MLS'
@@ -69,7 +72,6 @@ test('routes MLS through the Soccer backend and scopes the response to MLS', asy
   assert.equal(result.resultMeta.backendLeague, 'Soccer');
   assert.ok(result.result.every((candidate) => candidate.league === 'MLS'));
 });
-
 
 test('filters mixed Soccer screen payloads by leagueName without leaking other leagues', () => {
   const payload = {
