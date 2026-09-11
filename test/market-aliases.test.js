@@ -2,7 +2,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { MARKET_ALIASES, resolveMarketName } = require('../lib/propprofessor-shared-utils');
+const { MARKET_ALIASES, resolveMarketName } = require('../lib/ssb-shared-utils');
 
 test('MARKET_ALIASES structure', async (t) => {
   await t.test('is defined', () => {

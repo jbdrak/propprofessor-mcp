@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 
 const { extractScreenRows } = require('../lib/screen-parser');
 const { rankLeagueScreenRows } = require('../lib/screen-ranker');
-const { mapCandidateRow } = require('../lib/propprofessor-mcp-candidate-mapper');
+const { mapCandidateRow } = require('../lib/ssb-mcp-candidate-mapper');
 const { NBA_MONEYLINE_PAYLOAD } = require('./fixtures/screen-payloads');
 
 /**

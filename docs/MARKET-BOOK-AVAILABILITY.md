@@ -5,7 +5,7 @@
 
 ## How it works
 
-`getSharpBookComparisonSet()` in `propprofessor-sharp-books.js` returns the comparison book set for a given league/market combination. For non-primary markets (Run Line, Puck Line, Total Goals, etc.), it now uses `ALT_MARKET_BOOKS` which includes FanDuel and other books that consistently post those markets.
+`getSharpBookComparisonSet()` in `ssb-sharp-books.js` returns the comparison book set for a given league/market combination. For non-primary markets (Run Line, Puck Line, Total Goals, etc.), it now uses `ALT_MARKET_BOOKS` which includes FanDuel and other books that consistently post those markets.
 
 ## Availability by league and market
 
@@ -71,6 +71,6 @@ The `consensusBookCount` field (backward-compatible) still shows the raw number.
 
 ## Files changed
 
-- `lib/propprofessor-sharp-books.js` — Added `ALT_MARKET_BOOKS` map and `getAltMarketBooks()` function
+- `lib/ssb-sharp-books.js` — Added `ALT_MARKET_BOOKS` map and `getAltMarketBooks()` function
 - `lib/screen-summary.js` — Added `classifyConsensusStrength()` and `computeWeightedConsensus()` functions
 - `lib/screen-ranker.js` — Added `consensusStrength` field to ranked row output

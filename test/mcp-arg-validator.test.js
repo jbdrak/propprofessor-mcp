@@ -353,7 +353,7 @@ describe('mcp-arg-validator', () => {
     });
 
     it('handler rejects when neither selection nor playId is supplied', async () => {
-      const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+      const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
       const { createMockClient } = require('./fixtures/mock-client');
       const handlers = createMcpHandlers({ client: createMockClient() });
       const result = await handlers.validate_play({ league: 'NBA', gameId: 'NBA:game-1' });

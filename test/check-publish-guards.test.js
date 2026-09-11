@@ -12,9 +12,9 @@ test('package content verifier accepts a coherent manifest', () => {
     'INSTALL.md',
     'CHANGELOG.md',
     'LICENSE',
-    'lib/propprofessor-api.js',
+    'lib/ssb-api.js',
     'bin/pp',
-    'scripts/propprofessor-mcp-server.js',
+    'scripts/ssb-mcp-server.js',
     'scripts/fetch-sofascore.py',
     'docs/agent-guide.md'
   ]);
@@ -24,7 +24,7 @@ test('package content verifier accepts a coherent manifest', () => {
 test('package content parser accepts npm pack JSON array and object shapes', () => {
   const files = [{ path: 'package/package.json' }, { path: 'package/lib/example.js' }];
   assert.deepEqual(collectPackageFiles([{ files }]), ['package.json', 'lib/example.js']);
-  assert.deepEqual(collectPackageFiles({ 'propprofessor-mcp@2.9.1': { files } }), ['package.json', 'lib/example.js']);
+  assert.deepEqual(collectPackageFiles({ 'ssb-for-agents@2.9.1': { files } }), ['package.json', 'lib/example.js']);
 });
 
 test('package content verifier rejects missing required paths', () => {
@@ -76,9 +76,9 @@ test('package content verifier rejects the manual-only live smoke diagnostic', (
     'INSTALL.md',
     'CHANGELOG.md',
     'LICENSE',
-    'lib/propprofessor-api.js',
+    'lib/ssb-api.js',
     'bin/pp',
-    'scripts/propprofessor-mcp-server.js',
+    'scripts/ssb-mcp-server.js',
     'scripts/fetch-sofascore.py',
     'docs/agent-guide.md',
     'scripts/live-smoke-all-tools.js'
@@ -96,9 +96,9 @@ test('package content verifier accepts a manifest without the live smoke diagnos
     'INSTALL.md',
     'CHANGELOG.md',
     'LICENSE',
-    'lib/propprofessor-api.js',
+    'lib/ssb-api.js',
     'bin/pp',
-    'scripts/propprofessor-mcp-server.js',
+    'scripts/ssb-mcp-server.js',
     'scripts/fetch-sofascore.py',
     'docs/agent-guide.md'
   ]);

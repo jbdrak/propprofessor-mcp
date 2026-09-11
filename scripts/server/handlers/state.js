@@ -5,10 +5,10 @@
  * Stateless helpers that clear or query internal caches.
  */
 
-const { clearScoreTimeline } = require('../../../lib/propprofessor-risk-score');
+const { clearScoreTimeline } = require('../../../lib/ssb-risk-score');
 
 /**
- * @param {import('../../../lib/propprofessor-api').PropProfessorClient} client
+ * @param {import('../../../lib/ssb-api').SSBClient} client
  * @param {import('./handler-context').HandlerContext} _ctx
  */
 function createStateHandlers(client, _ctx) {

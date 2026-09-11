@@ -5,9 +5,9 @@
  * Local-only record review and P&L (Task 6).
  *
  * Reads the tracker ledger (PP_RECORD_LEDGER, default
- * ~/.propprofessor/tracker/ledger.json) and reports a strict
+ * ~/.ssb/tracker/ledger.json) and reports a strict
  * America/Chicago date-filtered review of official bets, raw candidates,
- * and settlements. Pure local review: no network code, no PropProfessor
+ * and settlements. Pure local review: no network code, no SSB
  * calls, and the ledger is NEVER written by this script.
  *
  * Official bets are ledger.bets only. Candidates whose status is LEAN,

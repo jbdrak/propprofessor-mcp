@@ -1,11 +1,11 @@
-# PropProfessor MCP ── Sharp Money Intelligence for AI Agents
+# SSB MCP ── Sharp Money Intelligence for AI Agents
 
 <p align="center">
-  <a href="https://github.com/jbdrak/propprofessor-mcp/releases">
-    <img src="https://img.shields.io/github/v/release/jbdrak/propprofessor-mcp?color=44cc11" alt="Release" />
+  <a href="https://github.com/jbdrak/ssb-for-agents/releases">
+    <img src="https://img.shields.io/github/v/release/jbdrak/ssb-for-agents?color=44cc11" alt="Release" />
   </a>
-  <a href="https://github.com/jbdrak/propprofessor-mcp/actions/workflows/ci.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/jbdrak/propprofessor-mcp/ci.yml?branch=main&label=ci" alt="CI" />
+  <a href="https://github.com/jbdrak/ssb-for-agents/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/jbdrak/ssb-for-agents/ci.yml?branch=main&label=ci" alt="CI" />
   </a>
   <img src="https://img.shields.io/badge/node-20%2B-44cc11" alt="Node" />
   <a href="LICENSE">
@@ -13,11 +13,11 @@
   </a>
 </p>
 
-PropProfessor MCP is a Model Context Protocol server that lets AI agents see what the sharpest sportsbooks are doing. Its current registry covers 39 screen feeds across 12 league configs, detects coordinated sharp movement, surfaces steam moves and line lags, and explains the consensus — so you can decide what to bet, not be told.
+SSB MCP is a Model Context Protocol server that lets AI agents see what the sharpest sportsbooks are doing. Its current registry covers 39 screen feeds across 12 league configs, detects coordinated sharp movement, surfaces steam moves and line lags, and explains the consensus — so you can decide what to bet, not be told.
 
-Connect it to Claude Desktop, Cursor, Cline, Hermes, or any MCP client. Requires a [PropProfessor](https://propprofessor.com) account.
+Connect it to Claude Desktop, Cursor, Cline, Hermes, or any MCP client. Requires a [SSB](https://propprofessor.com) account.
 
-> **Honest scope — no profitability claim:** PropProfessor MCP is a sharp-signal DISCOVERY and RATING tool. `tier` / `kaiCall` / `edge` / `screenScore` are signal-quality ratings, not win-probability predictions. Profitability is UNPROVEN — no settled-results backtest has been published yet. Use it to find candidate plays and validate them yourself; do not treat outputs as a guaranteed winning system. The ranking pipeline surfaces _what sharp books are doing_; the betting decision stays with you.
+> **Honest scope — no profitability claim:** SSB MCP is a sharp-signal DISCOVERY and RATING tool. `tier` / `kaiCall` / `edge` / `screenScore` are signal-quality ratings, not win-probability predictions. Profitability is UNPROVEN — no settled-results backtest has been published yet. Use it to find candidate plays and validate them yourself; do not treat outputs as a guaranteed winning system. The ranking pipeline surfaces _what sharp books are doing_; the betting decision stays with you.
 
 ## What this project demonstrates
 
@@ -39,7 +39,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
 
 ## ⚡ Quickstart (30 seconds)
 
-1. **Clone and install:** `git clone https://github.com/jbdrak/propprofessor-mcp.git && cd propprofessor-mcp && npm ci && npm link`
+1. **Clone and install:** `git clone https://github.com/jbdrak/ssb-for-agents.git && cd ssb-for-agents && npm ci && npm link`
 2. **Wire your MCP client** — pick your client below:
 
    **Claude Desktop** (`claude_desktop_config.json`):
@@ -47,7 +47,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
    ```json
    {
      "mcpServers": {
-       "propprofessor": {
+       "ssb": {
          "command": "pp",
          "args": ["--mcp"]
        }
@@ -60,7 +60,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
    ```json
    {
      "mcpServers": {
-       "propprofessor": {
+       "ssb": {
          "command": "pp",
          "args": ["--mcp"],
          "env": {}
@@ -72,7 +72,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
    **Cursor** — Settings → Features → MCP Servers → Add:
 
    ```
-   Name: propprofessor
+   Name: ssb
    Type: command
    Command: pp --mcp
    ```
@@ -83,7 +83,7 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
    {
      "experimental": {
        "mcpServers": {
-         "propprofessor": {
+         "ssb": {
            "command": "pp",
            "args": ["--mcp"]
          }
@@ -96,12 +96,12 @@ The pipeline extracts odds, hydrates line history, ranks by movement quality + c
 
    ```yaml
    mcp_servers:
-     propprofessor:
+     ssb:
        command: pp
        args: [--mcp]
    ```
 
-3. **Auth (one-time):** `node scripts/pp-login.js` — opens a browser for PropProfessor login and persists cookies for the server to use.
+3. **Auth (one-time):** `node scripts/pp-login.js` — opens a browser for SSB login and persists cookies for the server to use.
 4. **Ask your agent:** _"What are tonight's sharpest plays on Fliff?"_
 
 That's it — your agent now sees 31 tools.
@@ -110,11 +110,11 @@ That's it — your agent now sees 31 tools.
 
 ### CLI — `pp`
 
-PropProfessor ships with a fast, standalone CLI that calls handlers directly — no MCP server needed.
+SSB ships with a fast, standalone CLI that calls handlers directly — no MCP server needed.
 
 ```bash
-git clone https://github.com/jbdrak/propprofessor-mcp.git
-cd propprofessor-mcp
+git clone https://github.com/jbdrak/ssb-for-agents.git
+cd ssb-for-agents
 npm ci
 npm link
 pp scan mlb tennis -M supportive -n3
@@ -140,14 +140,14 @@ pp scan mlb tennis -M supportive -n3
 | `pp health`             | Auth + backend health check                             |
 | `pp-mcp`                | MCP server (stdio) — connect your AI agent              |
 | `pp-query init`         | One-command setup (Node check + auth + doctor + config) |
-| `pp-query login`        | Browser login to PropProfessor                          |
+| `pp-query login`        | Browser login to SSB                                    |
 | `pp-query doctor`       | Full diagnostic check                                   |
 
 **MCP mode:** `pp --mcp` runs as an MCP stdio server. Connect it to Claude Desktop,
 Cursor, Cline, or any MCP client. Pass `--mode full` for the full 31-tool surface.
 
 **Quick start (from a clone):** after `npm link`, run `pp --mcp` to start the MCP server. No global package download is required.
-**Development/clone setup:** use the full path — `node /path/to/scripts/propprofessor-mcp-server.js` — see [MCP Client Setup](#mcp-client-setup) below.
+**Development/clone setup:** use the full path — `node /path/to/scripts/ssb-mcp-server.js` — see [MCP Client Setup](#mcp-client-setup) below.
 
 All commands support `-j`/`--json` for piping and `--no-color` for CI/Telegram output.
 
@@ -167,7 +167,7 @@ Tennis › Total Games  (1)
 
 ## 📊 Backtesting
 
-PropProfessor includes a backtest runner that prints settled-pick performance across any date range.
+SSB includes a backtest runner that prints settled-pick performance across any date range.
 
 ```bash
 # Show last 30 days of settled picks
@@ -180,11 +180,11 @@ node scripts/backtest-runner.js --from 2026-06-01 --to 2026-07-20
 pp-backtest --days 30
 ```
 
-The runner reads from `~/.propprofessor/picks.json` — the same file used by `pp log` and `pp picks`. It shows total picks, settled records, win rate, P&L, and breakdowns by tier and league. It never fabricates ROI. If no settled picks exist in the range, it says so honestly.
+The runner reads from `~/.ssb/picks.json` — the same file used by `pp log` and `pp picks`. It shows total picks, settled records, win rate, P&L, and breakdowns by tier and league. It never fabricates ROI. If no settled picks exist in the range, it says so honestly.
 
 ## 📒 Record Keeping — legacy tracker migration
 
-The local record ledger (`PP_RECORD_LEDGER`, default `~/.propprofessor/tracker/ledger.json`) is the v2 source of truth for official bets. To import the old Python tracker's settled bets (`~/.propprofessor/tracker/bets.json`) into the v2 ledger:
+The local record ledger (`PP_RECORD_LEDGER`, default `~/.ssb/tracker/ledger.json`) is the v2 source of truth for official bets. To import the old Python tracker's settled bets (`~/.ssb/tracker/bets.json`) into the v2 ledger:
 
 ```bash
 # Preview what would be imported (dry-run is the default — writes nothing)
@@ -207,7 +207,7 @@ Safety properties:
 
 ### Active workflow — record, review, settle
 
-The day-to-day recordkeeping loop is manual and local-only; nothing polls PropProfessor in the background:
+The day-to-day recordkeeping loop is manual and local-only; nothing polls SSB in the background:
 
 ```bash
 # 1. Record the scan — snapshots the scan + normalized candidates into the ledger
@@ -228,12 +228,12 @@ node scripts/settle-record.js --results results.json --date 2026-08-04 --dry-run
 
 Key properties:
 
-- **`--record-scan` is manual only** — it records whenever you run `pp scan --record-scan`; there is no cron job or background poller hitting PropProfessor on a schedule.
+- **`--record-scan` is manual only** — it records whenever you run `pp scan --record-scan`; there is no cron job or background poller hitting SSB on a schedule.
 - **Only BET promotes** — `pp record-card` turns explicit `BET` cards into official bet records; `LEAN`/`PASS` update the candidate without creating a bet. Re-importing an already-recorded card is a no-op (idempotent).
 - **`pp record` is local and read-only** — `stats`, `review`, and `pending` modes read the ledger with no network and no writes; `--date` filters by the America/Chicago calendar day of scheduled start, `--json` emits machine-readable output.
-- **Settlement never calls PropProfessor** — `scripts/settle-record.js` (and `lib/record-settlement`) contain no network code. You fetch results yourself (e.g. an ESPN scoreboard dump) and hand them over as a local JSON file; the script matches bets to final scores, computes P&L, and writes the ledger atomically. `--dry-run` reports without writing anything; `--force` re-settles bets that already have a settled status.
+- **Settlement never calls SSB** — `scripts/settle-record.js` (and `lib/record-settlement`) contain no network code. You fetch results yourself (e.g. an ESPN scoreboard dump) and hand them over as a local JSON file; the script matches bets to final scores, computes P&L, and writes the ledger atomically. `--dry-run` reports without writing anything; `--force` re-settles bets that already have a settled status.
 - **Results file provenance is required** — the results file must be an object with non-empty top-level `provider` and `sourceUrl` plus an `events` array; bare event arrays are no longer accepted. A same-ID event never settles on its ID alone: it must also match the bet's participants and fall inside the scheduled date window, and event-specific source URLs are kept only when the top-level provenance is valid. Missing provenance is a CLI usage error (the ledger is never touched), and library callers receive pending records with a precise reason instead of a settlement.
-- **`PP_RECORD_LEDGER` overrides the ledger path** — every command above reads/writes `$PP_RECORD_LEDGER` when set, otherwise the default `~/.propprofessor/tracker/ledger.json`.
+- **`PP_RECORD_LEDGER` overrides the ledger path** — every command above reads/writes `$PP_RECORD_LEDGER` when set, otherwise the default `~/.ssb/tracker/ledger.json`.
 
 ### Offline record → settle → evaluate example
 
@@ -247,11 +247,11 @@ The synthetic fixture records an immutable probability snapshot, promotes a revi
 
 ## 🏛 Architecture
 
-PropProfessor MCP follows a layered data pipeline:
+SSB MCP follows a layered data pipeline:
 
 ### API Layer
 
-- **PropProfessor Backend** — authenticated REST API for live odds, line history, and fantasy data
+- **SSB Backend** — authenticated REST API for live odds, line history, and fantasy data
 - **ESPN Integration** — live scores for tennis time correction and game verification
 - **X / Google News** — player context (injury news, tweets) for bet validation
 
@@ -284,7 +284,7 @@ flowchart LR
         BN[...33 more]
     end
 
-    API[PropProfessor API]
+    API[SSB API]
 
     subgraph PIPE["Ranking Pipeline"]
         E[Extract odds]
@@ -313,21 +313,21 @@ flowchart LR
 ### Quick Start
 
 ```bash
-git clone https://github.com/jbdrak/propprofessor-mcp.git
-cd propprofessor-mcp
+git clone https://github.com/jbdrak/ssb-for-agents.git
+cd ssb-for-agents
 npm install
 npm link
 pp-query init          # auth + verification + config — all at once
 ```
 
-`pp-query init` checks Node version, opens PropProfessor login if needed, runs `doctor`, and prints ready-to-paste MCP config for your client. Or do it step by step:
+`pp-query init` checks Node version, opens SSB login if needed, runs `doctor`, and prints ready-to-paste MCP config for your client. Or do it step by step:
 
 ```bash
 pp-query login         # browser login
 pp-query doctor        # verify everything works
 ```
 
-Requires a paid [PropProfessor](https://propprofessor.com) account. That's it — you're ready to connect your AI agent.
+Requires a paid [SSB](https://propprofessor.com) account. That's it — you're ready to connect your AI agent.
 
 ### MCP Client Setup
 
@@ -336,49 +336,49 @@ Add to your client's MCP config:
 ```json
 {
   "mcpServers": {
-    "propprofessor": {
+    "ssb": {
       "command": "node",
-      "args": ["/path/to/propprofessor-mcp/scripts/propprofessor-mcp-server.js"],
+      "args": ["/path/to/ssb-for-agents/scripts/ssb-mcp-server.js"],
       "env": {
-        "PROPPROFESSOR_MCP_NDJSON": "true",
-        "AUTH_FILE": "/path/to/.propprofessor/auth.json"
+        "SSB_MCP_NDJSON": "true",
+        "AUTH_FILE": "/path/to/.ssb/auth.json"
       }
     }
   }
 }
 ```
 
-Replace `/path/to/` with your actual install path (e.g. `/Users/you/projects/propprofessor-mcp`). Supports Claude Desktop, Cursor, Cline, Zed, Continue.dev, Windsurf, and any other stdio-based MCP client. See each client's docs for where MCP config lives.
+Replace `/path/to/` with your actual install path (e.g. `/Users/you/projects/ssb-for-agents`). Supports Claude Desktop, Cursor, Cline, Zed, Continue.dev, Windsurf, and any other stdio-based MCP client. See each client's docs for where MCP config lives.
 
 **For short-lived one-off sessions:**
 
 Clone the repository, install dependencies, and point your client at the server script:
 
 ```json
-{ "command": "node", "args": ["/path/to/propprofessor-mcp/scripts/propprofessor-mcp-server.js"] }
+{ "command": "node", "args": ["/path/to/ssb-for-agents/scripts/ssb-mcp-server.js"] }
 ```
 
-Requires a local clone and a PropProfessor account.
+Requires a local clone and a SSB account.
 
 **For headless/CI environments (no Chrome):**
 
-Set the `PROPPROFESSOR_COOKIES` env var with your PropProfessor cookies exported as JSON. This bypasses the CDP/Chrome auth path entirely:
+Set the `SSB_COOKIES` env var with your SSB cookies exported as JSON. This bypasses the CDP/Chrome auth path entirely:
 
 ```json
 {
   "mcpServers": {
-    "propprofessor": {
+    "ssb": {
       "command": "node",
-      "args": ["/path/to/propprofessor-mcp/scripts/propprofessor-mcp-server.js"],
+      "args": ["/path/to/ssb-for-agents/scripts/ssb-mcp-server.js"],
       "env": {
-        "PROPPROFESSOR_COOKIES": "[{\"name\":\"__Secure-next-auth.session-token\",\"value\":\"...\",\"domain\":\".propprofessor.com\"}]"
+        "SSB_COOKIES": "[{\"name\":\"__Secure-next-auth.session-token\",\"value\":\"...\",\"domain\":\".propprofessor.com\"}]"
       }
     }
   }
 }
 ```
 
-**Auth refresh fallbacks (optional).** When the server-to-server token fetch is gated by Vercel (HTTP 429), the server self-heals via a logged-in browser. Fallback order is `got-scraping` → **ego-browser** → **CDP**: the ego-browser fallback (named task space `pp-token-refresh`, created on first use, unless `PROPPROFESSOR_EGO_TASK_SPACE` is set to a positive integer task-space id) is tried first; the CDP fallback runs only if ego-browser fails. The CDP endpoint defaults to `http://127.0.0.1:9222/json/version`; set `PROPPROFESSOR_CDP_VERSION_URL` (e.g. `http://127.0.0.1:9333/json/version`) to use a different Chrome-for-Testing listener. Both fallbacks are on-demand only — no polling.
+**Auth refresh fallbacks (optional).** When the server-to-server token fetch is gated by Vercel (HTTP 429), the server self-heals via a logged-in browser. Fallback order is `got-scraping` → **ego-browser** → **CDP**: the ego-browser fallback (named task space `pp-token-refresh`, created on first use, unless `SSB_EGO_TASK_SPACE` is set to a positive integer task-space id) is tried first; the CDP fallback runs only if ego-browser fails. The CDP endpoint defaults to `http://127.0.0.1:9222/json/version`; set `SSB_CDP_VERSION_URL` (e.g. `http://127.0.0.1:9333/json/version`) to use a different Chrome-for-Testing listener. Both fallbacks are on-demand only — no polling.
 
 ### Hermes Agent
 
@@ -388,11 +388,11 @@ If you use [Hermes Agent](https://github.com/NousResearch/hermes-agent):
 make install          # register MCP server + install default config
 ```
 
-Or manually: add `propprofessor` to your `mcp_servers` in config.yaml. The `get_started` tool provides on-demand workflow guidance.
+Or manually: add `ssb` to your `mcp_servers` in config.yaml. The `get_started` tool provides on-demand workflow guidance.
 
 ### Sharp-money alerts
 
-PropProfessor is manual-only. There is no supported cron, scheduled workflow,
+SSB is manual-only. There is no supported cron, scheduled workflow,
 or background polling mode. Run `quick_screen` on demand when you want a fresh
 result.
 
@@ -493,7 +493,7 @@ Every tool accepts:
 
 ### Tool Surface Modes
 
-Set `PROPPROFESSOR_MCP_MODE` at server boot to control how many tools the agent sees on `tools/list`:
+Set `SSB_MCP_MODE` at server boot to control how many tools the agent sees on `tools/list`:
 
 | Mode   | Default | Tools exposed | Best for                                                                                                                                   |
 | ------ | ------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -564,7 +564,7 @@ See [Quick Start](#quick-start) for Hermes Agent setup. The MCP is self-document
 
 ### Discord / Telegram Alerts
 
-The [Positive EV Command Center](https://github.com/jbdrak/positive-ev-command-center) is a companion project that monitors PropProfessor for high-EV slips and plays, then pushes them to Discord and Telegram in real-time. It uses the same auth session and API client.
+The [Positive EV Command Center](https://github.com/jbdrak/positive-ev-command-center) is a companion project that monitors SSB for high-EV slips and plays, then pushes them to Discord and Telegram in real-time. It uses the same auth session and API client.
 
 ### `pp-query` CLI
 
@@ -593,7 +593,7 @@ actually differentiates quality:
 node scripts/backtest-synthetic.js
 ```
 
-**2. Real outcome backtest** — snapshot-based, since the PropProfessor API does
+**2. Real outcome backtest** — snapshot-based, since the SSB API does
 not serve historical settled results. Take a pre-game odds snapshot daily, then
 resolve outcomes as games settle:
 
@@ -628,32 +628,32 @@ samples** — these validate the ranking engine, they do NOT prove profitability
 | **Empty results from `quick_screen`**        | No sharp consensus plays on that book+league combo right now | Remove `kaiCall: ["BET"]` to see CONSIDER/PASS rows too. Try a different book or league                                            |
 | **`scan` returns nothing**                   | Market name mismatch per league                              | Call `get_market_registry({ sport: "NBA" })` to discover the correct market names                                                  |
 | **First `quick_screen` is slow (5–15s)**     | Multi-league fan-out cache is cold                           | Normal. Subsequent calls with identical args return <5ms from the response cache                                                   |
-| **Some tools are missing from `tools/list`** | Server booted in lite mode                                   | Set `PROPPROFESSOR_MCP_MODE=full` on startup, or use `pp --mcp --mode full`                                                        |
-| **`CIRCUIT_BREAKER_OPEN` persists**          | Circuit breaker threshold exceeded                           | Increase `PROPPROFESSOR_CIRCUIT_BREAKER_THRESHOLD` (default 5) or timeout (default 30s). See [CONFIG.md](CONFIG.md)                |
-| **Debug logging needed**                     | —                                                            | Set `PROPPROFESSOR_DEBUG=1` to see request/response traces on stderr                                                               |
+| **Some tools are missing from `tools/list`** | Server booted in lite mode                                   | Set `SSB_MCP_MODE=full` on startup, or use `pp --mcp --mode full`                                                                  |
+| **`CIRCUIT_BREAKER_OPEN` persists**          | Circuit breaker threshold exceeded                           | Increase `SSB_CIRCUIT_BREAKER_THRESHOLD` (default 5) or timeout (default 30s). See [CONFIG.md](CONFIG.md)                          |
+| **Debug logging needed**                     | —                                                            | Set `SSB_DEBUG=1` to see request/response traces on stderr                                                                         |
 
-Still stuck? Run `pp-query doctor` and [open an issue](https://github.com/jbdrak/propprofessor-mcp/issues) with the output.
+Still stuck? Run `pp-query doctor` and [open an issue](https://github.com/jbdrak/ssb-for-agents/issues) with the output.
 
 ## ❓ FAQ
 
 **Does this tell me what to bet?** No. It surfaces what sharp books are doing. The betting decision is yours.
 
-**Do I need a PropProfessor account?** Yes. Live data requires a paid subscription at [propprofessor.com](https://propprofessor.com).
+**Do I need a SSB account?** Yes. Live data requires a paid subscription at [propprofessor.com](https://propprofessor.com).
 
 **What books does it cover?** The code currently registers 39 screen feeds across 12 league configs. Some entries are alternate or specialized feeds rather than distinct sportsbooks. Sharp cross-reference: Pinnacle, Circa, BookMaker, BetOnline.
 
-**Is it free?** Code is MIT-licensed. Data requires a paid PropProfessor subscription. No paid tier of the MCP itself.
+**Is it free?** Code is MIT-licensed. Data requires a paid SSB subscription. No paid tier of the MCP itself.
 
 **Can I run it without an MCP client?** Yes — `pp doctor` is a standalone CLI.
 
-**What if I find a bug?** Run `pp doctor` first, then [open an issue](https://github.com/jbdrak/propprofessor-mcp/issues).
+**What if I find a bug?** Run `pp doctor` first, then [open an issue](https://github.com/jbdrak/ssb-for-agents/issues).
 
 ## ⭐ Support
 
 This is free, MIT-licensed software. If it saves you time or makes you money:
 
 - ⭐ Star the repo — helps others find it
-- 🐛 [Open an issue](https://github.com/jbdrak/propprofessor-mcp/issues) when you find a bug
+- 🐛 [Open an issue](https://github.com/jbdrak/ssb-for-agents/issues) when you find a bug
 - 💸 [Sponsor on GitHub](https://github.com/sponsors/jbdrak) — funds ongoing development
 
 No paid tier. No upsell. The whole codebase is open and the priority is making it better for the people who use it.
@@ -681,7 +681,7 @@ Release: push a `v*` tag → CI runs lint + tests on Node 20 + 22 → publishes 
 | [MAINTAINERS.md](MAINTAINERS.md)                                     | Release process, smoke tests                                                                                          |
 | [docs/METHODOLOGY.md](docs/METHODOLOGY.md)                           | Full ranking math: movement grade → risk score → tier + hysteresis                                                    |
 | [docs/BACKTESTING.md](docs/BACKTESTING.md)                           | Synthetic & real-outcome backtest methodology                                                                         |
-| [docs/AGENT_PROMPT.md](docs/AGENT_PROMPT.md)                         | Full system prompt for AI agents using PropProfessor                                                                  |
+| [docs/AGENT_PROMPT.md](docs/AGENT_PROMPT.md)                         | Full system prompt for AI agents using SSB                                                                            |
 | [docs/agent-guide.md](docs/agent-guide.md)                           | 5 patterns every AI agent needs (cheat-sheet)                                                                         |
 | [docs/RESPONSE_SHAPES.md](docs/RESPONSE_SHAPES.md)                   | JSON response shapes for all tools                                                                                    |
 | [docs/HERMES_SKILL.md](docs/HERMES_SKILL.md)                         | Hermes Agent integration skill                                                                                        |
@@ -692,4 +692,4 @@ Release: push a `v*` tag → CI runs lint + tests on Node 20 + 22 → publishes 
 
 ## 📝 License
 
-[MIT](LICENSE). PropProfessor is a paid service; this MCP is an unofficial client built by [James Drake](https://github.com/jbdrak), not affiliated with PropProfessor.
+[MIT](LICENSE). SSB is a paid service; this MCP is an unofficial client built by [James Drake](https://github.com/jbdrak), not affiliated with SSB.

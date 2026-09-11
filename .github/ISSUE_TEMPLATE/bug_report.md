@@ -25,7 +25,7 @@ What actually happened (paste output or error message).
 **Environment**
 
 - Node version: `node --version`
-- Package version: `npm ls propprofessor-mcp` (or git SHA)
+- Package version: `npm ls ssb-for-agents` (or git SHA)
 - Auth status: does `pp health` work?
 - CLI or MCP: are you using the `pp` CLI or an MCP client?
 

@@ -5,12 +5,12 @@
  * Extracted from handlers.js createMcpHandlers closure.
  */
 
-const { resolveAuthFile, readAuthState, isAuthValid, getCookieExpiryInfo } = require('../../../lib/propprofessor-api');
+const { resolveAuthFile, readAuthState, isAuthValid, getCookieExpiryInfo } = require('../../../lib/ssb-api');
 
 const { ok, fail } = require('../../../lib/response-envelope');
 
 /**
- * @param {import('../../lib/propprofessor-api').PropProfessorClient} client
+ * @param {import('../../lib/ssb-api').SSBClient} client
  * @param {import('./handler-context').HandlerContext} ctx
  */
 function createHealthHandlers(client, ctx) {

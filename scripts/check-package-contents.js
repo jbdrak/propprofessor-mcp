@@ -21,9 +21,9 @@ const REQUIRED = [
   'INSTALL.md',
   'LICENSE',
   'CHANGELOG.md',
-  'lib/propprofessor-api.js',
+  'lib/ssb-api.js',
   'bin/pp',
-  'scripts/propprofessor-mcp-server.js',
+  'scripts/ssb-mcp-server.js',
   'scripts/fetch-sofascore.py'
 ];
 

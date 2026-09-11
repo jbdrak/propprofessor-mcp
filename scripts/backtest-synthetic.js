@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Synthetic backtest for the PropProfessor ranking engine.
+ * Synthetic backtest for the SSB ranking engine.
  *
  * Generates realistic game scenarios with KNOWN outcomes, runs them through
  * the full pipeline (expand → hydrate → rank → tier), and reports hit rates
@@ -18,7 +18,7 @@
 
 const { rankLeagueScreenRows } = require('../lib/screen-ranker');
 const { extractScreenRows } = require('../lib/screen-parser');
-const { clearTierCache, clearScoreTimeline } = require('../lib/propprofessor-risk-score');
+const { clearTierCache, clearScoreTimeline } = require('../lib/ssb-risk-score');
 
 // ---------------------------------------------------------------------------
 // Scenario generation
@@ -304,7 +304,7 @@ function runBacktest({ scenarios = 200, verbose = false } = {}) {
   for (let i = 0; i < scenarios; i++) {
     // Reset tier cache and score timeline between scenarios so each game is
     // graded independently. Without this, the module-level caches in
-    // propprofessor-risk-score.js carry over from prior scenarios (many share
+    // ssb-risk-score.js carry over from prior scenarios (many share
     // the same team pair, so the cacheKey collides), and the hysteresis
     // layer keeps early "TIER 4" observations dominant in the score timeline.
     // That makes the backtest converge to ~99% TIER 4 even when the scenario
@@ -379,7 +379,7 @@ function report(backtestResults) {
   const { results, scenarios, errorCount } = backtestResults;
 
   console.log('='.repeat(60));
-  console.log('PropProfessor Synthetic Backtest');
+  console.log('SSB Synthetic Backtest');
   console.log('='.repeat(60));
   console.log(`Scenarios: ${scenarios}  |  Errors: ${errorCount}`);
   console.log('');

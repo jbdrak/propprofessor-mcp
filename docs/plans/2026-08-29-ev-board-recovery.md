@@ -1,12 +1,12 @@
 # EV-First Discovery Implementation Plan
 
-> **For Hermes:** Implement only after James approves this plan. Keep PropProfessor traffic manual-only.
+> **For Hermes:** Implement only after James approves this plan. Keep SSB traffic manual-only.
 
 **Goal:** Make the existing Positive EV board the primary discovery source for normal scan/recommendation flows, without promoting stale EV rows directly to bets.
 
 **Architecture:** Keep `ev_candidates` as the existing upstream EV-board adapter and make it the first attempt inside the league screen path. Normalize EV rows into the existing candidate shape, then run the same exact validation, movement, price, date, and playability gates. If the EV endpoint is empty, unavailable, or fails validation, fall back to the screen path. Preserve source metadata so output can say `screen` versus `ev_board`.
 
-**Tech Stack:** Node.js CommonJS, native `node:test`, existing PropProfessor API/client and ranker.
+**Tech Stack:** Node.js CommonJS, native `node:test`, existing SSB API/client and ranker.
 
 ---
 
@@ -16,7 +16,7 @@
 
 - Inspect only: `scripts/server/handlers/discovery.js`, `scripts/server/handlers/screen-leagues.js`, `scripts/server/handlers/aggregate-screen.js`, `lib/validate-ev-candidates.js`, relevant tests.
 
-**Verification:** Run the existing focused EV and quick-screen tests. Record current response fields, incomplete-scan markers, and the existing dirty worktree. Do not overwrite the two pre-existing modified files: `lib/propprofessor-wallet-plays.js` and `test/wallet-plays.test.js`.
+**Verification:** Run the existing focused EV and quick-screen tests. Record current response fields, incomplete-scan markers, and the existing dirty worktree. Do not overwrite the two pre-existing modified files: `lib/ssb-wallet-plays.js` and `test/wallet-plays.test.js`.
 
 ### Task 2: Add a pure EV recovery/merge seam
 
@@ -104,5 +104,5 @@ Then run one bounded manual CLI probe, only if needed, against the current PP ac
 - Alternate lines remain filtered by market policy, not by price alone.
 - Exact duplicate rows do not appear twice.
 - A genuine empty slate remains distinguishable from an incomplete scan.
-- No scheduled PropProfessor traffic is introduced.
+- No scheduled SSB traffic is introduced.
 - Existing tests and the full suite pass, or failures are reported honestly.

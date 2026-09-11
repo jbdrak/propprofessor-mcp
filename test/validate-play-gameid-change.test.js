@@ -13,7 +13,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 const { findBestMatchGameIdChanged, parseGameIdIdentity } = require('../lib/selection-matcher.js');
 
 const OLD_GAME_ID = 'MLB:PREMATCH:Chicago_Cubs:Los_Angeles_Dodgers:1785946800';

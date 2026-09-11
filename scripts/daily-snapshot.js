@@ -18,14 +18,14 @@
  * Mock-friendly: the play source is injectable via `getPlays`, so the script
  * is fully testable without network access or a live API client. When no
  * `getPlays` is supplied, the default provider calls the real MCP handlers
- * (quick_screen mode='recommended') through a live PropProfessor client —
+ * (quick_screen mode='recommended') through a live SSB client —
  * which is why the CLI requires the `--live` acknowledgment.
  *
  * Usage (CLI):
  *   node scripts/daily-snapshot.js --live           # default provider, data/snapshots.jsonl
  *   node scripts/daily-snapshot.js --live --out /tmp/x.jsonl --leagues NBA,MLB
  *
- * The CLI always uses the live PropProfessor provider, so `--live` is
+ * The CLI always uses the live SSB provider, so `--live` is
  * required as a manual-only acknowledgment. The library path stays
  * deterministic: `takeDailySnapshot({ getPlays })` needs no `--live`.
  *
@@ -116,8 +116,8 @@ function playsFromHandlerResult(result, { source } = {}) {
  */
 async function defaultGetPlays({ leagues, market } = {}) {
   const { createMcpHandlers } = require('../scripts/server/handlers');
-  const { createPropProfessorClient } = require('../lib/propprofessor-api');
-  const handlers = createMcpHandlers({ client: createPropProfessorClient() });
+  const { createSSBClient } = require('../lib/ssb-api');
+  const handlers = createMcpHandlers({ client: createSSBClient() });
   const res = await handlers.quick_screen({
     mode: 'recommended',
     leagues: Array.isArray(leagues) && leagues.length ? leagues : undefined,
@@ -133,7 +133,7 @@ async function defaultGetPlays({ leagues, market } = {}) {
  * Take a daily snapshot.
  *
  * Manual-only: the default provider (used when no `getPlays` is supplied)
- * calls live PropProfessor endpoints, so it requires `opts.live` as an
+ * calls live SSB endpoints, so it requires `opts.live` as an
  * explicit acknowledgment. Injected/fixture providers are deterministic
  * and need no `--live`.
  *
@@ -150,7 +150,7 @@ async function takeDailySnapshot(opts = {}) {
   // explicit acknowledgment, BEFORE any side effects (no ledger, no dirs).
   if (!opts.getPlays && !opts.live) {
     throw new Error(
-      'manual-only: PropProfessor is manual-only — pass --live to acknowledge this command calls live PropProfessor endpoints'
+      'manual-only: SSB is manual-only — pass --live to acknowledge this command calls live SSB endpoints'
     );
   }
   const outFile = opts.outFile || SNAPSHOT_FILE;

@@ -19,16 +19,16 @@ describe('check-no-secrets', () => {
       assert.ok(Array.isArray(FORBIDDEN_PATHS));
       assert.ok(FORBIDDEN_PATHS.includes('auth.json'));
       assert.ok(FORBIDDEN_PATHS.includes('token-cache.json'));
-      assert.ok(FORBIDDEN_PATHS.includes('.propprofessor'));
+      assert.ok(FORBIDDEN_PATHS.includes('.ssb'));
     });
 
-    it('exports patterns that match nested files under .propprofessor/', () => {
-      const pattern = FORBIDDEN_PATTERNS.find((re) => re.source.startsWith('^\\.propprofessor'));
-      assert.ok(pattern, 'expected a pattern for .propprofessor/');
-      assert.ok(pattern.test('.propprofessor/auth.json'));
-      assert.ok(pattern.test('.propprofessor/token-cache.json'));
-      assert.ok(pattern.test('.propprofessor/sub/deep.json'));
-      assert.ok(!pattern.test('propprofessor.json'), 'unrelated names must not match');
+    it('exports patterns that match nested files under .ssb/', () => {
+      const pattern = FORBIDDEN_PATTERNS.find((re) => re.source.startsWith('^\\.ssb'));
+      assert.ok(pattern, 'expected a pattern for .ssb/');
+      assert.ok(pattern.test('.ssb/auth.json'));
+      assert.ok(pattern.test('.ssb/token-cache.json'));
+      assert.ok(pattern.test('.ssb/sub/deep.json'));
+      assert.ok(!pattern.test('ssb.json'), 'unrelated names must not match');
     });
   });
 
@@ -64,13 +64,13 @@ describe('check-no-secrets', () => {
       }
     });
 
-    it('flags .propprofessor/ directory when it exists', () => {
+    it('flags .ssb/ directory when it exists', () => {
       const origCwd = process.cwd();
       process.chdir(tmpDir);
       try {
-        fs.mkdirSync(path.join(tmpDir, '.propprofessor'), { recursive: true });
+        fs.mkdirSync(path.join(tmpDir, '.ssb'), { recursive: true });
         const result = checkWorkingTree();
-        assert.ok(result.includes('.propprofessor'), `expected .propprofessor in ${JSON.stringify(result)}`);
+        assert.ok(result.includes('.ssb'), `expected .ssb in ${JSON.stringify(result)}`);
       } finally {
         process.chdir(origCwd);
       }
@@ -79,7 +79,7 @@ describe('check-no-secrets', () => {
 
   describe('checkTrackedFiles', () => {
     it('returns an empty array when the repo has no tracked credentials', () => {
-      // This test runs from the propprofessor-mcp repo root, which has no
+      // This test runs from the ssb-for-agents repo root, which has no
       // tracked credentials by design (the audit verified this on 2026-06-16).
       const result = checkTrackedFiles();
       assert.deepEqual(result, [], `repo should have no tracked credentials, but found: ${result.join(', ')}`);

@@ -57,11 +57,11 @@ only at a follower may have already repriced.
 
 | Research finding                         | Code location                                                                                                                             |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Originator vs follower tiers             | `lib/propprofessor-sharp-books.js` — `SHARP_BOOK_ORIGIN_TIERS`, `classifySharpBookOrigin`, `isSharpOriginator`                            |
-| Count originator books in a steam move   | `lib/propprofessor-steam-move.js` — `detectSteamMove` returns `originatorCount` (all return paths)                                        |
-| Steam is the strongest future-CLV signal | `lib/propprofessor-risk-score.js` — steam modifier weighted: originator-confirmed `-2`, followers-only `-1`                               |
+| Originator vs follower tiers             | `lib/ssb-sharp-books.js` — `SHARP_BOOK_ORIGIN_TIERS`, `classifySharpBookOrigin`, `isSharpOriginator`                                      |
+| Count originator books in a steam move   | `lib/ssb-steam-move.js` — `detectSteamMove` returns `originatorCount` (all return paths)                                                  |
+| Steam is the strongest future-CLV signal | `lib/ssb-risk-score.js` — steam modifier weighted: originator-confirmed `-2`, followers-only `-1`                                         |
 | Surface which book confirmed the move    | `buildRationale` (`steam (N books, M originator)`) and `computeMovementSummary` (names the confirming book for clean/bouncy/insufficient) |
-| Agent-visible provenance                 | `lib/propprofessor-mcp-candidate-mapper.js` — carries `steamMove` / `steamBookCount` / `steamOriginatorCount`                             |
+| Agent-visible provenance                 | `lib/ssb-mcp-candidate-mapper.js` — carries `steamMove` / `steamBookCount` / `steamOriginatorCount`                                       |
 
 ## Honesty note
 

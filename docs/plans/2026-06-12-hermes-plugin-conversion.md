@@ -2,16 +2,16 @@
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
-**Goal:** Make PropProfessor MCP installable as a single-command Hermes "plugin" — keep the Node MCP server (don't break Claude Desktop/Cursor compatibility), add a `make install` flow that wires up the MCP server, the coach skill, the default config, and the `pp` CLI binary in one shot. Apollo-style polish without the language switch.
+**Goal:** Make SSB MCP installable as a single-command Hermes "plugin" — keep the Node MCP server (don't break Claude Desktop/Cursor compatibility), add a `make install` flow that wires up the MCP server, the coach skill, the default config, and the `pp` CLI binary in one shot. Apollo-style polish without the language switch.
 
-**Architecture:** Stay MCP (Option B from prior discussion). Add an `install.py` + `Makefile` that wire `hermes mcp add` + skill symlinks + default config in one command. Ship a `propprofessor-coach` skill inside the repo so it lives next to the code (the existing `propprofessor-mcp` skill is in `~/.hermes/skills/` and shouldn't be the coach skill — it's a developer reference, not an operator coach). Extend `pp-query` with a `pp` binary for common operations. Document the new flow as the README's lead.
+**Architecture:** Stay MCP (Option B from prior discussion). Add an `install.py` + `Makefile` that wire `hermes mcp add` + skill symlinks + default config in one command. Ship a `ssb-coach` skill inside the repo so it lives next to the code (the existing `ssb-for-agents` skill is in `~/.hermes/skills/` and shouldn't be the coach skill — it's a developer reference, not an operator coach). Extend `pp-query` with a `pp` binary for common operations. Document the new flow as the README's lead.
 
 **Tech Stack:** Node.js 18+ (existing MCP server, no language change), Python 3.11+ (install.py — Apollo borrowed this for cross-Hermes-profile compatibility), Make (Makefile — also Apollo pattern), shell (cron helper). Hermes 0.14+ MCP config + skills.external_dirs support.
 
 **Non-Goals (YAGNI):**
 
 - Do NOT convert to a Python `pip install`-able plugin with entry_points. Apollo's pattern is Python-specific and would require maintaining two repos.
-- Do NOT add a `~/.hermes/propprofessor.db` local store. Auth already lives at `~/.propprofessor/auth.json`; if we add storage later, it goes there.
+- Do NOT add a `~/.hermes/ssb.db` local store. Auth already lives at `~/.ssb/auth.json`; if we add storage later, it goes there.
 - Do NOT change the MCP tool surface (23 tools, 784 tests passing). Pure packaging work.
 
 ---
@@ -27,7 +27,7 @@
 **Step 1:** Run from repo root
 
 ```bash
-cd ~/Documents/workspace/propprofessor-mcp
+cd ~/Documents/workspace/ssb-for-agents
 git status --short
 git log --oneline -1
 node -e "console.log(require('./package.json').version)"
@@ -39,18 +39,18 @@ node -e "console.log(require('./package.json').version)"
 
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"verify","version":"0"}}}' \
-  | node scripts/propprofessor-mcp-server.js | head -1
+  | node scripts/ssb-mcp-server.js | head -1
 ```
 
-**Expected:** JSON-RPC success response with `serverInfo.name === "propprofessor"`.
+**Expected:** JSON-RPC success response with `serverInfo.name === "ssb"`.
 
-**Step 3:** Confirm hermes config has propprofessor wired
+**Step 3:** Confirm hermes config has ssb wired
 
 ```bash
-grep -A 8 "propprofessor:" ~/.hermes/config.yaml
+grep -A 8 "ssb:" ~/.hermes/config.yaml
 ```
 
-**Expected:** Block with `command: node` and `args: ["/Users/jamesdrake/.../propprofessor-mcp-server.js"]` and env vars `AUTH_FILE` + `PROPPROFESSOR_MCP_NDJSON`.
+**Expected:** Block with `command: node` and `args: ["/Users/jamesdrake/.../ssb-mcp-server.js"]` and env vars `AUTH_FILE` + `SSB_MCP_NDJSON`.
 
 **Step 4:** If any check fails, STOP. Surface the discrepancy to the user before continuing.
 
@@ -60,21 +60,21 @@ grep -A 8 "propprofessor:" ~/.hermes/config.yaml
 
 **Files:** none (read-only)
 
-**Step 1:** List existing propprofessor skills
+**Step 1:** List existing ssb skills
 
 ```bash
-ls -la ~/.hermes/skills/software-development/propprofessor-*/
+ls -la ~/.hermes/skills/software-development/ssb-*/
 ```
 
-**Expected:** Three skills — `propprofessor-mcp` (78KB, the developer reference), `propprofessor-mcp-release-format`, `propprofessor-backtest-runner`.
+**Expected:** Three skills — `ssb-for-agents` (78KB, the developer reference), `ssb-mcp-release-format`, `ssb-backtest-runner`.
 
-**Step 2:** Confirm `propprofessor-mcp` is the developer skill (not a coach)
+**Step 2:** Confirm `ssb-for-agents` is the developer skill (not a coach)
 
 ```bash
-head -20 ~/.hermes/skills/software-development/propprofessor-mcp/SKILL.md
+head -20 ~/.hermes/skills/software-development/ssb-for-agents/SKILL.md
 ```
 
-**Expected:** Description starts with "Work with the PropProfessor MCP server" — this is the dev reference, not a coach. The coach skill we'll build is separate.
+**Expected:** Description starts with "Work with the SSB MCP server" — this is the dev reference, not a coach. The coach skill we'll build is separate.
 
 **Step 3:** Note for plan: the existing dev skill stays in `~/.hermes/skills/` (unchanged). The new coach skill ships in the repo and gets symlinked via `make install`.
 
@@ -88,12 +88,12 @@ head -20 ~/.hermes/skills/software-development/propprofessor-mcp/SKILL.md
 
 **Files:**
 
-- Create: `skills/propprofessor-coach/SKILL.md`
+- Create: `skills/ssb-coach/SKILL.md`
 
 **Step 1:** Make the directory
 
 ```bash
-mkdir -p skills/propprofessor-coach
+mkdir -p skills/ssb-coach
 ```
 
 **Step 2:** Verify
@@ -102,28 +102,28 @@ mkdir -p skills/propprofessor-coach
 ls -la skills/
 ```
 
-**Expected:** `propprofessor-coach/` exists.
+**Expected:** `ssb-coach/` exists.
 
 ### Task 1.2: Write the coach skill frontmatter
 
 **Files:**
 
-- Modify: `skills/propprofessor-coach/SKILL.md` (create with content below)
+- Modify: `skills/ssb-coach/SKILL.md` (create with content below)
 
 **Step 1:** Write the file. Full content (no placeholders):
 
 ```markdown
 ---
-name: propprofessor-coach
-description: "Operator-facing PropProfessor coach. For any question about today's bets, sharp money, line shopping, player props, or bet tracking — load this skill FIRST to pick the right MCP tools and tier formatting. Pairs with the dev reference skill `propprofessor-mcp` for tool internals."
+name: ssb-coach
+description: "Operator-facing SSB coach. For any question about today's bets, sharp money, line shopping, player props, or bet tracking — load this skill FIRST to pick the right MCP tools and tier formatting. Pairs with the dev reference skill `ssb-for-agents` for tool internals."
 version: 1.0.0
 author: James Drake (Kai)
-tags: [sports-betting, mcp, propprofessor, coach, sharp-money, line-shopping, audited-2026-06]
+tags: [sports-betting, mcp, ssb, coach, sharp-money, line-shopping, audited-2026-06]
 ---
 
-# PropProfessor Coach
+# SSB Coach
 
-You are the PropProfessor operator coach. Users ask you questions about sports betting and you answer them by calling the right MCP tools in the right order, then formatting the results in the standard tier format.
+You are the SSB operator coach. Users ask you questions about sports betting and you answer them by calling the right MCP tools in the right order, then formatting the results in the standard tier format.
 
 ## When this skill loads
 
@@ -137,23 +137,23 @@ This skill auto-loads when a user's question contains any of:
 - "log this bet" / "track this pick" / "my record"
 - Any question referencing a specific book (Fliff, NoVigApp, FanDuel, DraftKings, etc.)
 
-**Do NOT load** for: tool-internals questions, code changes to the MCP server, release workflow. Those go to `propprofessor-mcp`.
+**Do NOT load** for: tool-internals questions, code changes to the MCP server, release workflow. Those go to `ssb-for-agents`.
 
 ## Tool routing table
 
-| User intent                                | First tool to call                                                                          | Then                                  | Notes                                                                                            |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| "best plays today" / "what should I bet"   | `mcp_propprofessor_recommended_bets` (default TIER 1+2, markets=[Moneyline, Spread, Total]) | format with tier table                | If empty slate → call `mcp_propprofessor_sharp_plays` with `strict: false` for the next-best set |
-| "sharp money on [team/player]"             | `mcp_propprofessor_sharp_consensus` filtered to that entity                                 | format movement + consensus           | Multi-window sharp signal                                                                        |
-| "steam move"                               | `mcp_propprofessor_steam_move` (or `mcp_propprofessor_get_alerts`)                          | format steam details                  | Multi-book agreement                                                                             |
-| "best price for [team] [line]"             | `mcp_propprofessor_find_best_price`                                                         | format price table                    | Cross-book comparison                                                                            |
-| "line shop [game]"                         | `mcp_propprofessor_find_best_price` for each market                                         | format side-by-side                   | Markets: Moneyline, Spread, Total                                                                |
-| "player prop for [player] [market] [line]" | `mcp_propprofessor_player_context` first (injury/news check)                                | then `mcp_propprofessor_opinion`      | NEVER bet without context check                                                                  |
-| "log this bet"                             | `mcp_propprofessor_log_pick`                                                                | confirm with pick ID                  | Returns UUID for later resolve                                                                   |
-| "my record" / "how am I doing"             | `mcp_propprofessor_get_pick_stats`                                                          | format win rate + P&L                 | Optional: `days` filter                                                                          |
-| "hide this bet from fantasy"               | `mcp_propprofessor_hide_bet`                                                                | confirm hidden                        | Use betId from prior response                                                                    |
-| "show hidden bets"                         | `mcp_propprofessor_get_hidden_bets`                                                         | list                                  |                                                                                                  |
-| "is [book] sharp on this?"                 | `mcp_propprofessor_screen` filtered to that book                                            | cross-reference with sharp books list | Sharp books: Pinnacle, BetOnline, Circa, BookMaker, 4cx, OnyxOdds, Kalshi, Polymarket, NoVigApp  |
+| User intent                                | First tool to call                                                                | Then                                  | Notes                                                                                           |
+| ------------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| "best plays today" / "what should I bet"   | `mcp_ssb_recommended_bets` (default TIER 1+2, markets=[Moneyline, Spread, Total]) | format with tier table                | If empty slate → call `mcp_ssb_sharp_plays` with `strict: false` for the next-best set          |
+| "sharp money on [team/player]"             | `mcp_ssb_sharp_consensus` filtered to that entity                                 | format movement + consensus           | Multi-window sharp signal                                                                       |
+| "steam move"                               | `mcp_ssb_steam_move` (or `mcp_ssb_get_alerts`)                                    | format steam details                  | Multi-book agreement                                                                            |
+| "best price for [team] [line]"             | `mcp_ssb_find_best_price`                                                         | format price table                    | Cross-book comparison                                                                           |
+| "line shop [game]"                         | `mcp_ssb_find_best_price` for each market                                         | format side-by-side                   | Markets: Moneyline, Spread, Total                                                               |
+| "player prop for [player] [market] [line]" | `mcp_ssb_player_context` first (injury/news check)                                | then `mcp_ssb_opinion`                | NEVER bet without context check                                                                 |
+| "log this bet"                             | `mcp_ssb_log_pick`                                                                | confirm with pick ID                  | Returns UUID for later resolve                                                                  |
+| "my record" / "how am I doing"             | `mcp_ssb_get_pick_stats`                                                          | format win rate + P&L                 | Optional: `days` filter                                                                         |
+| "hide this bet from fantasy"               | `mcp_ssb_hide_bet`                                                                | confirm hidden                        | Use betId from prior response                                                                   |
+| "show hidden bets"                         | `mcp_ssb_get_hidden_bets`                                                         | list                                  |                                                                                                 |
+| "is [book] sharp on this?"                 | `mcp_ssb_screen` filtered to that book                                            | cross-reference with sharp books list | Sharp books: Pinnacle, BetOnline, Circa, BookMaker, 4cx, OnyxOdds, Kalshi, Polymarket, NoVigApp |
 
 ## Tier format (MANDATORY for any bet recommendation)
 
@@ -188,13 +188,13 @@ When presenting plays, ALWAYS use this format. The user expects this layout — 
 ## Risk flag escalation
 
 Before recommending ANY player prop:
-1. Call `mcp_propprofessor_player_context` with the player name.
+1. Call `mcp_ssb_player_context` with the player name.
 2. If `riskFlag === "high"`, downgrade the tier by 1 (TIER 2 → TIER 3) and add `⚠️ high risk` to the rationale.
 3. If `riskFlag === "high"` AND the original tier was TIER 3 or 4, SKIP the play entirely. Note the skip in the response.
 
 ## Staking
 
-For bankroll-based stake allocation, call `mcp_propprofessor_staking_plan` with `bankroll` (user's stated bankroll, default 1000). Uses fractional Kelly: TIER 1 = 2%, TIER 2 = 1%. Surface the per-play stake.
+For bankroll-based stake allocation, call `mcp_ssb_staking_plan` with `bankroll` (user's stated bankroll, default 1000). Uses fractional Kelly: TIER 1 = 2%, TIER 2 = 1%. Surface the per-play stake.
 
 ## Common failure modes (avoid these)
 
@@ -205,21 +205,21 @@ For bankroll-based stake allocation, call `mcp_propprofessor_staking_plan` with 
 
 ## Related skills
 
-- `propprofessor-mcp` — developer reference (tool internals, code patterns). Load for code questions, NOT for user questions.
+- `ssb-for-agents` — developer reference (tool internals, code patterns). Load for code questions, NOT for user questions.
 - `pp-sports` — operator workflow (this skill's sibling, used by James's daily picks flow).
-- `propprofessor-backtest-runner` — backtest-specific workflow.
+- `ssb-backtest-runner` — backtest-specific workflow.
 
 ## Coverage / privacy guardrails
 
-- The MCP server needs an active PropProfessor auth file at `~/.propprofessor/auth.json`. If you see auth errors, tell the user to run `pp-query login` (or `pp doctor` to diagnose).
+- The MCP server needs an active SSB auth file at `~/.ssb/auth.json`. If you see auth errors, tell the user to run `pp-query login` (or `pp doctor` to diagnose).
 - Don't share pick UUIDs externally — they're tied to the user's local bet log.
 ```
 
 **Step 2:** Verify the file is valid
 
 ```bash
-head -10 skills/propprofessor-coach/SKILL.md
-wc -l skills/propprofessor-coach/SKILL.md
+head -10 skills/ssb-coach/SKILL.md
+wc -l skills/ssb-coach/SKILL.md
 ```
 
 **Expected:** Frontmatter is YAML, total ~110-130 lines.
@@ -227,8 +227,8 @@ wc -l skills/propprofessor-coach/SKILL.md
 **Step 3:** Commit
 
 ```bash
-git add skills/propprofessor-coach/SKILL.md
-git commit -m "feat(skill): add propprofessor-coach operator skill"
+git add skills/ssb-coach/SKILL.md
+git commit -m "feat(skill): add ssb-coach operator skill"
 ```
 
 ### Task 1.3: Add skill to package.json `files`
@@ -313,14 +313,14 @@ def test_resolve_active_profile_from_config(monkeypatch, tmp_path):
     assert resolve_active_profile(str(tmp_path)) == "work"
 
 def test_skill_target_path(tmp_path):
-    target = skill_target_path(str(tmp_path), "default", "propprofessor-coach")
-    assert target == tmp_path / "profiles" / "default" / "skills" / "external" / "propprofessor-coach"
+    target = skill_target_path(str(tmp_path), "default", "ssb-coach")
+    assert target == tmp_path / "profiles" / "default" / "skills" / "external" / "ssb-coach"
 ```
 
 **Step 2:** Run test, verify it fails
 
 ```bash
-cd ~/Documents/workspace/propprofessor-mcp
+cd ~/Documents/workspace/ssb-for-agents
 python3 -m pytest scripts/test_install_helpers.py -v 2>&1 | head -20
 ```
 
@@ -439,14 +439,14 @@ PYTHON ?= python3
 # Default: full one-command install.
 install: install-skill install-mcp
 	@echo ""
-	@echo "✓ PropProfessor installed. Try: pp-query doctor"
+	@echo "✓ SSB installed. Try: pp-query doctor"
 
 install-skill:
-	@echo "→ Linking propprofessor-coach skill into hermes..."
+	@echo "→ Linking ssb-coach skill into hermes..."
 	@$(PYTHON) scripts/install.py skill
 
 install-mcp:
-	@echo "→ Registering propprofessor MCP server with hermes..."
+	@echo "→ Registering ssb MCP server with hermes..."
 	@$(PYTHON) scripts/install.py mcp
 
 install-cron:
@@ -459,7 +459,7 @@ doctor:
 	@pp-query doctor
 
 uninstall:
-	@echo "→ Removing propprofessor from hermes..."
+	@echo "→ Removing ssb from hermes..."
 	@$(PYTHON) scripts/install.py uninstall
 
 clean:
@@ -499,9 +499,9 @@ git commit -m "feat(install): add Makefile with install/uninstall targets"
 - `pp hide <bet-id>` — hide a bet from the fantasy table
 - `pp unhide <id>` — restore visibility
 - `pp hidden` — list currently hidden bets
-- `pp sync` — run a full sync (calls `pp-query health` + a re-fetch of recommended_bets; caches to `~/.propprofessor/sync-cache.json`)
+- `pp sync` — run a full sync (calls `pp-query health` + a re-fetch of recommended_bets; caches to `~/.ssb/sync-cache.json`)
 - `pp doctor` — alias for `pp-query doctor` (already exists)
-- `pp today` — alias for `pp-query sport nba` with the default user's league preference (reads from `~/.propprofessor/config.json`)
+- `pp today` — alias for `pp-query sport nba` with the default user's league preference (reads from `~/.ssb/config.json`)
 
 **Step 2:** All of these are sub-3-second shellouts to existing `pp-query` commands. No new logic in the MCP server.
 
@@ -519,7 +519,7 @@ git commit -m "feat(install): add Makefile with install/uninstall targets"
 'use strict';
 
 /**
- * pp — ergonomic CLI dispatcher for PropProfessor.
+ * pp — ergonomic CLI dispatcher for SSB.
  *
  * Thin shellout to pp-query for common operations. Designed to be on $PATH
  * after `npm link` so cron jobs, shell scripts, and the user can call it
@@ -530,7 +530,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const PP_QUERY = path.join(REPO_ROOT, 'scripts', 'query-propprofessor.js');
+const PP_QUERY = path.join(REPO_ROOT, 'scripts', 'query-ssb.js');
 
 const COMMANDS = {
   hide: { ppArgs: () => ['hide-bet', '--json'] }, // hidden: wire in 2.4
@@ -542,7 +542,7 @@ const COMMANDS = {
 };
 
 function printHelp() {
-  console.log(`pp — PropProfessor quick commands
+  console.log(`pp — SSB quick commands
 
 Usage: pp <command> [args]
 
@@ -610,8 +610,8 @@ chmod +x bin/pp
 
 ```json
 "bin": {
-  "pp-mcp": "scripts/propprofessor-mcp-server.js",
-  "pp-query": "scripts/query-propprofessor.js",
+  "pp-mcp": "scripts/ssb-mcp-server.js",
+  "pp-query": "scripts/query-ssb.js",
   "pp": "bin/pp"
 }
 ```
@@ -650,7 +650,7 @@ const PP_BIN = path.resolve(__dirname, '..', 'bin', 'pp');
 test('pp help prints usage', () => {
   const result = spawnSync(process.execPath, [PP_BIN, 'help'], { encoding: 'utf8' });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /pp — PropProfessor quick commands/);
+  assert.match(result.stdout, /pp — SSB quick commands/);
   assert.match(result.stdout, /hide <bet-id>/);
   assert.match(result.stdout, /today/);
 });
@@ -708,11 +708,11 @@ git commit -m "test(cli): cover pp wrapper help + pass-through"
 
 ```python
 #!/usr/bin/env python3
-"""PropProfessor hermes install script.
+"""SSB hermes install script.
 
 Subcommands:
-  skill     Symlink skills/propprofessor-coach into hermes skills/external/.
-  mcp       Register the propprofessor MCP server with hermes.
+  skill     Symlink skills/ssb-coach into hermes skills/external/.
+  mcp       Register the ssb MCP server with hermes.
   cron      Register the sharp-money alert cron job.
   uninstall Reverse all of the above.
   all       Run skill + mcp (the default).
@@ -734,11 +734,11 @@ from install_helpers import (  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SKILL_NAME = "propprofessor-coach"
+SKILL_NAME = "ssb-coach"
 SKILL_SOURCE = REPO_ROOT / "skills" / SKILL_NAME
-MCP_NAME = "propprofessor"
-MCP_SERVER_PATH = REPO_ROOT / "scripts" / "propprofessor-mcp-server.js"
-AUTH_FILE_DEFAULT = Path.home() / ".propprofessor" / "auth.json"
+MCP_NAME = "ssb"
+MCP_SERVER_PATH = REPO_ROOT / "scripts" / "ssb-mcp-server.js"
+AUTH_FILE_DEFAULT = Path.home() / ".ssb" / "auth.json"
 
 
 def install_skill() -> None:
@@ -783,7 +783,7 @@ def install_mcp() -> None:
         "--command", "node",
         "--args", str(MCP_SERVER_PATH),
         "--env", f"AUTH_FILE={auth_file}",
-        "--env", "PROPPROFESSOR_MCP_NDJSON=true"
+        "--env", "SSB_MCP_NDJSON=true"
     ])
     print(f"  ✓ registered MCP server '{MCP_NAME}' with hermes")
 
@@ -794,10 +794,10 @@ def install_cron() -> None:
     import subprocess
     prompt = (
         "Run `pp sync` hourly and alert via telegram if any TIER 1 play appears. "
-        "Use `mcp_propprofessor_recommended_bets` to check, format with the coach skill, "
+        "Use `mcp_ssb_recommended_bets` to check, format with the coach skill, "
         "and deliver to the user's home telegram channel. Skip silently if no plays."
     )
-    cmd = [hermes_bin(), "cron", "create", "every 1h", "--prompt", prompt, "--name", "propprofessor-alerts", "--no-agent"]
+    cmd = [hermes_bin(), "cron", "create", "every 1h", "--prompt", prompt, "--name", "ssb-alerts", "--no-agent"]
     # Use --no-agent via the no_agent flag — but that's only on the cronjob tool, not the CLI.
     # For the CLI: skip --no-agent here; the agent loop will handle delivery.
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -821,7 +821,7 @@ def uninstall() -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install PropProfessor into hermes.")
+    parser = argparse.ArgumentParser(description="Install SSB into hermes.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     for name in ("skill", "mcp", "cron", "uninstall", "all"):
@@ -910,9 +910,9 @@ def test_install_skill_creates_symlink(fake_hermes_home):
         capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
-    target = fake_hermes_home / "profiles" / "default" / "skills" / "external" / "propprofessor-coach"
+    target = fake_hermes_home / "profiles" / "default" / "skills" / "external" / "ssb-coach"
     assert target.is_symlink()
-    assert target.resolve() == (REPO_ROOT / "skills" / "propprofessor-coach").resolve()
+    assert target.resolve() == (REPO_ROOT / "skills" / "ssb-coach").resolve()
 
 
 def test_install_skill_idempotent(fake_hermes_home):
@@ -923,10 +923,10 @@ def test_install_skill_idempotent(fake_hermes_home):
         capture_output=True, text=True
     )
     assert result.returncode == 0, result.stderr
-    target = fake_hermes_home / "profiles" / "default" / "skills" / "external" / "propprofessor-coach"
+    target = fake_hermes_home / "profiles" / "default" / "skills" / "external" / "ssb-coach"
     assert target.is_symlink()
     # Resolve once — should still be the source, not a nested link.
-    assert target.resolve() == (REPO_ROOT / "skills" / "propprofessor-coach").resolve()
+    assert target.resolve() == (REPO_ROOT / "skills" / "ssb-coach").resolve()
 
 
 def test_install_mcp_calls_hermes(fake_hermes_home, capsys):
@@ -936,8 +936,8 @@ def test_install_mcp_calls_hermes(fake_hermes_home, capsys):
     )
     assert result.returncode == 0, result.stderr
     captured = capsys.readouterr()
-    # The fake hermes stub echoes its args; verify it was called with mcp add propprofessor.
-    assert "fake hermes mcp add propprofessor" in (result.stdout + result.stderr + captured.out)
+    # The fake hermes stub echoes its args; verify it was called with mcp add ssb.
+    assert "fake hermes mcp add ssb" in (result.stdout + result.stderr + captured.out)
 ```
 
 **Step 2:** Run
@@ -976,7 +976,7 @@ make install-mcp
 make install
 ```
 
-**Expected:** Both targets run, then the "✓ PropProfessor installed" echo prints.
+**Expected:** Both targets run, then the "✓ SSB installed" echo prints.
 
 **Step 3:** Commit (if no Makefile changes needed beyond Task 1.5, skip)
 
@@ -992,18 +992,18 @@ git status
 **Step 1:** From the repo root
 
 ```bash
-cd ~/Documents/workspace/propprofessor-mcp
+cd ~/Documents/workspace/ssb-for-agents
 make install
 ```
 
 **Step 2:** Verify the skill loaded
 
 ```bash
-ls -la ~/.hermes/skills/external/propprofessor-coach 2>/dev/null \
-  || ls -la ~/.hermes/profiles/default/skills/external/propprofessor-coach
+ls -la ~/.hermes/skills/external/ssb-coach 2>/dev/null \
+  || ls -la ~/.hermes/profiles/default/skills/external/ssb-coach
 ```
 
-**Expected:** Symlink pointing back to the repo's `skills/propprofessor-coach/`.
+**Expected:** Symlink pointing back to the repo's `skills/ssb-coach/`.
 
 **Step 3:** Verify the MCP server is registered
 
@@ -1011,12 +1011,12 @@ ls -la ~/.hermes/skills/external/propprofessor-coach 2>/dev/null \
 ~/.hermes/hermes-agent/venv/bin/hermes mcp list
 ```
 
-**Expected:** `propprofessor` appears in the list.
+**Expected:** `ssb` appears in the list.
 
 **Step 4:** Run hermes and load the skill
 
 ```bash
-~/.hermes/hermes-agent/venv/bin/hermes chat -q "test load propprofessor-coach skill" 2>&1 | head -20
+~/.hermes/hermes-agent/venv/bin/hermes chat -q "test load ssb-coach skill" 2>&1 | head -20
 ```
 
 **Expected:** Skill loads (look for the skill content in the system prompt or tool routing).
@@ -1027,22 +1027,22 @@ ls -la ~/.hermes/skills/external/propprofessor-coach 2>/dev/null \
 
 ## Phase 4: Default config + first-run experience
 
-> The `~/.propprofessor/config.json` file gives users a place to set their default league, bankroll, and target book. Today there's no such file — settings are per-call.
+> The `~/.ssb/config.json` file gives users a place to set their default league, bankroll, and target book. Today there's no such file — settings are per-call.
 
 ### Task 4.1: Design the config schema
 
 **Files:**
 
-- Create: `config.default.json` (shipped, copied to `~/.propprofessor/config.json` on first install)
+- Create: `config.default.json` (shipped, copied to `~/.ssb/config.json` on first install)
 
 **Step 1:** Write the default
 
 ```json
 {
-  "$schema": "https://propprofessor-mcp.j17drake.com/schemas/config.schema.json",
+  "$schema": "https://ssb-for-agents.j17drake.com/schemas/config.schema.json",
   "version": 1,
   "auth": {
-    "file": "~/.propprofessor/auth.json"
+    "file": "~/.ssb/auth.json"
   },
   "defaults": {
     "league": "NBA",
@@ -1088,19 +1088,19 @@ git commit -m "feat(config): add config.default.json with sensible defaults"
 
 **Files:**
 
-- Modify: `scripts/query-propprofessor.js` (add `setup` subcommand)
+- Modify: `scripts/query-ssb.js` (add `setup` subcommand)
 
 **Step 1:** Read the current main() function to see where to insert
 
 ```bash
-grep -n "if (command === '" scripts/query-propprofessor.js | head -20
+grep -n "if (command === '" scripts/query-ssb.js | head -20
 ```
 
 **Step 2:** Add the `setup` command handler. Insert before the `list` command:
 
 ```javascript
 if (command === 'setup') {
-  const CONFIG_DIR = path.join(os.homedir(), '.propprofessor');
+  const CONFIG_DIR = path.join(os.homedir(), '.ssb');
   const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
   const DEFAULT_PATH = path.join(__dirname, '..', 'config.default.json');
 
@@ -1123,21 +1123,21 @@ if (command === 'setup') {
 **Step 3:** Add to `getCommandInventory()`
 
 ```javascript
-{ command: 'setup', description: 'Install default config to ~/.propprofessor/config.json (idempotent)' },
+{ command: 'setup', description: 'Install default config to ~/.ssb/config.json (idempotent)' },
 ```
 
 **Step 4:** Test
 
 ```bash
-node scripts/query-propprofessor.js setup
+node scripts/query-ssb.js setup
 ```
 
-**Expected:** `{ "command": "setup", "status": "created", "path": "/Users/jamesdrake/.propprofessor/config.json" }`.
+**Expected:** `{ "command": "setup", "status": "created", "path": "/Users/jamesdrake/.ssb/config.json" }`.
 
 **Step 5:** Re-run, verify idempotency
 
 ```bash
-node scripts/query-propprofessor.js setup
+node scripts/query-ssb.js setup
 ```
 
 **Expected:** `{ "command": "setup", "status": "exists", "path": "..." }`.
@@ -1145,7 +1145,7 @@ node scripts/query-propprofessor.js setup
 **Step 6:** Commit
 
 ```bash
-git add scripts/query-propprofessor.js
+git add scripts/query-ssb.js
 git commit -m "feat(query): add setup subcommand for default config install"
 ```
 
@@ -1165,7 +1165,7 @@ def install_mcp() -> None:
     # Install default config first.
     import subprocess
     setup_result = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "scripts" / "query-propprofessor.js"), "setup"],
+        [sys.executable, str(REPO_ROOT / "scripts" / "query-ssb.js"), "setup"],
         capture_output=True, text=True
     )
     if setup_result.returncode == 0:
@@ -1180,9 +1180,9 @@ def install_mcp() -> None:
 
 ```python
 def test_install_mcp_creates_config(fake_hermes_home, monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))  # redirect ~/.propprofessor
+    monkeypatch.setenv("HOME", str(tmp_path))  # redirect ~/.ssb
     subprocess.run([sys.executable, str(INSTALL), "mcp"], check=True)
-    assert (tmp_path / ".propprofessor" / "config.json").exists()
+    assert (tmp_path / ".ssb" / "config.json").exists()
 ```
 
 **Step 3:** Run the new test
@@ -1204,7 +1204,7 @@ git commit -m "feat(install): install default config as part of mcp install"
 
 ## Phase 5: Cron template + sharp money alerts
 
-> Optional but high-leverage. Apollo's health-data-sync cron auto-fires every 6h. We can ship a similar pattern for PropProfessor — a one-shot sharp-money alert that the user opts into.
+> Optional but high-leverage. Apollo's health-data-sync cron auto-fires every 6h. We can ship a similar pattern for SSB — a one-shot sharp-money alert that the user opts into.
 
 ### Task 5.1: Write the cron prompt template
 
@@ -1215,18 +1215,18 @@ git commit -m "feat(install): install default config as part of mcp install"
 **Step 1:** Write the prompt
 
 ````markdown
-# Sharp-Money Alert — PropProfessor Cron Prompt
+# Sharp-Money Alert — SSB Cron Prompt
 
 > Self-contained prompt for `hermes cron create`. Drop into a cron job that
 > fires every 1-2 hours during the sports window. The agent loop loads
-> `propprofessor-coach` automatically and delivers TIER 1 plays to telegram.
+> `ssb-coach` automatically and delivers TIER 1 plays to telegram.
 
 ## Prompt
 
 You are the sharp-money alert agent. Run a single MCP tool call:
 
 ```python
-mcp_propprofessor_recommended_bets(targetTiers=["TIER 1"])
+mcp_ssb_recommended_bets(targetTiers=["TIER 1"])
 ```
 ````
 
@@ -1236,19 +1236,19 @@ If the response is empty OR `result.plays` is an empty array:
 
 If there are TIER 1 plays:
 
-1. Load the `propprofessor-coach` skill for the tier-format layout.
-2. For each play, call `mcp_propprofessor_player_context` to check the risk flag.
+1. Load the `ssb-coach` skill for the tier-format layout.
+2. For each play, call `mcp_ssb_player_context` to check the risk flag.
 3. Format the top 3 plays as a tier table.
 4. Deliver to the user's home telegram channel.
-5. Include the bankroll-stake for each play via `mcp_propprofessor_staking_plan` if a bankroll is set in `~/.propprofessor/config.json`.
+5. Include the bankroll-stake for each play via `mcp_ssb_staking_plan` if a bankroll is set in `~/.ssb/config.json`.
 
 ## Schedule
 
 ```bash
 hermes cron create "every 1h" \
   --prompt "$(cat docs/cron-prompts/sharp-money-alert.md | sed -n '/^## Prompt/,/^## Schedule/p' | head -n -2)" \
-  --name "propprofessor-alerts" \
-  --skills propprofessor-coach
+  --name "ssb-alerts" \
+  --skills ssb-coach
 ```
 
 (Read the file content into the `--prompt` argument; the snippet above is a sketch.)
@@ -1291,8 +1291,8 @@ def install_cron() -> None:
     cmd = [
         hermes_bin(), "cron", "create", "every 1h",
         "--prompt", prompt_body,
-        "--name", "propprofessor-alerts",
-        "--skills", "propprofessor-coach"
+        "--name", "ssb-alerts",
+        "--skills", "ssb-coach"
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -1321,7 +1321,7 @@ make install-cron
 ~/.hermes/hermes-agent/venv/bin/hermes cron list
 ```
 
-**Expected:** `propprofessor-alerts` appears.
+**Expected:** `ssb-alerts` appears.
 
 **Step 5:** Commit
 
@@ -1347,7 +1347,7 @@ git commit -m "feat(install): wire sharp-money alert cron to make install-cron"
 ```python
 def test_uninstall_removes_skill_link(fake_hermes_home):
     subprocess.run([sys.executable, str(INSTALL), "skill"], check=True)
-    target = fake_hermes_home / "profiles" / "default" / "skills" / "external" / "propprofessor-coach"
+    target = fake_hermes_home / "profiles" / "default" / "skills" / "external" / "ssb-coach"
     assert target.is_symlink()
     subprocess.run([sys.executable, str(INSTALL), "uninstall"], check=True)
     assert not target.exists()
@@ -1406,8 +1406,8 @@ grep -n "^## " README.md | head -10
 **One command. No config editing required.**
 
 ```bash
-git clone https://github.com/jbdrak/propprofessor-mcp.git
-cd propprofessor-mcp
+git clone https://github.com/jbdrak/ssb-for-agents.git
+cd ssb-for-agents
 npm install
 npm link
 make install
@@ -1416,9 +1416,9 @@ make install
 
 `make install` does three things:
 
-1. Links the `propprofessor-coach` skill into `~/.hermes/skills/external/`
-2. Registers the MCP server with hermes (`hermes mcp add propprofessor ...`)
-3. Installs the default config to `~/.propprofessor/config.json`
+1. Links the `ssb-coach` skill into `~/.hermes/skills/external/`
+2. Registers the MCP server with hermes (`hermes mcp add ssb ...`)
+3. Installs the default config to `~/.ssb/config.json`
 
 Then authenticate:
 
@@ -1467,21 +1467,21 @@ git commit -m "docs(readme): lead with 'make install' one-command flow"
 
 - Node.js 18+
 - A hermes install at `~/.hermes/` (any profile)
-- A paid PropProfessor account
+- A paid SSB account
 
 ## Steps
 
 ```bash
 # 1. Clone + install Node deps
-git clone https://github.com/jbdrak/propprofessor-mcp.git
-cd propprofessor-mcp
+git clone https://github.com/jbdrak/ssb-for-agents.git
+cd ssb-for-agents
 npm install
 npm link
 
 # 2. Wire into hermes (idempotent)
 make install
 
-# 3. Authenticate with PropProfessor
+# 3. Authenticate with SSB
 pp-query login
 # or: export AUTH_FILE=/path/to/your/auth.json
 
@@ -1492,20 +1492,20 @@ pp-query doctor
 
 ## What `make install` does
 
-| Step                                                        | Command                            | Reversible?        |
-| ----------------------------------------------------------- | ---------------------------------- | ------------------ |
-| 1. Symlink `propprofessor-coach` skill                      | `python3 scripts/install.py skill` | ✓ `make uninstall` |
-| 2. Register MCP server with hermes                          | `python3 scripts/install.py mcp`   | ✓ `make uninstall` |
-| 3. Install default config to `~/.propprofessor/config.json` | runs as part of step 2             | ✓ delete the file  |
+| Step                                              | Command                            | Reversible?        |
+| ------------------------------------------------- | ---------------------------------- | ------------------ |
+| 1. Symlink `ssb-coach` skill                      | `python3 scripts/install.py skill` | ✓ `make uninstall` |
+| 2. Register MCP server with hermes                | `python3 scripts/install.py mcp`   | ✓ `make uninstall` |
+| 3. Install default config to `~/.ssb/config.json` | runs as part of step 2             | ✓ delete the file  |
 
 ## What `make install-cron` adds
 
-Registers a `propprofessor-alerts` cron job that runs every 1h, queries TIER 1 plays, and delivers to your home telegram channel. See [docs/cron-prompts/sharp-money-alert.md](docs/cron-prompts/sharp-money-alert.md) for the prompt.
+Registers a `ssb-alerts` cron job that runs every 1h, queries TIER 1 plays, and delivers to your home telegram channel. See [docs/cron-prompts/sharp-money-alert.md](docs/cron-prompts/sharp-money-alert.md) for the prompt.
 
 ## Troubleshooting
 
 - **`hermes: command not found`** — install hermes first: `curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash`
-- **Skill doesn't load** — check the symlink: `ls -la ~/.hermes/skills/external/propprofessor-coach`. Should point back to this repo's `skills/propprofessor-coach/`.
+- **Skill doesn't load** — check the symlink: `ls -la ~/.hermes/skills/external/ssb-coach`. Should point back to this repo's `skills/ssb-coach/`.
 - **Auth errors at runtime** — run `pp-query login` or `pp-query doctor`.
 
 ````
@@ -1547,27 +1547,27 @@ head -40 CHANGELOG.md
 
 ### Added
 
-- `make install` — one-command install: links the `propprofessor-coach` skill into hermes, registers the MCP server, installs the default config
-- `make install-cron` — registers the optional `propprofessor-alerts` sharp-money cron
+- `make install` — one-command install: links the `ssb-coach` skill into hermes, registers the MCP server, installs the default config
+- `make install-cron` — registers the optional `ssb-alerts` sharp-money cron
 - `make uninstall` — reverses both
 - `scripts/install.py` — idempotent Python installer (stdlib only, no pip deps)
 - `scripts/install_helpers.py` + `scripts/test_install_helpers.py` — hermes path/profile resolution helpers with tests
 - `bin/pp` — thin CLI wrapper for `pp hide / unhide / hidden / sync / doctor / today`
 - `config.default.json` — ships sane defaults (league=NBA, bankroll=1000, targetBook=NoVigApp)
-- `pp-query setup` — copies the default config to `~/.propprofessor/config.json`
-- `skills/propprofessor-coach/SKILL.md` — operator-facing coach skill (auto-routes "what should I bet today" to the right tools)
+- `pp-query setup` — copies the default config to `~/.ssb/config.json`
+- `skills/ssb-coach/SKILL.md` — operator-facing coach skill (auto-routes "what should I bet today" to the right tools)
 - `docs/cron-prompts/sharp-money-alert.md` — cron prompt template
 - `INSTALL.md` — 60-second quick-start
 
 ### Behavior
 
 - The 23 MCP tools and 784-test suite are unchanged. Pure packaging work.
-- `hermes mcp add propprofessor` is unchanged in shape — the installer just automates the config edit that users previously did manually.
+- `hermes mcp add ssb` is unchanged in shape — the installer just automates the config edit that users previously did manually.
 
 ### Migration
 
 - Existing users: re-running `make install` is a no-op. New install gets the skill symlink + config.
-- The 3 hermes-side `propprofessor-*` skills in `~/.hermes/skills/` are unchanged. The new coach skill ships in the repo and gets linked separately.
+- The 3 hermes-side `ssb-*` skills in `~/.hermes/skills/` are unchanged. The new coach skill ships in the repo and gets linked separately.
 ```
 
 **Step 3:** Bump `package.json` version
@@ -1625,11 +1625,11 @@ git commit -m "docs(setup): lead with 'make install' one-command flow"
 **Step 1:** From a fresh shell, in the repo:
 
 ```bash
-cd ~/Documents/workspace/propprofessor-mcp
+cd ~/Documents/workspace/ssb-for-agents
 make install
 pp-query doctor
 ~/.hermes/hermes-agent/venv/bin/hermes mcp list
-~/.hermes/hermes-agent/venv/bin/hermes skills list | grep propprofessor
+~/.hermes/hermes-agent/venv/bin/hermes skills list | grep ssb
 pp today
 pp hidden
 ```
@@ -1694,7 +1694,7 @@ git push origin v2.1.0
 | 1     | Coach skill + Makefile | 2 new, 1 modify | Low — pure additive                      |
 | 2     | `pp` wrapper           | 1 new, 1 modify | Low — pass-through only                  |
 | 3     | `install.py`           | 1 new, 1 modify | Med — touches hermes config (idempotent) |
-| 4     | Default config         | 2 new, 2 modify | Low — additive to `~/.propprofessor/`    |
+| 4     | Default config         | 2 new, 2 modify | Low — additive to `~/.ssb/`              |
 | 5     | Cron template          | 1 new, 1 modify | Low — opt-in                             |
 | 6     | Uninstall tests        | 1 modify        | Low                                      |
 | 7     | Docs + CHANGELOG       | 4 modify, 1 new | Low                                      |
@@ -1706,7 +1706,7 @@ git push origin v2.1.0
 
 **Out of scope (later):**
 
-- Real Python `pip install hermes-propprofessor-data` plugin (Option A from prior discussion)
-- Local SQLite store at `~/.hermes/propprofessor.db`
+- Real Python `pip install hermes-ssb-data` plugin (Option A from prior discussion)
+- Local SQLite store at `~/.hermes/ssb.db`
 - Self-managed hide/unhide persistence (currently lives in MCP server's tierCache; could move to disk)
-- Per-profile skill loading profiles (e.g. `propprofessor-coach-nba` vs `propprofessor-coach-tennis`)
+- Per-profile skill loading profiles (e.g. `ssb-coach-nba` vs `ssb-coach-tennis`)

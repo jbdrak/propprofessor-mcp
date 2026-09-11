@@ -13,7 +13,7 @@
  * ctx.handlers (already wired by createMcpHandlers before this module is
  * merged in), exactly as the inline version did.
  *
- * @param {import('../../../lib/propprofessor-api').PropProfessorClient} client
+ * @param {import('../../../lib/ssb-api').SSBClient} client
  * @param {import('./handler-context').HandlerContext} ctx
  * @param {object} deps
  * @param {object} deps.responseCache - LruCache instance (aggregate response cache)
@@ -23,41 +23,37 @@
  */
 
 const { ok } = require('../../../lib/response-envelope');
-const { clearTierCache } = require('../../../lib/propprofessor-risk-score');
-const { getMarketsForSport } = require('../../../lib/propprofessor-market-registry');
-const { getPropMarketsForSport } = require('../../../lib/propprofessor-market-registry');
+const { clearTierCache } = require('../../../lib/ssb-risk-score');
+const { getMarketsForSport } = require('../../../lib/ssb-market-registry');
+const { getPropMarketsForSport } = require('../../../lib/ssb-market-registry');
 const { getLocalTimezone, localDateKey } = require('../../../lib/mcp-runtime-config');
-const { getLeagueRankingPreset } = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { mapCandidateRow } = require('../../../lib/propprofessor-mcp-candidate-mapper');
-const { parseGameStartMs } = require('../../../lib/propprofessor-shared-utils');
+const { getLeagueRankingPreset } = require('../../../lib/ssb-mcp-ranked-screen');
+const { mapCandidateRow } = require('../../../lib/ssb-mcp-candidate-mapper');
+const { parseGameStartMs } = require('../../../lib/ssb-shared-utils');
 const { recoverStandardTotals } = require('./totals-recovery');
 const { resolveMarkets, stripVerdictFields } = require('./handler-utils');
 const { planAggregateScreen } = require('./aggregate-screen');
 const { logLargeQuickScreenResponse } = require('./log-large-response');
 const { stripLiteResponse } = require('./strip-lite-response');
-const validationPipeline = require('../../../lib/propprofessor-validation-pipeline');
+const validationPipeline = require('../../../lib/ssb-validation-pipeline');
 const {
   applyValidatedFields,
   applyFinalVerdict,
   flagContradictoryPlays,
   promoteFinalVerdictToDisplay
 } = require('../../../lib/bet-verdict');
-const { runResearchOnTopRows } = require('../../../lib/propprofessor-research-runner');
-const { buildFinalResearchBatch } = require('../../../lib/propprofessor-quick-screen-research');
-const { categorizeError } = require('../../../lib/propprofessor-mcp-stdio');
+const { runResearchOnTopRows } = require('../../../lib/ssb-research-runner');
+const { buildFinalResearchBatch } = require('../../../lib/ssb-quick-screen-research');
+const { categorizeError } = require('../../../lib/ssb-mcp-stdio');
 const {
   formatQuickScreenMinimal,
   formatQuickScreenStandard,
   formatQuickScreenBets
-} = require('../../../lib/propprofessor-formatter');
-const {
-  filterRowsByKaiCall,
-  filterRowsByMinEV,
-  filterRowsByMovement
-} = require('../../../lib/propprofessor-row-filter');
-const { sortRows } = require('../../../lib/propprofessor-sort-utils');
-const { getPickStats, getBacktestSummary } = require('../../../lib/propprofessor-picks');
-const { mapWithConcurrency } = require('../../../lib/propprofessor-shared-utils');
+} = require('../../../lib/ssb-formatter');
+const { filterRowsByKaiCall, filterRowsByMinEV, filterRowsByMovement } = require('../../../lib/ssb-row-filter');
+const { sortRows } = require('../../../lib/ssb-sort-utils');
+const { getPickStats, getBacktestSummary } = require('../../../lib/ssb-picks');
+const { mapWithConcurrency } = require('../../../lib/ssb-shared-utils');
 
 // Local mirror of the original inline getDefaultMarketsForLeague wrapper in
 // handlers.js — resolves default markets for a league via the registry.

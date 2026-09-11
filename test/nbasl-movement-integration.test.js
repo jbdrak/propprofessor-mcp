@@ -2,8 +2,8 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
-const { resolveMarketName } = require('../lib/propprofessor-shared-utils');
+const { computeMovementDisposition } = require('../lib/ssb-movement-disposition');
+const { resolveMarketName } = require('../lib/ssb-shared-utils');
 
 describe('NBASL movement quality fixes', () => {
   // ── Market aliases ────────────────────────────────────────────────

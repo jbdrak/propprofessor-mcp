@@ -23,7 +23,7 @@ const PROJECT = path.resolve(__dirname, '..');
 const CACHE_PATH = path.join(PROJECT, 'lib', 'tennis-schedule-data', 'flashscore-cache.json');
 const BACKUP_PATH = CACHE_PATH + '.test-backup';
 const FS_MODULE = path.join(PROJECT, 'lib', 'flashscore-times.js');
-const TENNIS_MODULE = path.join(PROJECT, 'lib', 'propprofessor-tennis.js');
+const TENNIS_MODULE = path.join(PROJECT, 'lib', 'ssb-tennis.js');
 
 const NOW = Date.now();
 const HOUR = 60 * 60 * 1000;

@@ -11,10 +11,10 @@ const {
   surnameCandidates,
   matchStanceToRow,
   analyzeWalletPlays
-} = require('../lib/propprofessor-wallet-plays');
+} = require('../lib/ssb-wallet-plays');
 // Required for swap-the-fetch-layer injection in the analyzeWalletPlays tests.
 // The module binds these at call time, so reassigning here is visible to it.
-const polyWalletsMod = require('../lib/propprofessor-poly-wallets');
+const polyWalletsMod = require('../lib/ssb-poly-wallets');
 
 const STANCE = (over = {}) => ({
   conditionId: 'c1',

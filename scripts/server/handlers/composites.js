@@ -8,12 +8,12 @@
  * runLeagueScreen, etc.) — they ONLY use ctx.handlers.* for cross-calls.
  */
 
-const { DEFAULT_LEAGUES } = require('../../../lib/propprofessor-shared-utils');
-const { getMarketsForSport } = require('../../../lib/propprofessor-market-registry');
+const { DEFAULT_LEAGUES } = require('../../../lib/ssb-shared-utils');
+const { getMarketsForSport } = require('../../../lib/ssb-market-registry');
 const { ok } = require('../../../lib/response-envelope');
-const { getBacktestSummary, readCheckpoint, writeCheckpoint } = require('../../../lib/propprofessor-picks');
-const { suggestStakes } = require('../../../lib/propprofessor-risk-score');
-const { parseNaturalLanguagePropQuery } = require('../../../lib/propprofessor-query-parser');
+const { getBacktestSummary, readCheckpoint, writeCheckpoint } = require('../../../lib/ssb-picks');
+const { suggestStakes } = require('../../../lib/ssb-risk-score');
+const { parseNaturalLanguagePropQuery } = require('../../../lib/ssb-query-parser');
 
 function findSmartBetMatch(screenResult, selection, league, market) {
   let match = null;

@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildRankedHydrationOptions } = require('../lib/propprofessor-ranked-screen-hydration-options');
+const { buildRankedHydrationOptions } = require('../lib/ssb-ranked-screen-hydration-options');
 
 describe('buildRankedHydrationOptions', () => {
   it('builds the history options and includes finite pacing overrides', () => {

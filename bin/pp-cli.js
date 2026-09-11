@@ -2,31 +2,31 @@
 'use strict';
 
 /**
- * pp — PropProfessor CLI
+ * pp — SSB CLI
  * Direct handler access, no MCP transport.
  * Usage: pp <command> [args...]
  */
 
 const PROJECT = __dirname.replace(/\/bin$/, '');
 const fs = require('node:fs');
-const { createPropProfessorClient } = require(PROJECT + '/lib/propprofessor-api');
+const { createSSBClient } = require(PROJECT + '/lib/ssb-api');
 const { createMcpHandlers } = require(PROJECT + '/scripts/server/handlers');
 const { getLocalTimezone } = require(PROJECT + '/lib/mcp-runtime-config');
-const { parseGameStartMs, americanOddsToImpliedProbability } = require(PROJECT + '/lib/propprofessor-shared-utils');
+const { parseGameStartMs, americanOddsToImpliedProbability } = require(PROJECT + '/lib/ssb-shared-utils');
 const { recoverTennisFromScreen } = require(PROJECT + '/lib/tennis-fallback');
 const { loadLedger, saveLedger, addRecord, defaultLedgerPath } = require(PROJECT + '/lib/record-ledger');
 const { normalizeScanCandidates, buildScanFingerprint } = require(PROJECT + '/lib/record-candidates');
 const { promoteCards } = require(PROJECT + '/lib/record-card');
-const { enrichScanPolyWallets } = require(PROJECT + '/lib/propprofessor-poly-wallets');
-const { analyzeWalletPlays } = require(PROJECT + '/lib/propprofessor-wallet-plays');
+const { enrichScanPolyWallets } = require(PROJECT + '/lib/ssb-poly-wallets');
+const { analyzeWalletPlays } = require(PROJECT + '/lib/ssb-wallet-plays');
 const { formatScanDiagnostics, normalizeWatchCandidates, summarizeUnresolvedCandidates } = require(
   PROJECT + '/lib/scan-diagnostics'
 );
-const { getMarketsForSport } = require(PROJECT + '/lib/propprofessor-market-registry');
+const { getMarketsForSport } = require(PROJECT + '/lib/ssb-market-registry');
 const { getSoccerEventIdentity } = require(PROJECT + '/lib/soccer-event-identity');
-const { resolveScanLimit } = require(PROJECT + '/lib/propprofessor-scan-limit');
-const { correctTennisTimes } = require(PROJECT + '/lib/propprofessor-tennis');
-const { extractEventLinkRows, groupEventLinks } = require(PROJECT + '/lib/propprofessor-event-links');
+const { resolveScanLimit } = require(PROJECT + '/lib/ssb-scan-limit');
+const { correctTennisTimes } = require(PROJECT + '/lib/ssb-tennis');
+const { extractEventLinkRows, groupEventLinks } = require(PROJECT + '/lib/ssb-event-links');
 const reviewRecord = require(PROJECT + '/scripts/review-record');
 
 // ── book alias resolution ──────────────────────────────────────
@@ -34,7 +34,7 @@ const reviewRecord = require(PROJECT + '/scripts/review-record');
 // type common shorthands ('onyx', 'no vig', 'pinnacle'). Resolve to
 // canonical before passing to handlers — otherwise the backend
 // returns 0 rows for an unknown book key. Mirrors the alias map in
-// lib/propprofessor-query-parser.js parseNaturalLanguagePropQuery.
+// lib/ssb-query-parser.js parseNaturalLanguagePropQuery.
 const BOOK_ALIASES = {
   novig: 'NoVigApp',
   novigapp: 'NoVigApp',
@@ -177,7 +177,7 @@ function deriveFromPlayId(id, { league, market, selection } = {}) {
 // ── help system ─────────────────────────────────────────────────
 
 const CLI_HELP = {
-  '': `pp — PropProfessor CLI
+  '': `pp — SSB CLI
 
 Usage: pp <command> [args...]
 
@@ -222,7 +222,7 @@ Flags:
   --validate-all            Full validation on all candidates (slow)
   --tz <IANA>                Timezone for display (default: America/Chicago). Overrides LOCALTIMEZONE env var.
   --no-tennis-fallback       Disable fallback recovery when tennis scan returns 0 plays
-  --record-scan              Record scan + normalized candidates to the tracker ledger (PP_RECORD_LEDGER, default ~/.propprofessor/tracker/ledger.json)
+  --record-scan              Record scan + normalized candidates to the tracker ledger (PP_RECORD_LEDGER, default ~/.ssb/tracker/ledger.json)
   --props                   Include player prop markets (Player Points, etc.) in the scan
   --wallets [N]             Overlay top Polymarket wallets' live positions on plays (default off; N = number of wallets, default 20)
   --no-wallets              Explicitly disable the wallet overlay (only meaningful with --wallets)
@@ -296,7 +296,7 @@ Flags:
   'record-card': `pp record-card <card.json> [flags]
 
 Record a reviewed decision card into the tracker ledger (PP_RECORD_LEDGER,
-default ~/.propprofessor/tracker/ledger.json). Promotes explicit BET cards
+default ~/.ssb/tracker/ledger.json). Promotes explicit BET cards
 into official bet records; LEAN/PASS update the candidate without creating
 a bet. Idempotent — re-importing an already recorded card is a no-op.
 
@@ -326,7 +326,7 @@ Exit status:
   record: `pp record <stats|review|pending> [flags]
 
 Review official bets, P&L, and raw candidates from the tracker ledger
-(PP_RECORD_LEDGER, default ~/.propprofessor/tracker/ledger.json). Local and
+(PP_RECORD_LEDGER, default ~/.ssb/tracker/ledger.json). Local and
 read-only — no network, no ledger writes.
 
 Modes:
@@ -370,7 +370,7 @@ Flags:
 `,
   links: `pp links [leagues...] [flags]
 
-Fetch event links from PropProfessor's EV feed. This is a manual, on-demand
+Fetch event links from SSB's EV feed. This is a manual, on-demand
 lookup. By default it returns NoVigApp links for the normal upcoming slate.
 
 Flags:
@@ -2327,9 +2327,9 @@ async function main() {
 
   // ── MCP server mode ──────────────────────────────
   if (flags.mcp || flags['mcp'] === true) {
-    if (flags['mode']) process.env.PROPPROFESSOR_MCP_MODE = flags['mode'];
-    if (flags['coalesce-ms']) process.env.PROPPROFESSOR_MCP_STDIO_COALESCE_MS = String(flags['coalesce-ms']);
-    const { serveStdio } = require(PROJECT + '/scripts/propprofessor-mcp-server');
+    if (flags['mode']) process.env.SSB_MCP_MODE = flags['mode'];
+    if (flags['coalesce-ms']) process.env.SSB_MCP_STDIO_COALESCE_MS = String(flags['coalesce-ms']);
+    const { serveStdio } = require(PROJECT + '/scripts/ssb-mcp-server');
     return serveStdio().catch((err) => {
       console.error(err?.stack || err?.message || String(err));
       process.exit(1);
@@ -2370,7 +2370,7 @@ async function main() {
     console.error('Note: ' + command + ' is deprecated. Use "' + resolvedCmd + '" instead.');
   }
 
-  const client = createPropProfessorClient();
+  const client = createSSBClient();
   const handlers = createMcpHandlers({ client, enableSharpOddsHistory: true });
 
   const start = Date.now();

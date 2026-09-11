@@ -16,7 +16,7 @@ const {
   FETCH_TIMEOUT_MS,
   FALLBACK_FETCH_TIMEOUT_MS,
   timeoutSignal
-} = require('../lib/propprofessor-poly-wallets');
+} = require('../lib/ssb-poly-wallets');
 
 // --- pure helpers -----------------------------------------------------------
 
@@ -226,7 +226,7 @@ describe('matchPlayToWallet', () => {
     const result = matchPlayToWallet(play, rows);
     // match layer itself doesn't filter by size (fetch layer does) — but a
     // sub-threshold stance should never machine into a claim either.
-    const { MIN_STANCE_USDC } = require('../lib/propprofessor-poly-wallets');
+    const { MIN_STANCE_USDC } = require('../lib/ssb-poly-wallets');
     assert.ok(MIN_STANCE_USDC >= 25, 'threshold sanity');
     assert.equal(result.available, true);
   });

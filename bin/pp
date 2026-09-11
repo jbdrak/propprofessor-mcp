@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * pp — PropProfessor CLI entry point.
+ * pp — SSB CLI entry point.
  * All logic lives in bin/pp-cli.js.
  */
 const { main, formatError } = require('./pp-cli.js');

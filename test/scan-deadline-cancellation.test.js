@@ -4,8 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createPropProfessorClient } = require('../lib/propprofessor-api');
-const { withPairTimeout, createCrossCallMemoizedQuery } = require('../lib/propprofessor-shared-utils');
+const { createSSBClient } = require('../lib/ssb-api');
+const { withPairTimeout, createCrossCallMemoizedQuery } = require('../lib/ssb-shared-utils');
 const { runScope } = require('../lib/async-scope');
 
 function deferred() {
@@ -33,7 +33,7 @@ function clientFor(t, fetchImpl, extraOptions = {}) {
     })
   );
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  return createPropProfessorClient({
+  return createSSBClient({
     authFile,
     fetchImpl,
     requestTimeoutMs: 2000,

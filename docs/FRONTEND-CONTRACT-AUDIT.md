@@ -2,8 +2,8 @@
 
 `scripts/live-frontend-contract-audit.js` is a **manual-only, read-only**
 diagnostic that checks a frontend bundle's league/market map against the repo
-registry (`lib/propprofessor-market-registry.js` — the single source of truth
-for what leagues and markets the PropProfessor backend supports) and runs a
+registry (`lib/ssb-market-registry.js` — the single source of truth
+for what leagues and markets the SSB backend supports) and runs a
 fixture-driven deep-link hydration check.
 
 It exists to catch contract drift before it reaches users — the classic case

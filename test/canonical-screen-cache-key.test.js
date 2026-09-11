@@ -14,7 +14,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { canonicalizeScreenArgs } = require('../lib/propprofessor-shared-utils');
+const { canonicalizeScreenArgs } = require('../lib/ssb-shared-utils');
 
 describe('canonicalizeScreenArgs covers singular league/market inputs', () => {
   it('distinguishes NBA Moneyline from MLB Total Runs for the same gameId/books', () => {

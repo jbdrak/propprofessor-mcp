@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildRankedResultRows } = require('../lib/propprofessor-ranked-screen-results');
+const { buildRankedResultRows } = require('../lib/ssb-ranked-screen-results');
 
 describe('buildRankedResultRows', () => {
   it('uses explicit fields before compact mode and preserves fallback rows', () => {

@@ -5,8 +5,8 @@ const assert = require('node:assert/strict');
 
 const { stripExactLineHistoryFields } = require('../scripts/server/handlers/strip-exact-line-history');
 const { rankLeagueScreenRows } = require('../lib/screen-ranker');
-const { compactRow } = require('../lib/propprofessor-mcp-ranked-screen');
-const { formatBetStandard, formatGetPlayDetailsStandard } = require('../lib/propprofessor-formatter');
+const { compactRow } = require('../lib/ssb-mcp-ranked-screen');
+const { formatBetStandard, formatGetPlayDetailsStandard } = require('../lib/ssb-formatter');
 
 const PRICE_FIELDS = {
   priceHistoryUsable: true,

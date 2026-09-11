@@ -17,9 +17,9 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 const { applyFinalVerdict } = require('../scripts/server/handlers');
-const { mapCandidateRow } = require('../lib/propprofessor-mcp-candidate-mapper');
+const { mapCandidateRow } = require('../lib/ssb-mcp-candidate-mapper');
 
 /** A "cached validator response" that blesses the row as BET / TIER 1. */
 function cachedValidatorResponse(overrides = {}) {

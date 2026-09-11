@@ -2,10 +2,10 @@
 
 /**
  * Deterministic, network-free tests for the Sofascore Python helper wiring in
- * lib/propprofessor-time-resolver.js.
+ * lib/ssb-time-resolver.js.
  *
  * The module resolves child_process at load time, so we inject behavior by
- * intercepting Module._load (same convention as test/query-propprofessor.test.js)
+ * intercepting Module._load (same convention as test/query-ssb.test.js)
  * and re-requiring a fresh copy of the resolver per test — fresh module state
  * (caches, one-time diagnostic flag) per test. The child_process stub provides
  * a callback-style execFile (the same shape cp.execFile uses) and global fetch is
@@ -18,7 +18,7 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const Module = require('module');
 
-const RESOLVER_PATH = require.resolve('../lib/propprofessor-time-resolver');
+const RESOLVER_PATH = require.resolve('../lib/ssb-time-resolver');
 
 // global fetch is resolved at call time (not captured at require time), so the
 // stub must stay installed while resolveMatchTime runs, not just during load.

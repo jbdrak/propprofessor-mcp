@@ -665,7 +665,7 @@ describe('screen-ranker (direct unit tests)', () => {
   });
 });
 
-const { getKaiCall } = require('../lib/propprofessor-risk-score');
+const { getKaiCall } = require('../lib/ssb-risk-score');
 
 describe('getKaiCall (Bug #2, 2026-06-17)', () => {
   it('caps verdict at CONSIDER for rows with focusBookMissing=true even when risk is low', () => {

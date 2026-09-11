@@ -2,7 +2,7 @@
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
-**Goal:** Make PropProfessor MCP accessible to agents serving all types of sports bettors — from casual "what should I bet today" users to sharp bettors who want full movement data and line history.
+**Goal:** Make SSB MCP accessible to agents serving all types of sports bettors — from casual "what should I bet today" users to sharp bettors who want full movement data and line history.
 
 **Architecture:** Progressive disclosure via verbosity levels, simplified auth flow, agent onboarding prompt, and tool grouping. No web UI — this stays agent-to-agent via MCP.
 
@@ -59,7 +59,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const DEFAULT_AUTH_FILE = path.join(os.homedir(), '.propprofessor', 'auth.json');
+const DEFAULT_AUTH_FILE = path.join(os.homedir(), '.ssb', 'auth.json');
 const LOGIN_URL = 'https://app.propprofessor.com/login';
 
 async function loginAndSaveAuth({ headless = false, timeout = 60000 } = {}) {
@@ -67,8 +67,8 @@ async function loginAndSaveAuth({ headless = false, timeout = 60000 } = {}) {
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  console.log('Opening PropProfessor login page...');
-  console.log('Please log in with your PropProfessor credentials.');
+  console.log('Opening SSB login page...');
+  console.log('Please log in with your SSB credentials.');
   console.log('The browser will close automatically once you are logged in.\n');
 
   await page.goto(LOGIN_URL);
@@ -117,7 +117,7 @@ Expected: PASS
 **Step 5: Add CLI command to pp-query**
 
 ```javascript
-// In scripts/query-propprofessor.js, add to command router:
+// In scripts/query-ssb.js, add to command router:
 if (command === 'login') {
   const { loginAndSaveAuth } = require('./pp-login');
   await loginAndSaveAuth();
@@ -151,7 +151,7 @@ pp-query install-auth --source /path/to/auth.json
 **Step 7: Commit**
 
 ```bash
-git add scripts/pp-login.js scripts/query-propprofessor.js test/pp-login.test.js package.json README.md
+git add scripts/pp-login.js scripts/query-ssb.js test/pp-login.test.js package.json README.md
 git commit -m "feat: automated login flow with Playwright"
 ````
 
@@ -163,16 +163,16 @@ git commit -m "feat: automated login flow with Playwright"
 
 **Files:**
 
-- Modify: `lib/propprofessor-api.js` (add `isAuthValid()` function)
-- Modify: `scripts/propprofessor-mcp-server.js` (update `health_status` handler)
+- Modify: `lib/ssb-api.js` (add `isAuthValid()` function)
+- Modify: `scripts/ssb-mcp-server.js` (update `health_status` handler)
 
 **Step 1: Write failing test**
 
 ```javascript
-// test/propprofessor-auth-check.test.js
+// test/ssb-auth-check.test.js
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const { isAuthValid } = require('../lib/propprofessor-api');
+const { isAuthValid } = require('../lib/ssb-api');
 
 describe('isAuthValid', () => {
   it('should return false for null auth', () => {
@@ -183,7 +183,7 @@ describe('isAuthValid', () => {
     assert.strictEqual(isAuthValid({ cookies: [] }), false);
   });
 
-  it('should return true for auth with PropProfessor cookies', () => {
+  it('should return true for auth with SSB cookies', () => {
     const auth = {
       cookies: [{ name: 'session', domain: '.propprofessor.com', value: 'abc123' }]
     };
@@ -195,15 +195,15 @@ describe('isAuthValid', () => {
 **Step 2: Run test to verify failure**
 
 ```bash
-node --test test/propprofessor-auth-check.test.js
+node --test test/ssb-auth-check.test.js
 ```
 
-Expected: FAIL — "Cannot find module '../lib/propprofessor-api'" or "isAuthValid is not a function"
+Expected: FAIL — "Cannot find module '../lib/ssb-api'" or "isAuthValid is not a function"
 
 **Step 3: Implement isAuthValid**
 
 ```javascript
-// In lib/propprofessor-api.js, add:
+// In lib/ssb-api.js, add:
 function isAuthValid(auth) {
   if (!auth || typeof auth !== 'object') return false;
   if (!Array.isArray(auth.cookies)) return false;
@@ -218,7 +218,7 @@ module.exports = { /* existing exports */, isAuthValid };
 **Step 4: Update health_status handler**
 
 ```javascript
-// In scripts/propprofessor-mcp-server.js, update health_status case:
+// In scripts/ssb-mcp-server.js, update health_status case:
 case 'health_status': {
   const authFile = resolveAuthFile();
   const auth = authFile ? loadAuthFromFile(authFile) : null;
@@ -237,7 +237,7 @@ case 'health_status': {
 
   if (authValid) {
     try {
-      const client = createPropProfessorClient({ auth });
+      const client = createSSBClient({ auth });
       await client.ping();
       result.backend = { ok: true, message: 'Backend reachable' };
     } catch (err) {
@@ -252,7 +252,7 @@ case 'health_status': {
 **Step 5: Run test to verify pass**
 
 ```bash
-node --test test/propprofessor-auth-check.test.js
+node --test test/ssb-auth-check.test.js
 ```
 
 Expected: PASS
@@ -260,7 +260,7 @@ Expected: PASS
 **Step 6: Commit**
 
 ```bash
-git add lib/propprofessor-api.js scripts/propprofessor-mcp-server.js test/propprofessor-auth-check.test.js
+git add lib/ssb-api.js scripts/ssb-mcp-server.js test/ssb-auth-check.test.js
 git commit -m "feat: clear auth status in health endpoint"
 ```
 
@@ -278,15 +278,15 @@ git commit -m "feat: clear auth status in health endpoint"
 
 **Files:**
 
-- Modify: `lib/propprofessor-tool-definitions.js` (add `verbosity` param to key tools)
+- Modify: `lib/ssb-tool-definitions.js` (add `verbosity` param to key tools)
 
 **Step 1: Write failing test**
 
 ```javascript
-// test/propprofessor-verbosity-param.test.js
+// test/ssb-verbosity-param.test.js
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const { buildToolDefinitions } = require('../lib/propprofessor-tool-definitions');
+const { buildToolDefinitions } = require('../lib/ssb-tool-definitions');
 
 describe('verbosity parameter', () => {
   it('should add verbosity to recommended_bets', () => {
@@ -301,7 +301,7 @@ describe('verbosity parameter', () => {
 **Step 2: Run test to verify failure**
 
 ```bash
-node --test test/propprofessor-verbosity-param.test.js
+node --test test/ssb-verbosity-param.test.js
 ```
 
 Expected: FAIL — "Cannot read properties of undefined (reading 'verbosity')"
@@ -309,7 +309,7 @@ Expected: FAIL — "Cannot read properties of undefined (reading 'verbosity')"
 **Step 3: Add verbosity parameter to tool definitions**
 
 ```javascript
-// In lib/propprofessor-tool-definitions.js, add to recommended_bets, sharp_plays, screen_ranked:
+// In lib/ssb-tool-definitions.js, add to recommended_bets, sharp_plays, screen_ranked:
 
 const VERBOSITY_PARAM = {
   type: 'string',
@@ -325,7 +325,7 @@ verbosity: VERBOSITY_PARAM,
 **Step 4: Run test to verify pass**
 
 ```bash
-node --test test/propprofessor-verbosity-param.test.js
+node --test test/ssb-verbosity-param.test.js
 ```
 
 Expected: PASS
@@ -333,7 +333,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add lib/propprofessor-tool-definitions.js test/propprofessor-verbosity-param.test.js
+git add lib/ssb-tool-definitions.js test/ssb-verbosity-param.test.js
 git commit -m "feat: add verbosity parameter to key tools"
 ```
 
@@ -345,16 +345,16 @@ git commit -m "feat: add verbosity parameter to key tools"
 
 **Files:**
 
-- Create: `lib/propprofessor-formatter.js`
-- Modify: `scripts/propprofessor-mcp-server.js` (apply formatter when verbosity=minimal)
+- Create: `lib/ssb-formatter.js`
+- Modify: `scripts/ssb-mcp-server.js` (apply formatter when verbosity=minimal)
 
 **Step 1: Write failing test**
 
 ```javascript
-// test/propprofessor-formatter.test.js
+// test/ssb-formatter.test.js
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const { formatBetMinimal } = require('../lib/propprofessor-formatter');
+const { formatBetMinimal } = require('../lib/ssb-formatter');
 
 describe('formatBetMinimal', () => {
   it('should produce plain English for a TIER 1 bet', () => {
@@ -399,15 +399,15 @@ describe('formatBetMinimal', () => {
 **Step 2: Run test to verify failure**
 
 ```bash
-node --test test/propprofessor-formatter.test.js
+node --test test/ssb-formatter.test.js
 ```
 
-Expected: FAIL — "Cannot find module '../lib/propprofessor-formatter'"
+Expected: FAIL — "Cannot find module '../lib/ssb-formatter'"
 
 **Step 3: Implement formatter**
 
 ```javascript
-// lib/propprofessor-formatter.js
+// lib/ssb-formatter.js
 'use strict';
 
 function formatBetMinimal(bet = {}) {
@@ -446,7 +446,7 @@ module.exports = { formatBetMinimal, formatBetsMinimal };
 **Step 4: Run test to verify pass**
 
 ```bash
-node --test test/propprofessor-formatter.test.js
+node --test test/ssb-formatter.test.js
 ```
 
 Expected: PASS
@@ -454,13 +454,13 @@ Expected: PASS
 **Step 5: Integrate into recommended_bets handler**
 
 ```javascript
-// In scripts/propprofessor-mcp-server.js, update recommended_bets case:
+// In scripts/ssb-mcp-server.js, update recommended_bets case:
 case 'recommended_bets': {
   const verbosity = args.verbosity || 'standard';
   const rows = await getRecommendedBets(args);
 
   if (verbosity === 'minimal') {
-    const { formatBetsMinimal } = require('../lib/propprofessor-formatter');
+    const { formatBetsMinimal } = require('../lib/ssb-formatter');
     return createJsonRpcSuccess(id, {
       summary: formatBetsMinimal(rows),
       count: rows.length
@@ -475,7 +475,7 @@ case 'recommended_bets': {
 **Step 6: Commit**
 
 ```bash
-git add lib/propprofessor-formatter.js scripts/propprofessor-mcp-server.js test/propprofessor-formatter.test.js
+git add lib/ssb-formatter.js scripts/ssb-mcp-server.js test/ssb-formatter.test.js
 git commit -m "feat: minimal verbosity formatter for casual bettors"
 ```
 
@@ -487,13 +487,13 @@ git commit -m "feat: minimal verbosity formatter for casual bettors"
 
 **Files:**
 
-- Modify: `lib/propprofessor-formatter.js` (add `formatBetStandard`)
-- Modify: `scripts/propprofessor-mcp-server.js` (apply formatter when verbosity=standard)
+- Modify: `lib/ssb-formatter.js` (add `formatBetStandard`)
+- Modify: `scripts/ssb-mcp-server.js` (apply formatter when verbosity=standard)
 
 **Step 1: Write failing test**
 
 ```javascript
-// In test/propprofessor-formatter.test.js, add:
+// In test/ssb-formatter.test.js, add:
 it('should produce structured output for standard verbosity', () => {
   const bet = {
     selection: 'Bonfim',
@@ -521,7 +521,7 @@ it('should produce structured output for standard verbosity', () => {
 **Step 2: Run test to verify failure**
 
 ```bash
-node --test test/propprofessor-formatter.test.js
+node --test test/ssb-formatter.test.js
 ```
 
 Expected: FAIL — "formatBetStandard is not defined"
@@ -529,7 +529,7 @@ Expected: FAIL — "formatBetStandard is not defined"
 **Step 3: Implement standard formatter**
 
 ```javascript
-// In lib/propprofessor-formatter.js, add:
+// In lib/ssb-formatter.js, add:
 function formatBetStandard(bet = {}) {
   // Strip verbose debug payloads, keep key fields
   const {
@@ -575,7 +575,7 @@ module.exports = { formatBetMinimal, formatBetsMinimal, formatBetStandard, forma
 **Step 4: Run test to verify pass**
 
 ```bash
-node --test test/propprofessor-formatter.test.js
+node --test test/ssb-formatter.test.js
 ```
 
 Expected: PASS
@@ -583,13 +583,13 @@ Expected: PASS
 **Step 5: Integrate into handler**
 
 ```javascript
-// In scripts/propprofessor-mcp-server.js, update recommended_bets case:
+// In scripts/ssb-mcp-server.js, update recommended_bets case:
 case 'recommended_bets': {
   const verbosity = args.verbosity || 'standard';
   const rows = await getRecommendedBets(args);
 
   if (verbosity === 'minimal') {
-    const { formatBetsMinimal } = require('../lib/propprofessor-formatter');
+    const { formatBetsMinimal } = require('../lib/ssb-formatter');
     return createJsonRpcSuccess(id, {
       summary: formatBetsMinimal(rows),
       count: rows.length
@@ -597,7 +597,7 @@ case 'recommended_bets': {
   }
 
   if (verbosity === 'standard') {
-    const { formatBetsStandard } = require('../lib/propprofessor-formatter');
+    const { formatBetsStandard } = require('../lib/ssb-formatter');
     return createJsonRpcSuccess(id, formatBetsStandard(rows));
   }
 
@@ -609,7 +609,7 @@ case 'recommended_bets': {
 **Step 6: Commit**
 
 ```bash
-git add lib/propprofessor-formatter.js scripts/propprofessor-mcp-server.js test/propprofessor-formatter.test.js
+git add lib/ssb-formatter.js scripts/ssb-mcp-server.js test/ssb-formatter.test.js
 git commit -m "feat: standard verbosity formatter for intermediate bettors"
 ```
 
@@ -627,16 +627,16 @@ git commit -m "feat: standard verbosity formatter for intermediate bettors"
 
 **Files:**
 
-- Modify: `lib/propprofessor-tool-definitions.js` (add `get_started` tool)
-- Modify: `scripts/propprofessor-mcp-server.js` (implement handler)
+- Modify: `lib/ssb-tool-definitions.js` (add `get_started` tool)
+- Modify: `scripts/ssb-mcp-server.js` (implement handler)
 
 **Step 1: Write failing test**
 
 ```javascript
-// test/propprofessor-get-started.test.js
+// test/ssb-get-started.test.js
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const { buildToolDefinitions } = require('../lib/propprofessor-tool-definitions');
+const { buildToolDefinitions } = require('../lib/ssb-tool-definitions');
 
 describe('get_started tool', () => {
   it('should exist in tool definitions', () => {
@@ -651,7 +651,7 @@ describe('get_started tool', () => {
 **Step 2: Run test to verify failure**
 
 ```bash
-node --test test/propprofessor-get-started.test.js
+node --test test/ssb-get-started.test.js
 ```
 
 Expected: FAIL — "Cannot read properties of undefined"
@@ -659,7 +659,7 @@ Expected: FAIL — "Cannot read properties of undefined"
 **Step 3: Add get_started tool definition**
 
 ```javascript
-// In lib/propprofessor-tool-definitions.js, add at the start of the array:
+// In lib/ssb-tool-definitions.js, add at the start of the array:
 {
   name: 'get_started',
   description:
@@ -683,7 +683,7 @@ Expected: FAIL — "Cannot read properties of undefined"
 **Step 4: Implement handler**
 
 ```javascript
-// In scripts/propprofessor-mcp-server.js, add case:
+// In scripts/ssb-mcp-server.js, add case:
 case 'get_started': {
   const userType = args.user_type || 'intermediate';
 
@@ -740,7 +740,7 @@ case 'get_started': {
 **Step 5: Run test to verify pass**
 
 ```bash
-node --test test/propprofessor-get-started.test.js
+node --test test/ssb-get-started.test.js
 ```
 
 Expected: PASS
@@ -748,7 +748,7 @@ Expected: PASS
 **Step 6: Commit**
 
 ```bash
-git add lib/propprofessor-tool-definitions.js scripts/propprofessor-mcp-server.js test/propprofessor-get-started.test.js
+git add lib/ssb-tool-definitions.js scripts/ssb-mcp-server.js test/ssb-get-started.test.js
 git commit -m "feat: get_started meta-tool for agent workflow guidance"
 ```
 
@@ -825,13 +825,13 @@ git commit -m "docs: add tool guide by user type"
 
 ## Phase 4: Agent Onboarding & Documentation
 
-**Problem:** Agents don't know what PropProfessor MCP does, what the outputs mean, or how to explain them to users.
+**Problem:** Agents don't know what SSB MCP does, what the outputs mean, or how to explain them to users.
 
 **Solution:** Create a system prompt template and a skill file that ships with the MCP server.
 
 ### Task 4.1: Create agent system prompt template
 
-**Objective:** Provide a recommended system prompt that agents can use to understand PropProfessor MCP.
+**Objective:** Provide a recommended system prompt that agents can use to understand SSB MCP.
 
 **Files:**
 
@@ -840,9 +840,9 @@ git commit -m "docs: add tool guide by user type"
 **Step 1: Write agent prompt**
 
 ```markdown
-# PropProfessor MCP Agent Prompt
+# SSB MCP Agent Prompt
 
-You are a sports betting assistant powered by PropProfessor MCP. You help users find profitable bets by analyzing odds movement, sharp book consensus, and player context.
+You are a sports betting assistant powered by SSB MCP. You help users find profitable bets by analyzing odds movement, sharp book consensus, and player context.
 
 ## Core Philosophy
 
@@ -953,7 +953,7 @@ git commit -m "docs: add agent system prompt template"
 
 ### Task 4.2: Create Hermes skill file
 
-**Objective:** Provide a Hermes skill that agents can load to understand PropProfessor MCP.
+**Objective:** Provide a Hermes skill that agents can load to understand SSB MCP.
 
 **Files:**
 
@@ -963,18 +963,18 @@ git commit -m "docs: add agent system prompt template"
 
 ```yaml
 ---
-name: propprofessor-mcp
-description: "PropProfessor MCP: sports betting analysis for AI agents. Screens 36+ books, ranks by sharp movement, validates with multi-window consensus."
+name: ssb-for-agents
+description: "SSB MCP: sports betting analysis for AI agents. Screens 36+ books, ranks by sharp movement, validates with multi-window consensus."
 version: 1.1.0
 author: James Drake
 tags: [sports-betting, mcp, odds-analysis, sharp-movement]
 ---
 
-# PropProfessor MCP Skill
+# SSB MCP Skill
 
 ## What It Does
 
-PropProfessor MCP is an odds analysis engine for AI agents. It screens 36+ sportsbooks across NBA, MLB, NHL, NFL, WNBA, UFC, Tennis, Soccer and ranks plays by:
+SSB MCP is an odds analysis engine for AI agents. It screens 36+ sportsbooks across NBA, MLB, NHL, NFL, WNBA, UFC, Tennis, Soccer and ranks plays by:
 
 - **Sharp book consensus** (Pinnacle, BetOnline, BookMaker)
 - **Multi-window line movement** (1h, 2h, 6h, 12h, 24h, 48h)
@@ -1052,7 +1052,7 @@ PropProfessor MCP is an odds analysis engine for AI agents. It screens 36+ sport
 
 If `health_status` returns `auth.valid: false`, tell the user:
 
-> "Your PropProfessor auth has expired. Run `pp-query login` to re-authenticate."
+> "Your SSB auth has expired. Run `pp-query login` to re-authenticate."
 
 ## Resources
 
@@ -1083,16 +1083,16 @@ git commit -m "docs: add Hermes skill file for agent onboarding"
 
 **Files:**
 
-- Modify: `lib/propprofessor-mcp-stdio.js` (enhance error categorization)
-- Modify: `scripts/propprofessor-mcp-server.js` (return structured errors)
+- Modify: `lib/ssb-mcp-stdio.js` (enhance error categorization)
+- Modify: `scripts/ssb-mcp-server.js` (return structured errors)
 
 **Step 1: Write failing test**
 
 ```javascript
-// test/propprofessor-error-codes.test.js
+// test/ssb-error-codes.test.js
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const { categorizeError } = require('../lib/propprofessor-mcp-stdio');
+const { categorizeError } = require('../lib/ssb-mcp-stdio');
 
 describe('structured error codes', () => {
   it('should return AUTH_EXPIRED for 401 errors', () => {
@@ -1116,7 +1116,7 @@ describe('structured error codes', () => {
 **Step 2: Run test to verify failure**
 
 ```bash
-node --test test/propprofessor-error-codes.test.js
+node --test test/ssb-error-codes.test.js
 ```
 
 Expected: FAIL — "Cannot read properties of undefined (reading 'recovery')"
@@ -1124,7 +1124,7 @@ Expected: FAIL — "Cannot read properties of undefined (reading 'recovery')"
 **Step 3: Enhance error categorization**
 
 ```javascript
-// In lib/propprofessor-mcp-stdio.js, update categorizeError:
+// In lib/ssb-mcp-stdio.js, update categorizeError:
 function categorizeError(error) {
   const message = String(error?.message || error || 'Unexpected error');
   const status = error?.status;
@@ -1133,7 +1133,7 @@ function categorizeError(error) {
     return {
       code: 'AUTH_EXPIRED',
       category: 'auth',
-      message: 'PropProfessor auth has expired',
+      message: 'SSB auth has expired',
       recovery: 'Run: pp-query login'
     };
   }
@@ -1142,7 +1142,7 @@ function categorizeError(error) {
     return {
       code: 'BACKEND_DOWN',
       category: 'backend',
-      message: 'PropProfessor backend is temporarily unavailable',
+      message: 'SSB backend is temporarily unavailable',
       recovery: 'Try again in a few minutes'
     };
   }
@@ -1151,7 +1151,7 @@ function categorizeError(error) {
     return {
       code: 'RATE_LIMITED',
       category: 'transport',
-      message: 'Rate limited by PropProfessor API',
+      message: 'Rate limited by SSB API',
       recovery: 'Wait 60 seconds and retry'
     };
   }
@@ -1160,7 +1160,7 @@ function categorizeError(error) {
     code: 'INTERNAL_ERROR',
     category: 'internal',
     message,
-    recovery: 'Check logs or file an issue at github.com/jbdrak/propprofessor-mcp'
+    recovery: 'Check logs or file an issue at github.com/jbdrak/ssb-for-agents'
   };
 }
 ```
@@ -1168,7 +1168,7 @@ function categorizeError(error) {
 **Step 4: Run test to verify pass**
 
 ```bash
-node --test test/propprofessor-error-codes.test.js
+node --test test/ssb-error-codes.test.js
 ```
 
 Expected: PASS
@@ -1176,7 +1176,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add lib/propprofessor-mcp-stdio.js test/propprofessor-error-codes.test.js
+git add lib/ssb-mcp-stdio.js test/ssb-error-codes.test.js
 git commit -m "feat: structured error codes with recovery instructions"
 ```
 
@@ -1204,13 +1204,13 @@ git commit -m "feat: structured error codes with recovery instructions"
 #!/usr/bin/env node
 'use strict';
 
-const { createPropProfessorClient } = require('../lib/propprofessor-api');
-const { getConfidenceTier } = require('../lib/propprofessor-risk-score');
+const { createSSBClient } = require('../lib/ssb-api');
+const { getConfidenceTier } = require('../lib/ssb-risk-score');
 
 async function backtest({ league, market, days = 30 } = {}) {
   console.log(`Backtesting ${league} ${market} for the last ${days} days...\n`);
 
-  const client = createPropProfessorClient();
+  const client = createSSBClient();
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
 
   // Fetch historical screen data
@@ -1301,7 +1301,7 @@ If TIER 1 hit rate is significantly higher than TIER 4, the tier system is worki
 
 ## Limitations
 
-- Historical data availability depends on PropProfessor's API
+- Historical data availability depends on SSB's API
 - Past performance doesn't guarantee future results
 - Small sample sizes (< 50 bets per tier) may not be statistically significant
 
@@ -1318,7 +1318,7 @@ git commit -m "feat: backtesting script to validate tier system"
 
 ## Summary
 
-This plan takes PropProfessor MCP from **3/10 to 9/10** for universal agent access:
+This plan takes SSB MCP from **3/10 to 9/10** for universal agent access:
 
 **Phase 1: Auth Simplification** — Automated login flow, clear auth status in health endpoint.
 

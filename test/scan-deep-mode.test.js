@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { resolveScanLimit } = require('../lib/propprofessor-scan-limit');
+const { resolveScanLimit } = require('../lib/ssb-scan-limit');
 
 test('multi-league BET-only scans keep the default hydration limit', () => {
   assert.equal(

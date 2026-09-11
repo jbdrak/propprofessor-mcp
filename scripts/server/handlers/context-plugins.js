@@ -12,10 +12,10 @@
  */
 
 const { ok } = require('../../../lib/response-envelope');
-const { getPlayerContext } = require('../../../lib/propprofessor-player-context');
-const { getMlbGameContext } = require('../../../lib/propprofessor-mlb-game-context');
-const { getLeagueRankingPreset } = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { getSharpBookComparisonSet, getSharpBookContext } = require('../../../lib/propprofessor-sharp-books');
+const { getPlayerContext } = require('../../../lib/ssb-player-context');
+const { getMlbGameContext } = require('../../../lib/ssb-mlb-game-context');
+const { getLeagueRankingPreset } = require('../../../lib/ssb-mcp-ranked-screen');
+const { getSharpBookComparisonSet, getSharpBookContext } = require('../../../lib/ssb-sharp-books');
 
 // ─── league preset inspector (extracted closure) ──────────────────────────
 
@@ -47,7 +47,7 @@ function buildLeaguePresetSummary() {
 // ─── factory ──────────────────────────────────────────────────────────────
 
 /**
- * @param {import('../../../lib/propprofessor-api').PropProfessorClient} client
+ * @param {import('../../../lib/ssb-api').SSBClient} client
  * @param {import('./handler-context').HandlerContext} ctx
  */
 function createContextPluginsHandlers(client, _ctx) {

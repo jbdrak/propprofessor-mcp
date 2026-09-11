@@ -279,7 +279,7 @@ All tools may fail with:
 {
   "ok": false,
   "error": {
-    "code": "AUTH_EXPIRED", // string code, see categorizeError in lib/propprofessor-errors.js
+    "code": "AUTH_EXPIRED", // string code, see categorizeError in lib/ssb-errors.js
     "category": "auth", // "auth" | "validation" | "upstream" | "rate_limit" | "internal"
     "status": 401, // suggested HTTP status if proxied
     "message": "Auth file is expired. Run: pp-query login",

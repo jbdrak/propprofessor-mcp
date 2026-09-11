@@ -304,9 +304,9 @@ describe('flashscore-times', () => {
 });
 
 describe('flashscoreTimeToISO', () => {
-  // Import from propprofessor-tennis
-  delete require.cache[require.resolve('../lib/propprofessor-tennis')];
-  const { flashscoreTimeToISO } = require('../lib/propprofessor-tennis');
+  // Import from ssb-tennis
+  delete require.cache[require.resolve('../lib/ssb-tennis')];
+  const { flashscoreTimeToISO } = require('../lib/ssb-tennis');
 
   it('converts "22:10" CDT to ISO', () => {
     const iso = flashscoreTimeToISO('22:10', '2026-07-29');

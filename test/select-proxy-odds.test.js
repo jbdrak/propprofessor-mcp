@@ -9,7 +9,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { selectProxyOdds } = require('../lib/screen-parser');
-const { mapCandidateRow } = require('../lib/propprofessor-mcp-candidate-mapper');
+const { mapCandidateRow } = require('../lib/ssb-mcp-candidate-mapper');
 
 describe('selectProxyOdds (DK/FD retail proxy picker)', () => {
   it('prefers DraftKings over FanDuel when both are present', () => {

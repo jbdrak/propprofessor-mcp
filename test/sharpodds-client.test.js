@@ -20,7 +20,7 @@ describe('sharpodds-client exports', () => {
     assert.equal(typeof client.buildHistoryUrl, 'function');
     assert.equal(client.SHARPODDS_API_ORIGIN, 'https://api.tsp.live');
     const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'sharpodds-client.js'), 'utf8');
-    assert.ok(!src.includes('propprofessor-auth'), 'must not import PP auth');
+    assert.ok(!src.includes('ssb-auth'), 'must not import PP auth');
     assert.ok(!/require\((['"])[^'"]*cookie/i.test(src), 'must not require cookies');
     assert.ok(!src.includes('document.cookie'), 'must not use document.cookie');
   });

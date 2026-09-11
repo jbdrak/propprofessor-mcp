@@ -10,17 +10,17 @@ const {
   buildRankedScreenResponse: buildRankedScreenResponseShared,
   buildCanonicalPlayId,
   normalizeBookList
-} = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/propprofessor-sharp-books');
+} = require('../../../lib/ssb-mcp-ranked-screen');
+const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/ssb-sharp-books');
 const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
 const { normalizeTennisMarketQuery } = require('../../../lib/screen-tennis');
-const { formatGetPlayDetailsMinimal, formatGetPlayDetailsStandard } = require('../../../lib/propprofessor-formatter');
+const { formatGetPlayDetailsMinimal, formatGetPlayDetailsStandard } = require('../../../lib/ssb-formatter');
 const { stripExactLineHistoryFields } = require('./strip-exact-line-history');
 const { filterPlayDetailsRows } = require('./filter-play-details-rows');
 const { recoverPlayDetailsRows } = require('./recover-play-details-rows');
 const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
 const { createSharpOddsHistoryProvider } = require('../../../lib/sharpodds-history-provider');
-const { correctTennisTimes } = require('../../../lib/propprofessor-tennis');
+const { correctTennisTimes } = require('../../../lib/ssb-tennis');
 const { getLocalTimezone } = require('../../../lib/mcp-runtime-config');
 
 // Parse source values before coercion: unknown is not zero liquidity or odds.
@@ -615,7 +615,7 @@ async function queryPlayDetailsResponse({
 }
 
 function getDefaultMarketsForLeague(league, _targetBooks) {
-  return require('../../../lib/propprofessor-market-registry').getMarketsForSport(league, _targetBooks);
+  return require('../../../lib/ssb-market-registry').getMarketsForSport(league, _targetBooks);
 }
 
 function createPlayDetailsHandlers(_client, _ctx) {

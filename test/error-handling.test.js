@@ -3,82 +3,82 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { classifyPropProfessorHttpError, createPropProfessorClient, isAuthValid } = require('../lib/propprofessor-api');
+const { classifySSBHttpError, createSSBClient, isAuthValid } = require('../lib/ssb-api');
 
-describe('classifyPropProfessorHttpError', () => {
+describe('classifySSBHttpError', () => {
   it('classifies 401 as auth error, retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 401, text: 'Unauthorized', source: 'HTTP' });
-    assert.equal(err.code, 'PROPPROFESSOR_AUTH_ERROR');
+    const err = classifySSBHttpError({ status: 401, text: 'Unauthorized', source: 'HTTP' });
+    assert.equal(err.code, 'SSB_AUTH_ERROR');
     assert.equal(err.retryable, true);
     assert.equal(err.category, 'auth');
     assert.equal(err.status, 401);
   });
 
   it('classifies 403 as validation error, not retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 403, text: 'Forbidden', source: 'HTTP' });
-    assert.equal(err.code, 'PROPPROFESSOR_REQUEST_ERROR');
+    const err = classifySSBHttpError({ status: 403, text: 'Forbidden', source: 'HTTP' });
+    assert.equal(err.code, 'SSB_REQUEST_ERROR');
     assert.equal(err.retryable, false);
     assert.equal(err.category, 'validation');
   });
 
   it('classifies 429 as backend error, retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 429, text: 'Too Many Requests', source: 'HTTP' });
-    assert.equal(err.code, 'PROPPROFESSOR_BACKEND_ERROR');
+    const err = classifySSBHttpError({ status: 429, text: 'Too Many Requests', source: 'HTTP' });
+    assert.equal(err.code, 'SSB_BACKEND_ERROR');
     assert.equal(err.retryable, true);
     assert.equal(err.category, 'backend');
   });
 
   it('classifies 500 as backend error, retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 500, text: 'Internal Server Error', source: 'HTTP' });
-    assert.equal(err.code, 'PROPPROFESSOR_BACKEND_ERROR');
+    const err = classifySSBHttpError({ status: 500, text: 'Internal Server Error', source: 'HTTP' });
+    assert.equal(err.code, 'SSB_BACKEND_ERROR');
     assert.equal(err.retryable, true);
     assert.equal(err.category, 'backend');
   });
 
   it('classifies 502 as backend error, retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 502, text: 'Bad Gateway', source: 'HTTP' });
-    assert.equal(err.code, 'PROPPROFESSOR_BACKEND_ERROR');
+    const err = classifySSBHttpError({ status: 502, text: 'Bad Gateway', source: 'HTTP' });
+    assert.equal(err.code, 'SSB_BACKEND_ERROR');
     assert.equal(err.retryable, true);
   });
 
   it('classifies 503 as backend error, retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 503, text: 'Service Unavailable', source: 'HTTP' });
-    assert.equal(err.code, 'PROPPROFESSOR_BACKEND_ERROR');
+    const err = classifySSBHttpError({ status: 503, text: 'Service Unavailable', source: 'HTTP' });
+    assert.equal(err.code, 'SSB_BACKEND_ERROR');
     assert.equal(err.retryable, true);
   });
 
   it('classifies 504 as backend error, retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 504, text: 'Gateway Timeout', source: 'HTTP' });
-    assert.equal(err.code, 'PROPPROFESSOR_BACKEND_ERROR');
+    const err = classifySSBHttpError({ status: 504, text: 'Gateway Timeout', source: 'HTTP' });
+    assert.equal(err.code, 'SSB_BACKEND_ERROR');
     assert.equal(err.retryable, true);
   });
 
   it('classifies 400 as validation error, not retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 400, text: 'Bad Request', source: 'HTTP' });
-    assert.equal(err.code, 'PROPPROFESSOR_REQUEST_ERROR');
+    const err = classifySSBHttpError({ status: 400, text: 'Bad Request', source: 'HTTP' });
+    assert.equal(err.code, 'SSB_REQUEST_ERROR');
     assert.equal(err.retryable, false);
     assert.equal(err.category, 'validation');
   });
 
   it('classifies 404 as validation error, not retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 404, text: 'Not Found', source: 'HTTP' });
-    assert.equal(err.code, 'PROPPROFESSOR_REQUEST_ERROR');
+    const err = classifySSBHttpError({ status: 404, text: 'Not Found', source: 'HTTP' });
+    assert.equal(err.code, 'SSB_REQUEST_ERROR');
     assert.equal(err.retryable, false);
   });
 
   it('includes status in error', () => {
-    const err = classifyPropProfessorHttpError({ status: 429, text: 'Rate limited', source: 'HTTP' });
+    const err = classifySSBHttpError({ status: 429, text: 'Rate limited', source: 'HTTP' });
     assert.equal(err.status, 429);
   });
 
   it('classifies unknown 4xx as validation, not retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 418, text: "I'm a teapot", source: 'HTTP' });
+    const err = classifySSBHttpError({ status: 418, text: "I'm a teapot", source: 'HTTP' });
     assert.equal(err.retryable, false);
     assert.equal(err.category, 'validation');
   });
 
   it('classifies unknown 5xx as backend, retryable', () => {
-    const err = classifyPropProfessorHttpError({ status: 555, text: 'Custom', source: 'HTTP' });
+    const err = classifySSBHttpError({ status: 555, text: 'Custom', source: 'HTTP' });
     assert.equal(err.retryable, true);
     assert.equal(err.category, 'backend');
   });
@@ -99,7 +99,7 @@ describe('HTTP retry logic', () => {
     );
 
     const calls = [];
-    const client = createPropProfessorClient({
+    const client = createSSBClient({
       authFile,
       gotScrapingImpl: async () => ({
         body: JSON.stringify({ token: 'test', exp: Math.floor(Date.now() / 1000) + 600, perm: {} }),
@@ -140,7 +140,7 @@ describe('isAuthValid', () => {
     assert.equal(isAuthValid({ origins: [] }), false);
   });
 
-  it('returns true for valid auth state with PropProfessor cookie', () => {
+  it('returns true for valid auth state with SSB cookie', () => {
     assert.equal(
       isAuthValid({
         cookies: [{ domain: '.propprofessor.com', name: 'session', value: 'abc' }]

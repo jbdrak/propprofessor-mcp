@@ -5,7 +5,7 @@
  * These were inline helpers that prevented handler extraction.
  */
 
-const { resolveMarketName } = require('../../../lib/propprofessor-shared-utils');
+const { resolveMarketName } = require('../../../lib/ssb-shared-utils');
 
 /**
  * Strip undefined values so they don't override API client defaults via spread.

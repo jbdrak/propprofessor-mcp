@@ -6,7 +6,7 @@
  */
 
 /**
- * @param {import('../../../lib/propprofessor-api').PropProfessorClient} client
+ * @param {import('../../../lib/ssb-api').SSBClient} client
  * @param {import('./handler-context').HandlerContext} ctx
  */
 function createPicksHandlers(client, _ctx) {

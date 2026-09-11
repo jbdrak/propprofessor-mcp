@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildRankedScreenResponse } = require('../lib/propprofessor-mcp-ranked-screen');
+const { buildRankedScreenResponse } = require('../lib/ssb-mcp-ranked-screen');
 
 function spreadPayloadRow(selection, line, bookOdds) {
   return {

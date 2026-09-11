@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { sortRows } = require('../lib/propprofessor-sort-utils');
+const { sortRows } = require('../lib/ssb-sort-utils');
 
 const baseOdds = (odds) => ({
   odds,

@@ -16,7 +16,7 @@ describe('logLargeQuickScreenResponse', () => {
       }
     );
 
-    assert.deepEqual(warnings, ['[PropProfessor MCP] Large quick_screen response: 0.0KB']);
+    assert.deepEqual(warnings, ['[SSB MCP] Large quick_screen response: 0.0KB']);
   });
 
   it('does not warn at or below the configured threshold', () => {

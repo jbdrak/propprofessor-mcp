@@ -11,7 +11,7 @@ const {
   buildQuickScreenSummary,
   formatBetsSummaryLine,
   buildByLeagueStats
-} = require('../lib/propprofessor-formatter');
+} = require('../lib/ssb-formatter');
 const { computeClvFromHistory } = require('../lib/tennis-fallback');
 
 // ---------------------------------------------------------------------------

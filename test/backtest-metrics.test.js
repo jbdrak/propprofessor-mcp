@@ -12,7 +12,7 @@ const {
   calibrationBins,
   americanOddsToProbability,
   scoreEvaluationRows
-} = require('../lib/propprofessor-backtest-metrics');
+} = require('../lib/ssb-backtest-metrics');
 
 describe('backtest metrics (real P&L / ROI / Sharpe / drawdown)', () => {
   describe('playProfit', () => {

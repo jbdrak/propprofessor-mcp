@@ -8,7 +8,7 @@ const {
   findMatch,
   clearCache,
   ESPN_LEAGUE_PATH
-} = require('../lib/propprofessor-espn-resolver');
+} = require('../lib/ssb-espn-resolver');
 
 function makeComp({
   homeTeam = 'Lakers',

@@ -157,7 +157,7 @@ describe('rankTennisScreenRows — dedup (2026-06-17)', () => {
 // ── Phase 1 Task 2: screen-tennis routes single-book CLV through the canonical
 // computeMovementDisposition producer (no competing inline threshold rule). ──
 describe('tennisMovementDisposition routes through canonical computeMovementDisposition', () => {
-  const { computeMovementDisposition } = require('../lib/propprofessor-movement-disposition');
+  const { computeMovementDisposition } = require('../lib/ssb-movement-disposition');
   const { tennisMovementDisposition } = require('../lib/screen-tennis');
 
   it('positive clv => supportive_bouncy (matches canonical translation)', () => {

@@ -56,7 +56,7 @@ describe('record-ledger', () => {
       delete process.env.PP_RECORD_LEDGER;
       assert.equal(
         ledger.defaultLedgerPath(),
-        path.join(require('node:os').homedir(), '.propprofessor', 'tracker', 'ledger.json')
+        path.join(require('node:os').homedir(), '.ssb', 'tracker', 'ledger.json')
       );
       process.env.PP_RECORD_LEDGER = '/tmp/custom-ledger.json';
       assert.equal(ledger.defaultLedgerPath(), '/tmp/custom-ledger.json');

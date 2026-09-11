@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""PropProfessor hermes install script.
+"""SSB hermes install script.
 
 Subcommands:
-  skill     Symlink skills/propprofessor-coach into hermes skills/external/.
-  mcp       Register the propprofessor MCP server with hermes.
+  skill     Symlink skills/ssb-coach into hermes skills/external/.
+  mcp       Register the ssb MCP server with hermes.
   uninstall Reverse all of the above.
   all       Run skill + mcp (the default).
 """
@@ -26,11 +26,11 @@ from install_helpers import (  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SKILL_NAME = "propprofessor-coach"
+SKILL_NAME = "ssb-coach"
 SKILL_SOURCE = REPO_ROOT / "skills" / SKILL_NAME
-MCP_NAME = "propprofessor"
-MCP_SERVER_PATH = REPO_ROOT / "scripts" / "propprofessor-mcp-server.js"
-AUTH_FILE_DEFAULT = Path.home() / ".propprofessor" / "auth.json"
+MCP_NAME = "ssb"
+MCP_SERVER_PATH = REPO_ROOT / "scripts" / "ssb-mcp-server.js"
+AUTH_FILE_DEFAULT = Path.home() / ".ssb" / "auth.json"
 
 
 def install_skill() -> None:
@@ -63,12 +63,12 @@ def install_mcp() -> None:
         raise SystemExit(f"MCP server not found: {MCP_SERVER_PATH}")
 
     # Install default config first. The `pp-query setup` command is idempotent
-    # — it only writes the default config if `~/.propprofessor/config.json`
+    # — it only writes the default config if `~/.ssb/config.json`
     # doesn't exist. We parse the JSON output so the user sees "created" vs
     # "exists" rather than a raw JSON blob.
     import json
     setup_result = subprocess.run(
-        ["node", str(REPO_ROOT / "scripts" / "query-propprofessor.js"), "setup"],
+        ["node", str(REPO_ROOT / "scripts" / "query-ssb.js"), "setup"],
         capture_output=True, text=True
     )
     if setup_result.returncode == 0:
@@ -92,7 +92,7 @@ def install_mcp() -> None:
     hermes_home = resolve_hermes_home()
     # Honor AUTH_FILE env var if set — the doctor/install-auth commands respect
     # it, and the install shouldn't silently override a user's existing path.
-    # Falls back to the standard ~/.propprofessor/auth.json default.
+    # Falls back to the standard ~/.ssb/auth.json default.
     auth_file = Path(os.environ.get("AUTH_FILE", "").strip()).expanduser() \
         if os.environ.get("AUTH_FILE", "").strip() \
         else AUTH_FILE_DEFAULT
@@ -103,7 +103,7 @@ def install_mcp() -> None:
     # AUTH_FILE if it's not already inherited from the environment (the user's
     # shell may have set it; we just want to make sure the registered config
     # points at the same file either way).
-    hermes_env_args = ["--env", "PROPPROFESSOR_MCP_NDJSON=true"]
+    hermes_env_args = ["--env", "SSB_MCP_NDJSON=true"]
     if not os.environ.get("AUTH_FILE"):
         hermes_env_args = ["--env", f"AUTH_FILE={auth_file}"] + hermes_env_args
     run_hermes([
@@ -129,7 +129,7 @@ def uninstall() -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install PropProfessor into hermes.")
+    parser = argparse.ArgumentParser(description="Install SSB into hermes.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     for name in ("skill", "mcp", "uninstall", "all"):

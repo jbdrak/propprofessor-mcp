@@ -20,11 +20,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
-const { isPlayerSelection } = require('../lib/propprofessor-selection-type');
-const { DEFAULT_HISTORY_MIN_INTERVAL_MS } = require('../lib/propprofessor-screen-history');
-const { clearTierCache, clearScoreTimeline } = require('../lib/propprofessor-risk-score');
+const { isPlayerSelection } = require('../lib/ssb-selection-type');
+const { DEFAULT_HISTORY_MIN_INTERVAL_MS } = require('../lib/ssb-screen-history');
+const { clearTierCache, clearScoreTimeline } = require('../lib/ssb-risk-score');
 
 function createHandlers(overrides = {}, handlerOptions = {}) {
   // Reset module-level tier state so tests are order-independent. The score
@@ -1012,7 +1012,7 @@ describe('composite handlers: registry-driven market defaults', () => {
   });
 
   it('get_alerts fans out per-league registry markets via screen_ranked', async () => {
-    const checkpointPath = path.join(os.homedir(), '.propprofessor', 'alerts-checkpoint.json');
+    const checkpointPath = path.join(os.homedir(), '.ssb', 'alerts-checkpoint.json');
     const prevCheckpoint = fs.existsSync(checkpointPath) ? fs.readFileSync(checkpointPath, 'utf8') : null;
 
     try {

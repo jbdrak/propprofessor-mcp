@@ -11,7 +11,7 @@ const MOCK_PICKS_FILE = path.join(os.tmpdir(), 'pp-backtest-test-picks-' + Date.
 process.env.PP_PICKS_FILE = MOCK_PICKS_FILE;
 
 // Temporarily remove the real picks module from the cache so it re-reads with our mock path
-delete require.cache[require.resolve('../lib/propprofessor-picks')];
+delete require.cache[require.resolve('../lib/ssb-picks')];
 
 // Must reorder: clear env first, then require the runner
 const { parseArgs, filterByDateRange, computeStatsFromPicks } = require('../scripts/backtest-runner');

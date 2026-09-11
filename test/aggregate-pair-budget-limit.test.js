@@ -21,7 +21,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { runSharpPlays } = require('../lib/propprofessor-sharp-plays-service');
+const { runSharpPlays } = require('../lib/ssb-sharp-plays-service');
 
 async function captureRankedArgs(args) {
   const seen = [];

@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { it } = require('node:test');
-const { selectTopBalanced } = require('../lib/propprofessor-validation-pipeline');
+const { selectTopBalanced } = require('../lib/ssb-validation-pipeline');
 
 it('selectTopBalanced reserves one validation slot per market bucket', () => {
   const marketA = { league: 'ncaaf', market: 'Moneyline' };

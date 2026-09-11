@@ -106,7 +106,7 @@ describe('pp-cli --record-scan', () => {
     };
     const handler = {
       async quick_screen() {
-        const formatted = require('../lib/propprofessor-formatter').formatQuickScreenBets({
+        const formatted = require('../lib/ssb-formatter').formatQuickScreenBets({
           ok: true,
           totalCandidates: 1,
           scanHealth,

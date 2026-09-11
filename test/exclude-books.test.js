@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
 const { createMockClient } = require('./fixtures/mock-client');
 
 describe('excludeBooks (Task 2: mirror website account Settings)', () => {

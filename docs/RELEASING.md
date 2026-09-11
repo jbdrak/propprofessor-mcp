@@ -1,4 +1,4 @@
-# Releasing PropProfessor MCP
+# Releasing SSB MCP
 
 Releases are tag-driven. A tag matching `v*` runs `.github/workflows/release.yml`, verifies the package on supported Node versions, publishes to npm, then creates the GitHub release only after npm succeeds.
 
@@ -8,7 +8,7 @@ The release workflow uses npm trusted publishing (GitHub Actions OIDC) instead o
 
 Requirements:
 
-- The `propprofessor-mcp` package already exists on npm.
+- The `ssb-for-agents` package already exists on npm.
 - Your npm account has publish access to the package and account-level 2FA enabled.
 - Use Node 22.14+ and npm 11.15+ for the `npm trust` setup command.
 
@@ -16,8 +16,8 @@ Authenticate to npm, then create the exact trust relationship used by this repos
 
 ```bash
 npm login
-npm trust github propprofessor-mcp \
-  --repo jbdrak/propprofessor-mcp \
+npm trust github ssb-for-agents \
+  --repo jbdrak/ssb-for-agents \
   --file release.yml \
   --allow-publish \
   -y
@@ -26,7 +26,7 @@ npm trust github propprofessor-mcp \
 Verify it:
 
 ```bash
-npm trust list propprofessor-mcp
+npm trust list ssb-for-agents
 ```
 
 The repository name and workflow filename are case-sensitive trust inputs. The workflow must keep `id-token: write` on the publish job. Do not add a broad or long-lived npm publish token as a fallback.

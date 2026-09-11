@@ -12,21 +12,17 @@
  * imports (resolveMarkets, canonicalizeScreenArgs, ok, categorizeError, clearTierCache)
  * are required at the top of this file.
  *
- * @param {import('../../../lib/propprofessor-api').PropProfessorClient} client
+ * @param {import('../../../lib/ssb-api').SSBClient} client
  * @param {import('./handler-context').HandlerContext} ctx
  */
 
 const { ok } = require('../../../lib/response-envelope');
-const { clearTierCache } = require('../../../lib/propprofessor-risk-score');
-const {
-  DEFAULT_LEAGUES,
-  canonicalizeScreenArgs,
-  mapWithConcurrency
-} = require('../../../lib/propprofessor-shared-utils');
-const { getLimit } = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { getMarketsForSport } = require('../../../lib/propprofessor-market-registry');
+const { clearTierCache } = require('../../../lib/ssb-risk-score');
+const { DEFAULT_LEAGUES, canonicalizeScreenArgs, mapWithConcurrency } = require('../../../lib/ssb-shared-utils');
+const { getLimit } = require('../../../lib/ssb-mcp-ranked-screen');
+const { getMarketsForSport } = require('../../../lib/ssb-market-registry');
 const { resolveMarkets } = require('./handler-utils');
-const { categorizeError } = require('../../../lib/propprofessor-mcp-stdio');
+const { categorizeError } = require('../../../lib/ssb-mcp-stdio');
 
 // Local mirror of the original inline getDefaultMarketsForLeague wrapper in
 // handlers.js — resolves default markets for a league via the registry.

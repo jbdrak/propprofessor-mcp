@@ -1,6 +1,6 @@
 # Backtesting the Tier System
 
-This document explains how to validate that the PropProfessor confidence tier
+This document explains how to validate that the SSB confidence tier
 system (TIER 1 – TIER 4) actually predicts outcomes.
 
 ## Purpose
@@ -70,7 +70,7 @@ TIER 4		6	1	5	0	16.7%
 
 ### The screen endpoint returns current odds, not historical results
 
-The PropProfessor `/screen` endpoint is designed for live odds screening. It
+The SSB `/screen` endpoint is designed for live odds screening. It
 does not expose a "settled bets" feed. When the script finds no resolved bets,
 it exits with `reason: no_historical_data`.
 
@@ -82,7 +82,7 @@ This is expected behavior — the API is not a historical database.
    to save daily snapshots, then resolve outcomes against a separate results
    feed (e.g. a sports data API).
 
-2. **Use the screen-history module.** The `propprofessor-screen-history` module
+2. **Use the screen-history module.** The `ssb-screen-history` module
    can persist line history. Combine it with a results resolver to build a
    local backtest dataset.
 
@@ -105,10 +105,10 @@ you tracked — they are NOT statements about the tool's profitability:
 ## Related files
 
 - `scripts/backtest.js` — the CLI script
-- `lib/propprofessor-risk-score.js` — tier calculation logic
-- `lib/propprofessor-screen-utils.js` — row extraction
+- `lib/ssb-risk-score.js` — tier calculation logic
+- `lib/ssb-screen-utils.js` — row extraction
 - `scripts/export-ranked-screen.js` — snapshot exporter for manual tracking
-- `lib/propprofessor-backtest-metrics.js` — P&L / ROI / Sharpe / max-drawdown engine
+- `lib/ssb-backtest-metrics.js` — P&L / ROI / Sharpe / max-drawdown engine
 
 ## Scoring real outcomes (P&L / ROI / Sharpe / drawdown)
 
@@ -156,7 +156,7 @@ Accuracy alone cannot distinguish a calibrated near-even model from an
 overconfident model that loses at bad prices.
 
 Use `assessSportContext({ league, market, sportContext })` from
-`lib/propprofessor-context-gates.js` as a pre-evaluation diagnostic. It fails
+`lib/ssb-context-gates.js` as a pre-evaluation diagnostic. It fails
 closed on missing context for tennis format, soccer competition/draw structure,
 MLB pitcher/lineup/weather state, NHL goalies, football timing/line identity,
 basketball availability/rest/pace, and UFC replacement/weigh-in/weight-class/
@@ -181,7 +181,7 @@ are excluded from score denominators rather than silently graded.
 - `segmentSagarinRows(rows, { minSample })` delegates competition segmentation
   to `segmentEvaluationRows`.
 
-Store the external snapshot separately from settled PropProfessor bets. Record
+Store the external snapshot separately from settled SSB bets. Record
 the source URL, retrieval time, prediction method, result source, competition
 level, market/price context, and matched/unmatched status. A one-week winner rate
 is descriptive only; compare external probabilities with the de-vigged market,
@@ -197,12 +197,12 @@ writes a JSONL ledger (`data/snapshots.jsonl`) of every recommended play, then
 attaches settled results so `computeBacktestMetrics` can score an ever-growing
 history.
 
-> **Manual-only.** Snapshot capture calls live PropProfessor endpoints, so it
+> **Manual-only.** Snapshot capture calls live SSB endpoints, so it
 > requires an explicit `--live` acknowledgment and must never run unattended.
 > There is **no snapshot cron**: the dedicated `scripts/backtest-daily-snapshot.js`
 > wrapper was removed, and no cron, scheduled workflow, watcher, or launch
-> agent may call PropProfessor on a schedule. Public-only operations that
-> never call PropProfessor — ESPN settlement (`resolve-outcomes.js --espn`)
+> agent may call SSB on a schedule. Public-only operations that
+> never call SSB — ESPN settlement (`resolve-outcomes.js --espn`)
 > and Flashscore/tennis-circuit cache refresh (`scripts/refresh-tennis-circuit.js`)
 > — are a separate, allowed category and may be scheduled.
 
@@ -231,7 +231,7 @@ fully testable without network access.
 
 ### 2. Resolve outcomes (CSV fallback — reliable, no live endpoint needed)
 
-The PropProfessor API does **not** expose a settled-results feed, so the
+The SSB API does **not** expose a settled-results feed, so the
 pipeline is designed around a manual CSV you maintain:
 
 ```bash
@@ -251,7 +251,7 @@ _in place_. Plays whose `playId` is absent from the CSV stay unresolved.
 ### 3. Score the resolved history with the metrics engine
 
 ```js
-const { computeBacktestMetrics } = require('./lib/propprofessor-backtest-metrics');
+const { computeBacktestMetrics } = require('./lib/ssb-backtest-metrics');
 const { resolveOutcomes, ledgerToPlays } = require('./scripts/resolve-outcomes');
 
 const { rows } = await resolveOutcomes({ inFile: 'data/snapshots.jsonl' });

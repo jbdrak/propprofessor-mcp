@@ -8,7 +8,7 @@ const { spawnSync } = require('node:child_process');
 function makeRepoFixture({ version = '1.0.4', changelog = '# Changelog\n\n## 1.0.4\n\n- note\n', githubRef } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'pp-version-check-'));
   mkdirSync(path.join(dir, 'scripts'), { recursive: true });
-  writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'propprofessor-mcp', version }, null, 2) + '\n');
+  writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'ssb-for-agents', version }, null, 2) + '\n');
   writeFileSync(path.join(dir, 'CHANGELOG.md'), changelog);
   return {
     dir,

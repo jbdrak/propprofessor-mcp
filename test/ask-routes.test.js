@@ -2,8 +2,8 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { createMcpHandlers } = require('../scripts/propprofessor-mcp-server');
-const { parseNaturalLanguagePropQuery } = require('../lib/propprofessor-query-parser');
+const { createMcpHandlers } = require('../scripts/ssb-mcp-server');
+const { parseNaturalLanguagePropQuery } = require('../lib/ssb-query-parser');
 
 describe('ask() executes the suggested tool — one-call answer', () => {
   describe('ask() - query extraction tests', () => {

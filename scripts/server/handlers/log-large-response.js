@@ -18,7 +18,7 @@ function logLargeQuickScreenResponse(
   try {
     const responseSize = JSON.stringify(response).length;
     if (responseSize > thresholdBytes) {
-      warn(`[PropProfessor MCP] Large quick_screen response: ${(responseSize / 1024).toFixed(1)}KB`);
+      warn(`[SSB MCP] Large quick_screen response: ${(responseSize / 1024).toFixed(1)}KB`);
     }
   } catch {
     /* ignore */

@@ -1,7 +1,7 @@
-# Agent Guide — PropProfessor MCP
+# Agent Guide — SSB MCP
 
 This is the reference for **AI agents** (Claude, Cursor, Hermes, etc.) using
-PropProfessor MCP. It covers the 5 patterns you'll actually need. The tool
+SSB MCP. It covers the 5 patterns you'll actually need. The tool
 surface is large (31 tools) on purpose — each does one sharp-money job — but
 you only need a handful for 95% of workflows.
 
@@ -38,11 +38,11 @@ ask({ query: "best WNBA play on NoVigApp tonight" })
 
 ## Operating guardrails
 
-- PropProfessor is manual-only: no cron, scheduled workflow, polling loop, watchdog, or background live scan. Public-only settlement/schedule refresh must never call PropProfessor.
+- SSB is manual-only: no cron, scheduled workflow, polling loop, watchdog, or background live scan. Public-only settlement/schedule refresh must never call SSB.
 - Fail closed: do not recommend unvalidated, skipped, unresolved, or history-degraded rows. `lookupStatus: "lookup_failed"`, `validatedUnverified: true`, `status: "unresolved"`, `incomplete: true`, `movementDisposition: "unavailable"`, or missing line history means stale/unverified—not a bet and not proof of a PASS.
 - Use standard main lines only. Alternate spreads/totals and expanded Game Handicap lines are non-actionable and should remain TIER 4/PASS; a target book needs a playable price, not necessarily the best price.
 - Preserve exact frontend Tennis `leagueName` tournament scope when supplied. For Soccer, named frontend competitions such as EPL, La Liga, Serie A, Bundesliga, and Ligue 1 are `leagueName` filters over backend league `Soccer`; use Draw No Bet / Match Handicap / Total Goals, not Moneyline / Spread / Total. Tennis defaults are Moneyline / Total Games / Set Handicap; Game Handicap is explicit-only.
-- Repository changes require focused deterministic tests plus `npm run install:verify`, `npm run lint`, `npm run check:types`, and relevant checker/format checks. Never test with live PropProfessor requests; commit task-scoped verified changes using the repository's conventional-commit and co-author rules.
+- Repository changes require focused deterministic tests plus `npm run install:verify`, `npm run lint`, `npm run check:types`, and relevant checker/format checks. Never test with live SSB requests; commit task-scoped verified changes using the repository's conventional-commit and co-author rules.
 
 ### Soccer venue identity
 

@@ -5,7 +5,7 @@
 > They are not updated per release and may reference retired tools or superseded behavior.
 > The authoritative, current version-by-version history lives in [CHANGELOG.md](../CHANGELOG.md).
 
-Curated "what's new" highlights for PropProfessor MCP releases. The authoritative version-by-version release history lives in [CHANGELOG.md](../CHANGELOG.md).
+Curated "what's new" highlights for SSB MCP releases. The authoritative version-by-version release history lives in [CHANGELOG.md](../CHANGELOG.md).
 
 ---
 
@@ -49,7 +49,7 @@ Curated "what's new" highlights for PropProfessor MCP releases. The authoritativ
 ## What's new (v2.1.6)
 
 - **Consensus-preservation fix** — `extractScreenRows` in `lib/screen-parser.js` was clobbering the full per-book odds map on expanded rows, causing every main-line screen row to cascade to `consensusBookCount: 0 / TIER 4 / PASS`. Live screen, `get_play_details`, `recommended_bets`, and `sharp_plays` calls all came back with `consensusEdge: null`, `executionQuality: "unknown"`, `screenScore: 0`, `gatePassed: false`. With this fix, `consensusBookCount` returns 5–19, `consensusStrength` reads "strong", and rows can now reach TIER 1–3.
-- **3 new regression tests** in `test/propprofessor-analysis.test.js` — live-shape fixture mirroring the actual `/screen` payload, v2.1.2 fallback preservation, and per-book `odds` contract preservation. Prevents recurrence of the consensus cascade.
+- **3 new regression tests** in `test/ssb-analysis.test.js` — live-shape fixture mirroring the actual `/screen` payload, v2.1.2 fallback preservation, and per-book `odds` contract preservation. Prevents recurrence of the consensus cascade.
 - 24 total tools (unchanged)
 - All 924 tests passing (was 843)
 
@@ -57,7 +57,7 @@ Curated "what's new" highlights for PropProfessor MCP releases. The authoritativ
 
 ## What's new (v2.1.5)
 
-- **Vercel 429 self-heal** — `fetchAccessToken()` in `lib/propprofessor-auth.js` now automatically falls back to a Chrome DevTools Protocol fetch from a logged-in browser tab when the server-to-server `got-scraping` path is 429'd by Vercel's TLS-fingerprint challenge. No cron, no external schedule — the MCP heals itself on the next request. Failure mode shrinks from "anyone betting during Vercel gating" to "Chrome not running AND Vercel gating" (i.e. "I'm not at my Mac").
+- **Vercel 429 self-heal** — `fetchAccessToken()` in `lib/ssb-auth.js` now automatically falls back to a Chrome DevTools Protocol fetch from a logged-in browser tab when the server-to-server `got-scraping` path is 429'd by Vercel's TLS-fingerprint challenge. No cron, no external schedule — the MCP heals itself on the next request. Failure mode shrinks from "anyone betting during Vercel gating" to "Chrome not running AND Vercel gating" (i.e. "I'm not at my Mac").
 - **CDP fallback gated by `PP_NO_CDP_FALLBACK=1`** for headless / CI environments.
 - **Watchdog cron is no longer required.** `scripts/pp-token-watchdog.js` stays in the repo as a manual escape hatch for diagnostics; you can remove any `*/5 18-23 * * *` cron driving it.
 - 24 total tools (unchanged)
@@ -67,7 +67,7 @@ Curated "what's new" highlights for PropProfessor MCP releases. The authoritativ
 
 ## What's new (v2.1.1)
 
-- **Fantasy Optimizer tool** — new `fantasy_optimizer` MCP tool for DFS-style fantasy picks. Requires a paid PropProfessor subscription with Fantasy Optimizer access. Query by league, fantasy app, market, min/max odds/value, and more.
+- **Fantasy Optimizer tool** — new `fantasy_optimizer` MCP tool for DFS-style fantasy picks. Requires a paid SSB subscription with Fantasy Optimizer access. Query by league, fantasy app, market, min/max odds/value, and more.
 - **Spread-alias regression fix** — `MARKET_ALIASES.spread` and `.handicap` for NBA/WNBA/NCAAB/NCAAF/NFL/Soccer now correctly resolve to `"Point Spread"` (the live `/screen` canonical name). Previously these markets returned empty payloads.
 - **Auth file permissions tightened** — `pp-query login`, `installAuthFile`, and the token cache now write `0o600` (owner-only) and `chmod` to enforce it on existing files. June 8 SEC-003 fix.
 - 24 total tools now exposed via MCP

@@ -18,7 +18,7 @@
  * handlers.js untouched — this module does not wrap or reorder any of it.
  */
 
-const { DEFAULT_LEAGUES } = require('../../../lib/propprofessor-shared-utils');
+const { DEFAULT_LEAGUES } = require('../../../lib/ssb-shared-utils');
 
 /**
  * Plan one quick_screen request: apply mode presets, derive request scalars,

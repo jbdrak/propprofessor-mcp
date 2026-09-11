@@ -11,8 +11,8 @@ function createPricingHandlers(client, _ctx) {
     async find_best_price(args = {}) {
       const { resolveMarkets } = require('./handler-utils');
       const { extractScreenRows } = require('../../../lib/screen-parser');
-      const { findBestPrice } = require('../../../lib/propprofessor-best-price');
-      const { normalizeBookList } = require('../../../lib/propprofessor-mcp-ranked-screen');
+      const { findBestPrice } = require('../../../lib/ssb-best-price');
+      const { normalizeBookList } = require('../../../lib/ssb-mcp-ranked-screen');
 
       const league = args.league || 'NBA';
       const marketResolution = resolveMarkets(args, league);

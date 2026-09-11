@@ -73,7 +73,7 @@ describe('sharpodds-match normalizers', () => {
 });
 
 describe('sharpodds-match event identity', () => {
-  it('matches the live Miami FL alias used by PropProfessor', () => {
+  it('matches the live Miami FL alias used by SSB', () => {
     const result = matchSharpOddsEvent(
       {
         homeTeam: 'Florida A&M',

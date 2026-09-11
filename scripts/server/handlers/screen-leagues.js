@@ -13,10 +13,10 @@ const {
   getLeagueRankingPreset,
   getLimit,
   getMaxAgeMs
-} = require('../../../lib/propprofessor-mcp-ranked-screen');
-const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/propprofessor-sharp-books');
+} = require('../../../lib/ssb-mcp-ranked-screen');
+const { getSharpBookComparisonSet, ALL_SCREEN_BOOKS, uniqueBooks } = require('../../../lib/ssb-sharp-books');
 const { rankLeagueScreenRows } = require('../../../lib/screen-ranker');
-const { buildUfcShortlist } = require('../../../lib/propprofessor-sharp-plays');
+const { buildUfcShortlist } = require('../../../lib/ssb-sharp-plays');
 const { validatePositiveEvCandidates } = require('../../../lib/validate-ev-candidates');
 const { buildEvRecoveryRequest, extractEvRows, dedupeEvRows } = require('./ev-recovery');
 const { createSharpOddsClient } = require('../../../lib/sharpodds-client');
@@ -80,7 +80,7 @@ function getSharedSharpOddsProvider(ctx) {
 // pass. Derive the cap from the same allocator math so it tracks the budget.
 const EV_FIRST_AGGREGATE_CAP = (() => {
   try {
-    const { getAggregateGameBudget } = require('../../../lib/propprofessor-sharp-plays-service');
+    const { getAggregateGameBudget } = require('../../../lib/ssb-sharp-plays-service');
     // A mixed scan fans out ~9 league×market pairs; cap to 1/4 of one pair's
     // main-path budget — generous enough for real EV discovery, tiny enough
     // to leave the serial gate free for the main ranked query.
@@ -293,7 +293,7 @@ async function runUfcCard(client, ctx, args = {}) {
       }
     };
   } catch (error) {
-    process.stderr.write(`[propprofessor-mcp] ufc_card handler error: ${error?.stack || error?.message || error}\n`);
+    process.stderr.write(`[ssb-for-agents] ufc_card handler error: ${error?.stack || error?.message || error}\n`);
     return {
       ok: false,
       league: 'UFC',

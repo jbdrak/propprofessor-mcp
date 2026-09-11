@@ -2,7 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildFinalResearchBatch } = require('../lib/propprofessor-quick-screen-research');
+const { buildFinalResearchBatch } = require('../lib/ssb-quick-screen-research');
 
 function candidate({ score = 10, selection = 'Player', ...overrides } = {}) {
   return { screenScore: score, selection, ...overrides };
