@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- fix: `pp today` no longer overspends the shared odds-history allocation: it now passes `aggregateHistoryAllocation` (default 300 calls, env `PP_TODAY_HISTORY_ALLOCATION`) instead of taking the full aggregate share, because at the full share the serialized odds-history gate congests and pairs abort. Measured on the ~35-pair composite fan-out: full share = 185s / 102 plays / aborted scopes; 300 = 69s / 76 plays / none; 135 = 49s / 48; 90 = 37s / 32. Set `PP_TODAY_HISTORY_ALLOCATION=1200` for the full-depth slate, or lower it when you want the card fast. `pp scan` is unchanged.
+
 - fix: `pp scan` no longer reports real TIER 1 plays as TIER 2. `mapCandidateRow` dropped the ranker's `confidenceTierLive`, so the scan-sourced validation echo used the hysteresis-smoothed `confidenceTier`, which goes stale across an aggregate scan's probe / discovery / hydrated passes (observed `confidenceTier=TIER 4` with `confidenceTierLive=TIER 1` on the same row). `validate_play` echoed the stale tier back and `applyFinalVerdict`'s contradictory-tier clamp (BET + TIER 4 → TIER 2) then shipped every TIER 1 play one tier down, silently emptying `pp scan --tier 1` while `rank` / `game` / `validate` reported TIER 1. The mapper now carries `confidenceTierLive` and the validation args echo the live tier. Verified: `scan mlb -b Fliff -m Moneyline -t 1 -B` went 0 → 2 plays, and a mixed Fliff scan went 1/18 → 17/33 TIER 1.
 
 - fix: tennis fallback tiers no longer award TIER 1 for adverse CLV. `assignTierFromClv` graded on `|CLV|`, so a line that moved against the play (CLV -4) returned the lock tier while its verdict was CONSIDER. Negative CLV now maps to TIER 3, matching the verdict ladder.

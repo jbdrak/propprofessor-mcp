@@ -265,7 +265,8 @@ async function runOneHydratedPair(
       debug,
       quickScreenAggregate: true,
       activeAggregatePairCount,
-      aggregatePairCount: leagueMarketPairs.length
+      aggregatePairCount: leagueMarketPairs.length,
+      aggregateHistoryAllocation: args.aggregateHistoryAllocation
     });
 
     let candidates = Array.isArray(spResult?.result) ? spResult.result : [];
